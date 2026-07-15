@@ -1,0 +1,54 @@
+name: news-monitor
+
+on:
+  schedule:
+    # GitHub Actions는 UTC 기준. KST = UTC+9
+    - cron: '*/5 * * * *'        # 5분마다 → check 모드
+    - cron: '30 23 * * *'        # UTC 23:30 = KST 08:30 → digest(오전)
+    - cron: '30 4 * * *'         # UTC 04:30 = KST 13:30 → digest(오후)
+  workflow_dispatch:              # 수동 실행 버튼 (테스트용)
+
+concurrency:
+  group: news-monitor
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 모드 결정 (cron 스케줄에 따라 check / digest 선택)
+        id: mode
+        run: |
+          # 트리거된 cron 표현식으로 모드를 구분합니다.
+          SCHED="${{ github.event.schedule }}"
+          if [ "$SCHED" = "30 23 * * *" ] || [ "$SCHED" = "30 4 * * *" ]; then
+            echo "mode=digest" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=check" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 실행
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python news_monitor.py ${{ steps.mode.outputs.mode }}
+
+      - name: DB 변경사항 커밋 (다음 실행에서 중복 방지용)
+        run: |
+          git config user.name "news-monitor-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add news_monitor.db
+          git diff --cached --quiet || git commit -m "update db [skip ci]"
+          git push
