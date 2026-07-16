@@ -251,7 +251,7 @@ def run_digest():
         label = "오후 다이제스트"
 
     rows = conn.execute("""SELECT title,link,source,pub_dt,keywords FROM articles
-                           WHERE pub_dt>=? AND pub_dt<? ORDER BY pub_dt""",
+                           WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
                         (start.isoformat(), end.isoformat())).fetchall()
 
     # 키워드별 그룹핑 (한 기사가 여러 키워드면 각 섹션에 표기하되 대표 섹션 1회)
