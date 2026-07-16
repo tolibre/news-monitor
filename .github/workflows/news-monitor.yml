@@ -1,12 +1,7 @@
 name: news-monitor
 
 on:
-  schedule:
-    # GitHub 자체 스케줄 (보조 — 돌면 좋고, 안 돌아도 외부 스케줄러가 커버)
-    - cron: '*/15 * * * *'       # 15분마다 → check 모드
-    - cron: '30 23 * * *'        # UTC 23:30 = KST 08:30 → digest(오전)
-    - cron: '30 4 * * *'         # UTC 04:30 = KST 13:30 → digest(오후)
-  workflow_dispatch:              # 수동/외부 스케줄러 호출용
+  workflow_dispatch:              # 외부 스케줄러(cron-job.org)가 호출하는 방식
     inputs:
       mode:
         description: '실행 모드'
@@ -33,18 +28,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 모드 결정 (외부 호출 input 우선, 없으면 cron 스케줄로 판단)
+      - name: 모드 결정 (외부 호출 input 사용)
         id: mode
         run: |
           INPUT_MODE="${{ github.event.inputs.mode }}"
-          SCHED="${{ github.event.schedule }}"
-          if [ -n "$INPUT_MODE" ]; then
-            echo "mode=$INPUT_MODE" >> "$GITHUB_OUTPUT"
-          elif [ "$SCHED" = "30 23 * * *" ] || [ "$SCHED" = "30 4 * * *" ]; then
-            echo "mode=digest" >> "$GITHUB_OUTPUT"
-          else
-            echo "mode=check" >> "$GITHUB_OUTPUT"
-          fi
+          echo "mode=${INPUT_MODE:-check}" >> "$GITHUB_OUTPUT"
 
       - name: 실행
         env:
