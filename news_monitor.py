@@ -26,6 +26,71 @@ KEYWORDS = [
     "공정거래위원회", "공정위", "방송미디어통신위원회", "방미통위",
 ]
 
+# ==================== 매체 화이트리스트 ====================
+# 알림/다이제스트에 포함할 매체. 도메인(네이버 원문링크용) + 매체명(구글 RSS 제목 꼬리표용) 두 벌.
+MEDIA_DOMAINS = {
+    # 통신사
+    "yna.co.kr", "newsis.com", "news1.kr",
+    # 종합일간지
+    "chosun.com", "joongang.co.kr", "donga.com", "hani.co.kr", "khan.co.kr",
+    "hankookilbo.com", "seoul.co.kr", "kmib.co.kr", "segye.com", "munhwa.com",
+    # 경제지
+    "mk.co.kr", "hankyung.com", "sedaily.com", "mt.co.kr", "edaily.co.kr",
+    "asiae.co.kr", "heraldcorp.com", "fnnews.com",
+    # 방송·보도채널
+    "kbs.co.kr", "imbc.com", "sbs.co.kr", "ytn.co.kr", "yonhapnewstv.co.kr",
+    "jtbc.co.kr", "tvchosun.com", "ichannela.com", "mbn.co.kr",
+    # CBS
+    "nocutnews.co.kr",
+    # IT·과학 전문지
+    "etnews.com", "ddaily.co.kr", "zdnet.co.kr", "dt.co.kr", "inews24.com",
+    "bloter.net", "it.chosun.com", "techm.kr", "dongascience.com",
+    # 인터넷·기타
+    "ohmynews.com", "pressian.com", "mediatoday.co.kr", "tf.co.kr", "sisain.co.kr",
+    # 정책·세종 커버 보강
+    "biz.chosun.com", "newspim.com", "etoday.co.kr", "ajunews.com",
+    "dailian.co.kr", "kukinews.com", "asiatoday.co.kr",
+    # 과학·연구 전문
+    "hellodd.com", "sciencetimes.co.kr",
+    # 주요 지역지
+    "daejonilbo.com", "knnews.co.kr", "busan.com", "imaeil.com",
+}
+MEDIA_NAMES = {
+    "연합뉴스", "뉴시스", "뉴스1",
+    "조선일보", "중앙일보", "동아일보", "한겨레", "경향신문", "한국일보",
+    "서울신문", "국민일보", "세계일보", "문화일보",
+    "매일경제", "한국경제", "서울경제", "머니투데이", "이데일리",
+    "아시아경제", "헤럴드경제", "파이낸셜뉴스",
+    "KBS", "KBS 뉴스", "MBC", "MBC 뉴스", "SBS", "SBS 뉴스", "YTN",
+    "연합뉴스TV", "JTBC", "TV조선", "채널A", "MBN",
+    "노컷뉴스", "CBS노컷뉴스",
+    "전자신문", "디지털데일리", "지디넷코리아", "ZDNet Korea", "디지털타임스",
+    "아이뉴스24", "블로터", "IT조선", "테크M", "동아사이언스",
+    "오마이뉴스", "프레시안", "미디어오늘", "더팩트", "시사IN",
+    "조선비즈", "뉴스핌", "이투데이", "아주경제", "데일리안", "쿠키뉴스", "아시아투데이",
+    "헬로디디", "HelloDD", "사이언스타임즈",
+    "대전일보", "경남신문", "부산일보", "매일신문",
+}
+
+# 화이트리스트 밖 기사도 DB에는 저장할지 (True 권장: 나중에 매체 추가 시 과거 기사 확인 가능)
+STORE_NON_WHITELIST = True
+
+def media_allowed(source):
+    """source가 화이트리스트 매체인지 판별. source는 도메인(네이버) 또는 매체명(구글)."""
+    if not source:
+        return False
+    s = source.strip().lower()
+    # 도메인 매칭: news.kbs.co.kr 같은 서브도메인도 kbs.co.kr로 잡음
+    for d in MEDIA_DOMAINS:
+        if s == d or s.endswith("." + d):
+            return True
+    # 매체명 매칭 (구글 RSS)
+    src = source.strip()
+    for n in MEDIA_NAMES:
+        if src == n or src == n + " 뉴스":
+            return True
+    return False
+
 # 네이버 개발자센터(developers.naver.com) > 애플리케이션 등록 > '검색' API 선택
 # 등록만 하면 무료. GitHub Actions에서는 Secrets로 주입됩니다.
 NAVER_CLIENT_ID     = os.environ.get("NAVER_CLIENT_ID", "")
@@ -208,10 +273,13 @@ def run_check():
     for aid, it in collected.items():
         if aid in known:
             continue
-        conn.execute("INSERT OR IGNORE INTO articles VALUES(?,?,?,?,?,?,?,?)",
-                     (aid, it["title"], it["link"], it["source"], it["pub_dt"],
-                      now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
-        new_rows.append(it)
+        allowed = media_allowed(it["source"])
+        if allowed or STORE_NON_WHITELIST:
+            conn.execute("INSERT OR IGNORE INTO articles VALUES(?,?,?,?,?,?,?,?)",
+                         (aid, it["title"], it["link"], it["source"], it["pub_dt"],
+                          now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
+        if allowed:
+            new_rows.append(it)
     conn.commit()
 
     if new_rows:
@@ -224,7 +292,12 @@ def run_check():
         if len(new_rows) > 30:
             lines.append(f"\n… 외 {len(new_rows)-30}건 (다이제스트에서 전체 확인)")
         text = "\n".join(lines)
-        notify(text)
+
+        quiet_hours = now.hour >= 23 or now.hour < 6
+        if quiet_hours:
+            print(f"[{now.strftime('%H:%M')}] 야간 시간대 — 텔레그램 알림 억제 (DB에는 저장됨, 06:00 다이제스트에서 확인 가능)")
+        else:
+            notify(text)
 
         os.makedirs(ALERT_DIR, exist_ok=True)
         fname = os.path.join(ALERT_DIR, f"{now.strftime('%Y-%m-%d')}.txt")
@@ -240,12 +313,16 @@ def run_digest():
     conn = db()
     now = datetime.datetime.now(KST)
     today = now.date()
-    if now.hour < 11:   # 오전 실행 → 전일 13:30 ~ 금일 08:30
+    if now.hour < 7:     # 06:00 실행 → 야간 다이제스트: 전일 23:00 ~ 금일 06:00
         start = datetime.datetime.combine(today - datetime.timedelta(days=1),
-                 datetime.time(13, 30), KST)
+                 datetime.time(23, 0), KST)
+        end   = datetime.datetime.combine(today, datetime.time(6, 0), KST)
+        label = "야간 다이제스트"
+    elif now.hour < 11:  # 08:30 실행 → 금일 06:00 ~ 08:30
+        start = datetime.datetime.combine(today, datetime.time(6, 0), KST)
         end   = datetime.datetime.combine(today, datetime.time(8, 30), KST)
         label = "오전 다이제스트"
-    else:               # 오후 실행 → 금일 08:30 ~ 13:30
+    else:                # 13:30 실행 → 금일 08:30 ~ 13:30
         start = datetime.datetime.combine(today, datetime.time(8, 30), KST)
         end   = datetime.datetime.combine(today, datetime.time(13, 30), KST)
         label = "오후 다이제스트"
@@ -253,6 +330,7 @@ def run_digest():
     rows = conn.execute("""SELECT title,link,source,pub_dt,keywords FROM articles
                            WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
                         (start.isoformat(), end.isoformat())).fetchall()
+    rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
 
     # 키워드별 그룹핑 (한 기사가 여러 키워드면 각 섹션에 표기하되 대표 섹션 1회)
     by_kw = {k: [] for k in KEYWORDS}
