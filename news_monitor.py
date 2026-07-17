@@ -105,7 +105,7 @@ DB_PATH    = os.path.join(BASE_DIR, "news_monitor.db")
 DIGEST_DIR = os.path.join(BASE_DIR, "digests")
 ALERT_DIR  = os.path.join(BASE_DIR, "alerts")
 
-MAX_PAGES_PER_KEYWORD = 3      # 네이버: 키워드당 최대 3페이지(300건)까지 거슬러 수집
+MAX_PAGES_PER_KEYWORD = 5      # 네이버: 키워드당 최대 5페이지(500건)까지 거슬러 수집
 DAILY_CALL_SOFT_LIMIT = 20000  # 일일 호출 안전장치 (한도 25,000의 80%)
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -235,15 +235,48 @@ def fetch_google(keyword, known_ids):
     return out
 
 # ==================== 알림 ====================
+TG_CHUNK = 3800  # 텔레그램 메시지당 최대 길이 (한도 4096보다 여유 있게)
+
+def _send_telegram(text):
+    data = urllib.parse.urlencode({
+        "chat_id": TELEGRAM_CHAT_ID, "text": text,
+        "disable_web_page_preview": "true"}).encode()
+    urllib.request.urlopen(urllib.request.Request(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        data=data), timeout=15)
+
 def notify(text):
+    """긴 메시지는 기사 단위로 나눠 여러 개로 전송. (i/n) 표시 붙임."""
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
         try:
-            data = urllib.parse.urlencode({
-                "chat_id": TELEGRAM_CHAT_ID, "text": text,
-                "disable_web_page_preview": "true"}).encode()
-            urllib.request.urlopen(urllib.request.Request(
-                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-                data=data), timeout=15)
+            if len(text) <= TG_CHUNK:
+                _send_telegram(text)
+                return
+            # 줄들을 블록으로 묶기: 4칸 들여쓰기 줄(URL 등)은 앞 줄에 붙여서 한 덩어리로
+            blocks, cur_block = [], ""
+            for line in text.split("\n"):
+                if line.startswith("    ") and cur_block:
+                    cur_block += "\n" + line
+                else:
+                    if cur_block:
+                        blocks.append(cur_block)
+                    cur_block = line
+            if cur_block:
+                blocks.append(cur_block)
+            # 블록 단위로 청크 구성
+            chunks, cur = [], ""
+            for block in blocks:
+                piece = (block if not cur else "\n" + block)
+                if len(cur) + len(piece) > TG_CHUNK and cur:
+                    chunks.append(cur)
+                    cur = block
+                else:
+                    cur += piece
+            if cur:
+                chunks.append(cur)
+            total = len(chunks)
+            for i, chunk in enumerate(chunks, 1):
+                _send_telegram(f"({i}/{total})\n{chunk}")
             return
         except Exception as e:
             print(f"[warn] telegram: {e}")
@@ -270,6 +303,7 @@ def run_check():
             collected[aid] = it
 
     new_rows = []
+    fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     for aid, it in collected.items():
         if aid in known:
             continue
@@ -278,7 +312,8 @@ def run_check():
             conn.execute("INSERT OR IGNORE INTO articles VALUES(?,?,?,?,?,?,?,?)",
                          (aid, it["title"], it["link"], it["source"], it["pub_dt"],
                           now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
-        if allowed:
+        # 알림 대상: 화이트리스트 매체 + 발행 24시간 이내 기사만
+        if allowed and it["pub_dt"] >= fresh_cutoff:
             new_rows.append(it)
     conn.commit()
 
@@ -331,6 +366,8 @@ def run_digest():
                            WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
                         (start.isoformat(), end.isoformat())).fetchall()
     rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
+    fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
+    rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
 
     # 키워드별 그룹핑 (한 기사가 여러 키워드면 각 섹션에 표기하되 대표 섹션 1회)
     by_kw = {k: [] for k in KEYWORDS}
@@ -358,7 +395,9 @@ def run_digest():
     fname = os.path.join(DIGEST_DIR, f"digest_{now.strftime('%Y%m%d_%H%M')}.txt")
     with open(fname, "w", encoding="utf-8") as f:
         f.write(text)
-    notify(text if len(text) < 3800 else text[:3800] + f"\n…(전체는 {fname} 참조)")
+
+    # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
+    notify(text)
     print(f"저장: {fname}")
     conn.close()
 
