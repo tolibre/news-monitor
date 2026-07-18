@@ -97,8 +97,12 @@ NAVER_CLIENT_ID     = os.environ.get("NAVER_CLIENT_ID", "")
 NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "")
 
 # 텔레그램 (선택) — 비워두면 콘솔 출력
+# check(실시간)용 봇
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
+# digest(다이제스트)용 봇 — 비워두면 check용 봇으로 함께 전송
+TELEGRAM_DIGEST_BOT_TOKEN = os.environ.get("TELEGRAM_DIGEST_BOT_TOKEN", "") or TELEGRAM_BOT_TOKEN
+TELEGRAM_DIGEST_CHAT_ID   = os.environ.get("TELEGRAM_DIGEST_CHAT_ID", "") or TELEGRAM_CHAT_ID
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DB_PATH    = os.path.join(BASE_DIR, "news_monitor.db")
@@ -237,20 +241,23 @@ def fetch_google(keyword, known_ids):
 # ==================== 알림 ====================
 TG_CHUNK = 3800  # 텔레그램 메시지당 최대 길이 (한도 4096보다 여유 있게)
 
-def _send_telegram(text):
+def _send_telegram(text, token, chat_id):
     data = urllib.parse.urlencode({
-        "chat_id": TELEGRAM_CHAT_ID, "text": text,
+        "chat_id": chat_id, "text": text,
         "disable_web_page_preview": "true"}).encode()
     urllib.request.urlopen(urllib.request.Request(
-        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        f"https://api.telegram.org/bot{token}/sendMessage",
         data=data), timeout=15)
 
-def notify(text):
-    """긴 메시지는 기사 단위로 나눠 여러 개로 전송. (i/n) 표시 붙임."""
-    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+def notify(text, target="check"):
+    """긴 메시지는 기사 단위로 나눠 여러 개로 전송. (i/n) 표시 붙임.
+    target='check'면 실시간 봇, 'digest'면 다이제스트 봇으로 전송."""
+    token, chat_id = (TELEGRAM_DIGEST_BOT_TOKEN, TELEGRAM_DIGEST_CHAT_ID) \
+        if target == "digest" else (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
+    if token and chat_id:
         try:
             if len(text) <= TG_CHUNK:
-                _send_telegram(text)
+                _send_telegram(text, token, chat_id)
                 return
             # 줄들을 블록으로 묶기: 4칸 들여쓰기 줄(URL 등)은 앞 줄에 붙여서 한 덩어리로
             blocks, cur_block = [], ""
@@ -276,7 +283,7 @@ def notify(text):
                 chunks.append(cur)
             total = len(chunks)
             for i, chunk in enumerate(chunks, 1):
-                _send_telegram(f"({i}/{total})\n{chunk}")
+                _send_telegram(f"({i}/{total})\n{chunk}", token, chat_id)
             return
         except Exception as e:
             print(f"[warn] telegram: {e}")
@@ -397,7 +404,7 @@ def run_digest():
         f.write(text)
 
     # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
-    notify(text)
+    notify(text, target="digest")
     print(f"저장: {fname}")
     conn.close()
 
