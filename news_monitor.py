@@ -148,6 +148,47 @@ def clean(text):
 def norm_title(t):
     return re.sub(r"[\s\W]+", "", clean(t))[:60]
 
+def group_key(title):
+    """전재 기사 묶기용 제목 키. [단독][속보] 등 대괄호 태그와 ' - 매체명' 꼬리표 제거 후 정규화."""
+    t = clean(title)
+    t = re.sub(r"\[[^\]]*\]", "", t)          # [단독] [속보] [종합] 등 제거
+    t = t.rsplit(" - ", 1)[0]                   # 구글 RSS의 ' - 매체명' 꼬리표 제거
+    t = re.sub(r"\([^)]*\)$", "", t).strip()    # 끝의 (종합) (종합2보) 등 제거
+    return re.sub(r"[\s\W]+", "", t)[:50]
+
+def clean_title_display(title):
+    """표시용 제목: 구글 RSS의 ' - 매체명' 꼬리표 제거 (매체명은 별도 표시하므로)."""
+    t = clean(title)
+    if " - " in t:
+        head, tail = t.rsplit(" - ", 1)
+        if len(tail) <= 15:  # 꼬리표가 매체명 길이면 제거
+            t = head
+    return t
+
+def dedup_group(items):
+    """items: [(title,link,source,pub_dt,...), ...] → 같은 기사 묶어서
+    [(대표item, [모든 매체명]), ...] 반환. 대표는 화이트리스트 우선순위 높은 매체."""
+    groups = {}
+    order = []
+    for it in items:
+        k = group_key(it[0])
+        if k not in groups:
+            groups[k] = []
+            order.append(k)
+        groups[k].append(it)
+    result = []
+    for k in order:
+        members = groups[k]
+        # 대표 기사: pub_dt 가장 빠른 것(원 보도에 가까움) 우선
+        rep = min(members, key=lambda x: x[3])
+        sources = []
+        for m in members:
+            s = m[2]
+            if s and s not in sources:
+                sources.append(s)
+        result.append((rep, sources))
+    return result
+
 def article_id(link, title):
     # 같은 기사가 키워드 여러 개에 걸려도 하나로 병합
     base = (link or "") if link else norm_title(title)
@@ -241,16 +282,21 @@ def fetch_google(keyword, known_ids):
 # ==================== 알림 ====================
 TG_CHUNK = 3800  # 텔레그램 메시지당 최대 길이 (한도 4096보다 여유 있게)
 
+def tg_escape(s):
+    """텔레그램 HTML 모드에서 특수문자 이스케이프."""
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
 def _send_telegram(text, token, chat_id):
     data = urllib.parse.urlencode({
         "chat_id": chat_id, "text": text,
+        "parse_mode": "HTML",
         "disable_web_page_preview": "true"}).encode()
     urllib.request.urlopen(urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage",
         data=data), timeout=15)
 
 def notify(text, target="check"):
-    """긴 메시지는 기사 단위로 나눠 여러 개로 전송. (i/n) 표시 붙임.
+    """긴 메시지는 줄(기사) 단위로 나눠 여러 개로 전송. (i/n) 표시 붙임.
     target='check'면 실시간 봇, 'digest'면 다이제스트 봇으로 전송."""
     token, chat_id = (TELEGRAM_DIGEST_BOT_TOKEN, TELEGRAM_DIGEST_CHAT_ID) \
         if target == "digest" else (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
@@ -259,24 +305,13 @@ def notify(text, target="check"):
             if len(text) <= TG_CHUNK:
                 _send_telegram(text, token, chat_id)
                 return
-            # 줄들을 블록으로 묶기: 4칸 들여쓰기 줄(URL 등)은 앞 줄에 붙여서 한 덩어리로
-            blocks, cur_block = [], ""
-            for line in text.split("\n"):
-                if line.startswith("    ") and cur_block:
-                    cur_block += "\n" + line
-                else:
-                    if cur_block:
-                        blocks.append(cur_block)
-                    cur_block = line
-            if cur_block:
-                blocks.append(cur_block)
-            # 블록 단위로 청크 구성
+            # 줄 단위로 청크 구성 (HTML 모드에서 각 기사가 한 줄이라 태그가 안 잘림)
             chunks, cur = [], ""
-            for block in blocks:
-                piece = (block if not cur else "\n" + block)
+            for line in text.split("\n"):
+                piece = (line if not cur else "\n" + line)
                 if len(cur) + len(piece) > TG_CHUNK and cur:
                     chunks.append(cur)
-                    cur = block
+                    cur = line
                 else:
                     cur += piece
             if cur:
@@ -326,25 +361,36 @@ def run_check():
 
     if new_rows:
         new_rows.sort(key=lambda x: x["pub_dt"], reverse=True)
-        lines = [f"🆕 새 기사 {len(new_rows)}건 ({now.strftime('%m/%d %H:%M')})"]
-        for it in new_rows[:30]:
+        # HTML 메시지 (제목이 클릭 가능한 링크)
+        html_lines = [f"🆕 <b>새 기사 {len(new_rows)}건</b> ({now.strftime('%m/%d %H:%M')})"]
+        for it in new_rows[:40]:
             t = it["pub_dt"][11:16]
-            lines.append(f"\n[{','.join(sorted(it['kws']))}] {it['title']}\n"
-                         f"  {t} | {it['source']}\n  {it['link']}")
-        if len(new_rows) > 30:
-            lines.append(f"\n… 외 {len(new_rows)-30}건 (다이제스트에서 전체 확인)")
-        text = "\n".join(lines)
+            kw = ",".join(sorted(it["kws"]))
+            html_lines.append(
+                f'\n[{tg_escape(kw)}] <a href="{tg_escape(it["link"])}">{tg_escape(it["title"])}</a>'
+                f'\n  {t} | {tg_escape(it["source"])}')
+        if len(new_rows) > 40:
+            html_lines.append(f"\n… 외 {len(new_rows)-40}건 (다이제스트에서 전체 확인)")
+        html_text = "\n".join(html_lines)
+
+        # 파일 저장용 평문 (링크 원문 포함)
+        plain_lines = [f"🆕 새 기사 {len(new_rows)}건 ({now.strftime('%m/%d %H:%M')})"]
+        for it in new_rows[:40]:
+            t = it["pub_dt"][11:16]
+            plain_lines.append(f"\n[{','.join(sorted(it['kws']))}] {it['title']}\n"
+                               f"  {t} | {it['source']}\n  {it['link']}")
+        plain_text = "\n".join(plain_lines)
 
         quiet_hours = now.hour >= 23 or now.hour < 6
         if quiet_hours:
             print(f"[{now.strftime('%H:%M')}] 야간 시간대 — 텔레그램 알림 억제 (DB에는 저장됨, 06:00 다이제스트에서 확인 가능)")
         else:
-            notify(text)
+            notify(html_text)
 
         os.makedirs(ALERT_DIR, exist_ok=True)
         fname = os.path.join(ALERT_DIR, f"{now.strftime('%Y-%m-%d')}.txt")
         with open(fname, "a", encoding="utf-8") as f:
-            f.write(text + "\n\n" + ("-" * 40) + "\n\n")
+            f.write(plain_text + "\n\n" + ("-" * 40) + "\n\n")
         print(f"저장: {fname}")
     else:
         print(f"[{now.strftime('%H:%M')}] 새 기사 없음")
@@ -385,26 +431,48 @@ def run_digest():
         rep = next((k for k in KEYWORDS if k in kws), first_kw)
         by_kw.setdefault(rep, []).append(r)
 
-    lines = [f"📋 {label} | {start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}",
-             f"총 {len(rows)}건\n" + "=" * 40]
+    # HTML 메시지 (제목 = 클릭 가능한 링크)
+    html_lines = [f"📋 <b>{tg_escape(label)}</b> | {start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}",
+                  f"총 {len(rows)}건\n" + "=" * 30]
     for k in KEYWORDS:
         arts = by_kw.get(k, [])
         if not arts:
             continue
-        lines.append(f"\n■ {k} ({len(arts)}건)")
-        for t, link, src, pub, kws in arts:
-            lines.append(f"  · [{pub[11:16]}] {t} ({src})\n    {link}")
+        grouped = dedup_group(arts)
+        html_lines.append(f"\n■ <b>{tg_escape(k)}</b> ({len(grouped)}건)")
+        for rep, sources in grouped:
+            t, link, src, pub = clean_title_display(rep[0]), rep[1], rep[2], rep[3]
+            extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
+            html_lines.append(
+                f'· [{pub[11:16]}] <a href="{tg_escape(link)}">{tg_escape(t)}</a> ({tg_escape(src)}{extra})')
     if len(rows) == 0:
-        lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
+        html_lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
+    html_text = "\n".join(html_lines)
 
-    text = "\n".join(lines)
+    # 파일 저장용 평문
+    plain_lines = [f"📋 {label} | {start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}",
+                   f"총 {len(rows)}건\n" + "=" * 40]
+    for k in KEYWORDS:
+        arts = by_kw.get(k, [])
+        if not arts:
+            continue
+        grouped = dedup_group(arts)
+        plain_lines.append(f"\n■ {k} ({len(grouped)}건)")
+        for rep, sources in grouped:
+            t, link, src, pub = clean_title_display(rep[0]), rep[1], rep[2], rep[3]
+            extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
+            plain_lines.append(f"  · [{pub[11:16]}] {t} ({src}{extra})\n    {link}")
+    if len(rows) == 0:
+        plain_lines.append("\n(해당 구간 수집 기사 없음)")
+    plain_text = "\n".join(plain_lines)
+
     os.makedirs(DIGEST_DIR, exist_ok=True)
     fname = os.path.join(DIGEST_DIR, f"digest_{now.strftime('%Y%m%d_%H%M')}.txt")
     with open(fname, "w", encoding="utf-8") as f:
-        f.write(text)
+        f.write(plain_text)
 
     # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
-    notify(text, target="digest")
+    notify(html_text, target="digest")
     print(f"저장: {fname}")
     conn.close()
 
