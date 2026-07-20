@@ -26,6 +26,32 @@ KEYWORDS = [
     "공정거래위원회", "공정위", "방송미디어통신위원회", "방미통위",
 ]
 
+# 같은 기관을 가리키는 키워드를 하나의 다이제스트 섹션으로 통합.
+# (키워드 → 대표 그룹명). 여기 없는 키워드는 그 자체가 그룹명이 됨.
+KEYWORD_GROUPS = {
+    "과학기술정보통신부": "과기정통부", "과기정통부": "과기정통부", "과기부": "과기정통부",
+    "공정거래위원회": "공정위", "공정위": "공정위",
+    "방송미디어통신위원회": "방미통위", "방미통위": "방미통위",
+    "우주항공청": "우주항공청",
+}
+# 다이제스트 섹션 표시 순서 (그룹명 기준, 중복 제거)
+GROUP_ORDER = []
+for _k in KEYWORDS:
+    _g = KEYWORD_GROUPS.get(_k, _k)
+    if _g not in GROUP_ORDER:
+        GROUP_ORDER.append(_g)
+
+def display_groups(kws):
+    """매칭된 키워드 집합(kws)을 표시용 그룹명 리스트로 축약.
+    예: {'과학기술정보통신부','과기정통부'} → ['과기정통부']"""
+    result = []
+    for k in KEYWORDS:  # KEYWORDS 순서를 유지해 표시 순서 고정
+        if k in kws:
+            g = KEYWORD_GROUPS.get(k, k)
+            if g not in result:
+                result.append(g)
+    return result
+
 # ==================== 매체 화이트리스트 ====================
 # 알림/다이제스트에 포함할 매체. 도메인(네이버 원문링크용) + 매체명(구글 RSS 제목 꼬리표용) 두 벌.
 MEDIA_DOMAINS = {
@@ -74,6 +100,50 @@ MEDIA_NAMES = {
 
 # 화이트리스트 밖 기사도 DB에는 저장할지 (True 권장: 나중에 매체 추가 시 과거 기사 확인 가능)
 STORE_NON_WHITELIST = True
+
+# ==================== 매체 표시명 매핑 ====================
+# 도메인 → 한글 매체명. 알림/다이제스트에서 도메인 대신 매체명으로 표시할 때 사용.
+DOMAIN_TO_NAME = {
+    "yna.co.kr": "연합뉴스", "newsis.com": "뉴시스", "news1.kr": "뉴스1",
+    "chosun.com": "조선일보", "joongang.co.kr": "중앙일보", "donga.com": "동아일보",
+    "hani.co.kr": "한겨레", "khan.co.kr": "경향신문", "hankookilbo.com": "한국일보",
+    "seoul.co.kr": "서울신문", "kmib.co.kr": "국민일보", "segye.com": "세계일보",
+    "munhwa.com": "문화일보",
+    "mk.co.kr": "매일경제", "hankyung.com": "한국경제", "sedaily.com": "서울경제",
+    "mt.co.kr": "머니투데이", "edaily.co.kr": "이데일리", "asiae.co.kr": "아시아경제",
+    "heraldcorp.com": "헤럴드경제", "fnnews.com": "파이낸셜뉴스",
+    "kbs.co.kr": "KBS", "imbc.com": "MBC", "sbs.co.kr": "SBS", "ytn.co.kr": "YTN",
+    "yonhapnewstv.co.kr": "연합뉴스TV", "jtbc.co.kr": "JTBC", "tvchosun.com": "TV조선",
+    "ichannela.com": "채널A", "mbn.co.kr": "MBN",
+    "nocutnews.co.kr": "노컷뉴스",
+    "etnews.com": "전자신문", "ddaily.co.kr": "디지털데일리", "zdnet.co.kr": "지디넷코리아",
+    "dt.co.kr": "디지털타임스", "inews24.com": "아이뉴스24", "bloter.net": "블로터",
+    "it.chosun.com": "IT조선", "techm.kr": "테크M", "dongascience.com": "동아사이언스",
+    "ohmynews.com": "오마이뉴스", "pressian.com": "프레시안", "mediatoday.co.kr": "미디어오늘",
+    "tf.co.kr": "더팩트", "sisain.co.kr": "시사IN",
+    "biz.chosun.com": "조선비즈", "newspim.com": "뉴스핌", "etoday.co.kr": "이투데이",
+    "ajunews.com": "아주경제", "dailian.co.kr": "데일리안", "kukinews.com": "쿠키뉴스",
+    "asiatoday.co.kr": "아시아투데이",
+    "hellodd.com": "헬로디디", "sciencetimes.co.kr": "사이언스타임즈",
+    "daejonilbo.com": "대전일보", "knnews.co.kr": "경남신문", "busan.com": "부산일보",
+    "imaeil.com": "매일신문",
+}
+
+def media_name(source):
+    """source(도메인 또는 매체명)를 표시용 한글 매체명으로 변환.
+    biz.chosun.com처럼 구체적 서브도메인 매핑을 상위 도메인보다 우선 적용."""
+    if not source:
+        return source
+    s = source.strip().lower()
+    # 가장 긴(구체적인) 도메인 매칭 우선
+    best = None
+    for d, name in DOMAIN_TO_NAME.items():
+        if s == d or s.endswith("." + d):
+            if best is None or len(d) > len(best[0]):
+                best = (d, name)
+    if best:
+        return best[1]
+    return source.strip()  # 이미 매체명이거나 미등록 도메인이면 그대로
 
 # ==================== check 선별용 핵심 매체 ====================
 # check(실시간)는 선별이 목적: 아래 핵심 매체이거나, [단독]/[속보]이거나,
@@ -465,12 +535,12 @@ def run_check():
         html_lines = [f"🆕 <b>주요 기사 {len(new_rows)}건</b> ({now.strftime('%m/%d %H:%M')})"]
         for it in new_rows[:40]:
             t = it["pub_dt"][11:16]
-            kw = ",".join(sorted(it["kws"]))
+            kw = ",".join(display_groups(it["kws"]))
             mark = priority_mark(it["title"])
             mark_prefix = f"{mark} " if mark else ""
             html_lines.append(
                 f'\n{mark_prefix}[{tg_escape(kw)}] <a href="{tg_escape(it["link"])}">{tg_escape(it["title"])}</a>'
-                f'\n  {t} | {tg_escape(it["source"])}')
+                f'\n  {t} | {tg_escape(media_name(it["source"]))}')
         if len(new_rows) > 40:
             html_lines.append(f"\n… 외 {len(new_rows)-40}건 (다이제스트에서 전체 확인)")
         if skipped:
@@ -481,8 +551,8 @@ def run_check():
         plain_lines = [f"🆕 새 기사 {len(new_rows)}건 ({now.strftime('%m/%d %H:%M')})"]
         for it in new_rows[:40]:
             t = it["pub_dt"][11:16]
-            plain_lines.append(f"\n[{','.join(sorted(it['kws']))}] {it['title']}\n"
-                               f"  {t} | {it['source']}\n  {it['link']}")
+            plain_lines.append(f"\n[{','.join(display_groups(it['kws']))}] {it['title']}\n"
+                               f"  {t} | {media_name(it['source'])}\n  {it['link']}")
         plain_text = "\n".join(plain_lines)
 
         quiet_hours = now.hour >= 23 or now.hour < 6
@@ -533,27 +603,36 @@ def run_digest():
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
 
-    # 키워드별 그룹핑 (한 기사가 여러 키워드면 각 섹션에 표기하되 대표 섹션 1회)
-    by_kw = {k: [] for k in KEYWORDS}
+    # 기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)
+    by_group = {g: [] for g in GROUP_ORDER}
     for r in rows:
-        first_kw = r[4].split(",")[0] if r[4] else KEYWORDS[0]
-        # 대표 키워드: KEYWORDS 순서상 가장 앞선 것
         kws = r[4].split(",") if r[4] else []
-        rep = next((k for k in KEYWORDS if k in kws), first_kw)
-        by_kw.setdefault(rep, []).append(r)
+        # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로
+        rep_kw = next((k for k in KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
+        g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
+        by_group.setdefault(g, []).append(r)
 
     # HTML 메시지 (제목 = 클릭 가능한 링크)
     html_lines = [f"📋 <b>{tg_escape(label)}</b> | {start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}",
-                  f"총 {len(rows)}건\n" + "=" * 30]
-    for k in KEYWORDS:
-        arts = by_kw.get(k, [])
+                  "PLACEHOLDER_COUNT"]
+    shown = 0
+    seen_story = set()  # 섹션 간 같은 기사 중복 방지 (group_key 기준)
+    for g in GROUP_ORDER:
+        arts = by_group.get(g, [])
         if not arts:
             continue
         grouped = dedup_group(arts)
-        grouped.sort(key=lambda g: {"🔥": 0, "⚡": 1}.get(priority_mark(g[0][0]), 2))
-        html_lines.append(f"\n■ <b>{tg_escape(k)}</b> ({len(grouped)}건)")
+        # 앞 섹션에서 이미 나온 기사(같은 group_key)는 제외
+        grouped = [(rep, srcs) for (rep, srcs) in grouped if group_key(rep[0]) not in seen_story]
+        for rep, srcs in grouped:
+            seen_story.add(group_key(rep[0]))
+        if not grouped:
+            continue
+        grouped.sort(key=lambda gr: {"🔥": 0, "⚡": 1}.get(priority_mark(gr[0][0]), 2))
+        shown += len(grouped)
+        html_lines.append(f"\n■ <b>{tg_escape(g)}</b> ({len(grouped)}건)")
         for rep, sources in grouped:
-            t, link, src, pub = clean_title_display(rep[0]), rep[1], rep[2], rep[3]
+            t, link, src, pub = clean_title_display(rep[0]), rep[1], media_name(rep[2]), rep[3]
             extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
             mark = priority_mark(rep[0])
             mark_prefix = f"{mark} " if mark else ""
@@ -561,23 +640,36 @@ def run_digest():
                 f'{mark_prefix}· [{pub[11:16]}] <a href="{tg_escape(link)}">{tg_escape(t)}</a> ({tg_escape(src)}{extra})')
     if len(rows) == 0:
         html_lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
+    html_lines[1] = f"주요 이슈 {shown}건 (원문 {len(rows)}건)\n" + "=" * 30
     html_text = "\n".join(html_lines)
 
     # 파일 저장용 평문
     plain_lines = [f"📋 {label} | {start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}",
-                   f"총 {len(rows)}건\n" + "=" * 40]
-    for k in KEYWORDS:
-        arts = by_kw.get(k, [])
+                   "PLACEHOLDER_COUNT_P"]
+    shown_p = 0
+    seen_story_p = set()
+    for g in GROUP_ORDER:
+        arts = by_group.get(g, [])
         if not arts:
             continue
         grouped = dedup_group(arts)
-        plain_lines.append(f"\n■ {k} ({len(grouped)}건)")
+        grouped = [(rep, srcs) for (rep, srcs) in grouped if group_key(rep[0]) not in seen_story_p]
+        for rep, srcs in grouped:
+            seen_story_p.add(group_key(rep[0]))
+        if not grouped:
+            continue
+        grouped.sort(key=lambda gr: {"🔥": 0, "⚡": 1}.get(priority_mark(gr[0][0]), 2))
+        shown_p += len(grouped)
+        plain_lines.append(f"\n■ {g} ({len(grouped)}건)")
         for rep, sources in grouped:
-            t, link, src, pub = clean_title_display(rep[0]), rep[1], rep[2], rep[3]
+            t, link, src, pub = clean_title_display(rep[0]), rep[1], media_name(rep[2]), rep[3]
             extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
-            plain_lines.append(f"  · [{pub[11:16]}] {t} ({src}{extra})\n    {link}")
+            mark = priority_mark(rep[0])
+            mark_prefix = f"{mark} " if mark else ""
+            plain_lines.append(f"  · {mark_prefix}[{pub[11:16]}] {t} ({src}{extra})\n    {link}")
     if len(rows) == 0:
         plain_lines.append("\n(해당 구간 수집 기사 없음)")
+    plain_lines[1] = f"주요 이슈 {shown_p}건 (원문 {len(rows)}건)\n" + "=" * 40
     plain_text = "\n".join(plain_lines)
 
     os.makedirs(DIGEST_DIR, exist_ok=True)
