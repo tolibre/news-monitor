@@ -75,6 +75,52 @@ MEDIA_NAMES = {
 # 화이트리스트 밖 기사도 DB에는 저장할지 (True 권장: 나중에 매체 추가 시 과거 기사 확인 가능)
 STORE_NON_WHITELIST = True
 
+# ==================== check 선별용 핵심 매체 ====================
+# check(실시간)는 선별이 목적: 아래 핵심 매체이거나, [단독]/[속보]이거나,
+# 2곳 이상이 보도 중인 기사만 알림. digest는 화이트리스트 전체를 빠짐없이 포함.
+CORE_MEDIA_DOMAINS = {
+    # 통신사
+    "yna.co.kr", "newsis.com", "news1.kr",
+    # 종합일간지
+    "chosun.com", "joongang.co.kr", "donga.com", "hani.co.kr", "khan.co.kr",
+    "hankookilbo.com", "seoul.co.kr", "kmib.co.kr", "segye.com", "munhwa.com",
+    # 방송·종편
+    "kbs.co.kr", "imbc.com", "sbs.co.kr", "ytn.co.kr", "yonhapnewstv.co.kr",
+    "jtbc.co.kr", "tvchosun.com", "ichannela.com", "mbn.co.kr",
+    # 경제지
+    "mk.co.kr", "hankyung.com", "sedaily.com", "mt.co.kr", "edaily.co.kr",
+    "asiae.co.kr", "heraldcorp.com", "fnnews.com",
+    # CBS
+    "nocutnews.co.kr",
+    # IT 핵심
+    "etnews.com", "zdnet.co.kr", "ddaily.co.kr", "dongascience.com",
+}
+CORE_MEDIA_NAMES = {
+    "연합뉴스", "뉴시스", "뉴스1",
+    "조선일보", "중앙일보", "동아일보", "한겨레", "경향신문", "한국일보",
+    "서울신문", "국민일보", "세계일보", "문화일보",
+    "KBS", "KBS 뉴스", "MBC", "MBC 뉴스", "SBS", "SBS 뉴스", "YTN",
+    "연합뉴스TV", "JTBC", "TV조선", "채널A", "MBN",
+    "매일경제", "한국경제", "서울경제", "머니투데이", "이데일리",
+    "아시아경제", "헤럴드경제", "파이낸셜뉴스",
+    "노컷뉴스", "CBS노컷뉴스",
+    "전자신문", "지디넷코리아", "ZDNet Korea", "디지털데일리", "동아사이언스",
+}
+
+def core_media(source):
+    """check 알림 대상 핵심 매체인지 판별."""
+    if not source:
+        return False
+    s = source.strip().lower()
+    for d in CORE_MEDIA_DOMAINS:
+        if s == d or s.endswith("." + d):
+            return True
+    src = source.strip()
+    for n in CORE_MEDIA_NAMES:
+        if src == n or src == n + " 뉴스":
+            return True
+    return False
+
 def media_allowed(source):
     """source가 화이트리스트 매체인지 판별. source는 도메인(네이버) 또는 매체명(구글)."""
     if not source:
@@ -111,6 +157,7 @@ ALERT_DIR  = os.path.join(BASE_DIR, "alerts")
 
 MAX_PAGES_PER_KEYWORD = 5      # 네이버: 키워드당 최대 5페이지(500건)까지 거슬러 수집
 DAILY_CALL_SOFT_LIMIT = 20000  # 일일 호출 안전장치 (한도 25,000의 80%)
+RETENTION_DAYS = 90            # DB 보관 기간(일). 이보다 오래된 기사는 자동 삭제. 0이면 삭제 안 함.
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -140,6 +187,22 @@ def count_call(conn):
     conn.execute("""INSERT INTO api_calls(day,cnt) VALUES(?,1)
                     ON CONFLICT(day) DO UPDATE SET cnt=cnt+1""", (day,))
 
+def prune_old(conn):
+    """RETENTION_DAYS보다 오래된 기사 삭제 + 오래된 api_calls 정리 + VACUUM으로 파일 축소."""
+    if RETENTION_DAYS <= 0:
+        return 0
+    now = datetime.datetime.now(KST)
+    cutoff = (now - datetime.timedelta(days=RETENTION_DAYS)).isoformat()
+    cur = conn.execute("DELETE FROM articles WHERE seen_dt < ?", (cutoff,))
+    deleted = cur.rowcount
+    day_cutoff = (now - datetime.timedelta(days=RETENTION_DAYS)).strftime("%Y-%m-%d")
+    conn.execute("DELETE FROM api_calls WHERE day < ?", (day_cutoff,))
+    conn.commit()
+    if deleted:
+        conn.execute("VACUUM")  # 삭제 후 파일 실제 용량 회수
+        conn.commit()
+    return deleted
+
 # ==================== 유틸 ====================
 def clean(text):
     text = re.sub(r"<[^>]+>", "", text or "")
@@ -164,6 +227,16 @@ def clean_title_display(title):
         if len(tail) <= 15:  # 꼬리표가 매체명 길이면 제거
             t = head
     return t
+
+def priority_mark(title):
+    """[단독]/[속보] 기사에 강조 이모지 부여. 단독이 속보보다 우선.
+    괄호로 감싼 태그 형태([단독],〈단독〉,【단독】,(단독) 등)만 인정 — '단독주택' 같은 오탐 방지."""
+    t = title or ""
+    if re.search(r"[\[〈<【(]\s*단독\s*[\]〉>】)]", t):
+        return "🔥"
+    if re.search(r"[\[〈<【(]\s*속보\s*[\]〉>】)]", t):
+        return "⚡"
+    return ""
 
 def dedup_group(items):
     """items: [(title,link,source,pub_dt,...), ...] → 같은 기사 묶어서
@@ -354,23 +427,54 @@ def run_check():
             conn.execute("INSERT OR IGNORE INTO articles VALUES(?,?,?,?,?,?,?,?)",
                          (aid, it["title"], it["link"], it["source"], it["pub_dt"],
                           now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
-        # 알림 대상: 화이트리스트 매체 + 발행 24시간 이내 기사만
+        # 후보: 화이트리스트 매체 + 발행 24시간 이내 기사
         if allowed and it["pub_dt"] >= fresh_cutoff:
             new_rows.append(it)
     conn.commit()
 
+    # ===== check 선별: 핵심 매체 / 단독·속보 / 전재 확산(2곳 이상) 중 하나라도 해당해야 알림 =====
+    skipped = []
+    if new_rows:
+        # 전재 확산 판정: 이번 배치 + 최근 24시간 DB에서 같은 제목 그룹의 매체 수 집계
+        pickup_count = {}
+        recent = conn.execute("SELECT title, source FROM articles WHERE seen_dt >= ?",
+                              ((now - datetime.timedelta(hours=24)).isoformat(),)).fetchall()
+        for title, source in recent:
+            k = group_key(title)
+            pickup_count.setdefault(k, set()).add(source)
+        for it in new_rows:
+            k = group_key(it["title"])
+            pickup_count.setdefault(k, set()).add(it["source"])
+
+        def selected(it):
+            if core_media(it["source"]):
+                return True
+            if priority_mark(it["title"]):
+                return True
+            if len(pickup_count.get(group_key(it["title"]), ())) >= 2:
+                return True
+            return False
+
+        skipped = [it for it in new_rows if not selected(it)]
+        new_rows = [it for it in new_rows if selected(it)]
+
     if new_rows:
         new_rows.sort(key=lambda x: x["pub_dt"], reverse=True)
-        # HTML 메시지 (제목이 클릭 가능한 링크)
-        html_lines = [f"🆕 <b>새 기사 {len(new_rows)}건</b> ({now.strftime('%m/%d %H:%M')})"]
+        # HTML 메시지 (제목이 클릭 가능한 링크) — 단독/속보는 맨 위로 (같은 등급 내에서는 최신순 유지)
+        new_rows.sort(key=lambda x: {"🔥": 0, "⚡": 1}.get(priority_mark(x["title"]), 2))
+        html_lines = [f"🆕 <b>주요 기사 {len(new_rows)}건</b> ({now.strftime('%m/%d %H:%M')})"]
         for it in new_rows[:40]:
             t = it["pub_dt"][11:16]
             kw = ",".join(sorted(it["kws"]))
+            mark = priority_mark(it["title"])
+            mark_prefix = f"{mark} " if mark else ""
             html_lines.append(
-                f'\n[{tg_escape(kw)}] <a href="{tg_escape(it["link"])}">{tg_escape(it["title"])}</a>'
+                f'\n{mark_prefix}[{tg_escape(kw)}] <a href="{tg_escape(it["link"])}">{tg_escape(it["title"])}</a>'
                 f'\n  {t} | {tg_escape(it["source"])}')
         if len(new_rows) > 40:
             html_lines.append(f"\n… 외 {len(new_rows)-40}건 (다이제스트에서 전체 확인)")
+        if skipped:
+            html_lines.append(f"\n<i>선별 제외 {len(skipped)}건은 다이제스트에서 확인</i>")
         html_text = "\n".join(html_lines)
 
         # 파일 저장용 평문 (링크 원문 포함)
@@ -393,7 +497,10 @@ def run_check():
             f.write(plain_text + "\n\n" + ("-" * 40) + "\n\n")
         print(f"저장: {fname}")
     else:
-        print(f"[{now.strftime('%H:%M')}] 새 기사 없음")
+        if skipped:
+            print(f"[{now.strftime('%H:%M')}] 주요 기사 없음 (선별 제외 {len(skipped)}건은 다이제스트로)")
+        else:
+            print(f"[{now.strftime('%H:%M')}] 새 기사 없음")
     conn.close()
 
 # ==================== digest 모드 ====================
@@ -406,6 +513,10 @@ def run_digest():
                  datetime.time(23, 0), KST)
         end   = datetime.datetime.combine(today, datetime.time(6, 0), KST)
         label = "야간 다이제스트"
+        # 하루 1회(야간 다이제스트 시점)만 오래된 기사 정리
+        deleted = prune_old(conn)
+        if deleted:
+            print(f"[정리] {RETENTION_DAYS}일 초과 기사 {deleted}건 삭제")
     elif now.hour < 11:  # 08:30 실행 → 금일 06:00 ~ 08:30
         start = datetime.datetime.combine(today, datetime.time(6, 0), KST)
         end   = datetime.datetime.combine(today, datetime.time(8, 30), KST)
@@ -439,12 +550,15 @@ def run_digest():
         if not arts:
             continue
         grouped = dedup_group(arts)
+        grouped.sort(key=lambda g: {"🔥": 0, "⚡": 1}.get(priority_mark(g[0][0]), 2))
         html_lines.append(f"\n■ <b>{tg_escape(k)}</b> ({len(grouped)}건)")
         for rep, sources in grouped:
             t, link, src, pub = clean_title_display(rep[0]), rep[1], rep[2], rep[3]
             extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
+            mark = priority_mark(rep[0])
+            mark_prefix = f"{mark} " if mark else ""
             html_lines.append(
-                f'· [{pub[11:16]}] <a href="{tg_escape(link)}">{tg_escape(t)}</a> ({tg_escape(src)}{extra})')
+                f'{mark_prefix}· [{pub[11:16]}] <a href="{tg_escape(link)}">{tg_escape(t)}</a> ({tg_escape(src)}{extra})')
     if len(rows) == 0:
         html_lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
     html_text = "\n".join(html_lines)
