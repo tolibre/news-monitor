@@ -308,6 +308,17 @@ def priority_mark(title):
         return "⚡"
     return ""
 
+PHOTO_TAGS = ["포토뉴스", "포토", "사진", "화보", "그래픽", "인포그래픽", "카드뉴스"]
+
+def is_photo_article(title):
+    """[포토]/[사진]/[화보]/[그래픽]/[카드뉴스] 등 사진 계열 태그가 붙은 기사인지 판별.
+    [영상]은 리포트일 수 있어 제외 대상에서 뺌(살림)."""
+    t = title or ""
+    for tag in PHOTO_TAGS:
+        if re.search(rf"[\[〈<【(]\s*{tag}\s*[\]〉>】)]", t):
+            return True
+    return False
+
 def dedup_group(items):
     """items: [(title,link,source,pub_dt,...), ...] → 같은 기사 묶어서
     [(대표item, [모든 매체명]), ...] 반환. 대표는 화이트리스트 우선순위 높은 매체."""
@@ -497,8 +508,8 @@ def run_check():
             conn.execute("INSERT OR IGNORE INTO articles VALUES(?,?,?,?,?,?,?,?)",
                          (aid, it["title"], it["link"], it["source"], it["pub_dt"],
                           now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
-        # 후보: 화이트리스트 매체 + 발행 24시간 이내 기사
-        if allowed and it["pub_dt"] >= fresh_cutoff:
+        # 후보: 화이트리스트 매체 + 발행 24시간 이내 + 사진기사 아님
+        if allowed and it["pub_dt"] >= fresh_cutoff and not is_photo_article(it["title"]):
             new_rows.append(it)
     conn.commit()
 
@@ -602,6 +613,7 @@ def run_digest():
     rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
+    rows = [r for r in rows if not is_photo_article(r[0])]  # 사진기사 제외
 
     # 기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)
     by_group = {g: [] for g in GROUP_ORDER}
