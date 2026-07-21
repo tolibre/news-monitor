@@ -26,6 +26,12 @@ KEYWORDS = [
     "공정거래위원회", "공정위", "방송미디어통신위원회", "방미통위",
 ]
 
+# 키워드가 매칭되어도, 제목에 이 표현이 있으면 오탐으로 보고 완전히 제외.
+# 예: "공정위"가 "스포츠공정위원회"에도 포함되어 오매칭되는 문제 방지.
+EXCLUDE_TERMS = [
+    "대한체육회", "스포츠공정위원회",
+]
+
 # 같은 기관을 가리키는 키워드를 하나의 다이제스트 섹션으로 통합.
 # (키워드 → 대표 그룹명). 여기 없는 키워드는 그 자체가 그룹명이 됨.
 KEYWORD_GROUPS = {
@@ -354,7 +360,14 @@ def http_get(url, headers=None, timeout=15):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
+def is_excluded(title):
+    """제목에 EXCLUDE_TERMS 중 하나라도 있으면 True — 키워드 매칭됐어도 오탐으로 제외."""
+    t = title or ""
+    return any(term in t for term in EXCLUDE_TERMS)
+
 def matched_keywords(title):
+    if is_excluded(title):
+        return []
     return [k for k in KEYWORDS if k in title]
 
 # ==================== 수집: 네이버 ====================
@@ -489,6 +502,8 @@ def run_check():
         for it in fetch_naver(conn, kw, set(known) - set(collected)) + \
                   fetch_google(kw, set(known) - set(collected)):
             aid = it["id"]
+            if is_excluded(it["title"]):
+                continue  # 오탐 제외어 포함 시 아예 수집하지 않음
             if aid in known and aid not in collected:
                 continue
             if aid in collected:
