@@ -295,6 +295,62 @@ def group_key(title):
     t = re.sub(r"\([^)]*\)$", "", t).strip()    # 끝의 (종합) (종합2보) 등 제거
     return re.sub(r"[\s\W]+", "", t)[:50]
 
+# 주제 클러스터링에서 무시할 흔한 단어 (변별력 없음)
+TOPIC_STOPWORDS = {
+    "대통령", "장관", "부총리", "위원장", "의원", "정부", "국회", "오늘", "내일",
+    "관련", "위해", "밝혀", "밝혔다", "예정", "추진", "발표", "개최", "참석",
+    "기자", "뉴스", "종합", "속보", "단독", "영상", "포토",
+}
+
+def topic_tokens(title):
+    """제목에서 주제 판별용 핵심 토큰(2글자 이상 한글/영문/숫자 덩어리) 추출."""
+    t = clean(title)
+    t = re.sub(r"\[[^\]]*\]", "", t)
+    t = t.rsplit(" - ", 1)[0]
+    # 한글 2자 이상, 영문 3자 이상, 숫자 포함 토큰
+    raw = re.findall(r"[가-힣]{2,}|[A-Za-z]{3,}|[0-9]+[가-힣A-Za-z%]*", t)
+    toks = set()
+    for w in raw:
+        if w in TOPIC_STOPWORDS:
+            continue
+        # 한글 조사/어미 일부 제거(간단): 끝의 '은/는/이/가/을/를/의/에/도' 등
+        w2 = re.sub(r"(으로|에서|에게|까지|부터|이라|라며|라고|한다|했다|된다|됐다)$", "", w)
+        w2 = re.sub(r"(은|는|이|가|을|를|의|에|도|와|과|만|들)$", "", w2) if len(w) > 2 else w
+        if len(w2) >= 2 and w2 not in TOPIC_STOPWORDS:
+            toks.add(w2)
+    return toks
+
+def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.5):
+    """items를 제목 토큰 유사도로 주제별 묶음. 
+    두 기사의 공통 토큰이 min_overlap개 이상이고, 작은 쪽 집합의 min_ratio 이상 겹치면 같은 주제.
+    반환: [[item, item, ...], ...] (묶음 리스트, 각 묶음은 원래 순서 유지)"""
+    n = len(items)
+    tokens = [topic_tokens(title_getter(it)) for it in items]
+    parent = list(range(n))
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if not tokens[i] or not tokens[j]:
+                continue
+            common = tokens[i] & tokens[j]
+            smaller = min(len(tokens[i]), len(tokens[j]))
+            if len(common) >= min_overlap and len(common) / smaller >= min_ratio:
+                union(i, j)
+    clusters = {}
+    for i in range(n):
+        r = find(i)
+        clusters.setdefault(r, []).append(items[i])
+    # 원래 등장 순서(첫 멤버 인덱스) 기준 정렬
+    return [clusters[k] for k in sorted(clusters.keys())]
+
 def clean_title_display(title):
     """표시용 제목: 구글 RSS의 ' - 매체명' 꼬리표 제거 (매체명은 별도 표시하므로)."""
     t = clean(title)
@@ -561,31 +617,52 @@ def run_check():
         new_rows = [it for it in new_rows if selected(it)]
 
     if new_rows:
-        new_rows.sort(key=lambda x: x["pub_dt"], reverse=True)
-        # HTML 메시지 (제목이 클릭 가능한 링크) — 단독/속보는 맨 위로 (같은 등급 내에서는 최신순 유지)
-        new_rows.sort(key=lambda x: {"🔥": 0, "⚡": 1}.get(priority_mark(x["title"]), 2))
-        html_lines = [f"🆕 <b>주요 기사 {len(new_rows)}건</b> ({now.strftime('%m/%d %H:%M')})"]
-        for it in new_rows[:40]:
-            t = it["pub_dt"][11:16]
-            kw = ",".join(display_groups(it["kws"]))
-            mark = priority_mark(it["title"])
-            mark_prefix = f"{mark} " if mark else ""
-            html_lines.append(
-                f'\n{mark_prefix}[{tg_escape(kw)}] <a href="{tg_escape(it["link"])}">{tg_escape(it["title"])}</a>'
-                f'\n  {t} | {tg_escape(media_name(it["source"]))}')
-        if len(new_rows) > 40:
-            html_lines.append(f"\n… 외 {len(new_rows)-40}건 (다이제스트에서 전체 확인)")
-        if skipped:
-            html_lines.append(f"\n<i>선별 제외 {len(skipped)}건은 다이제스트에서 확인</i>")
-        html_text = "\n".join(html_lines)
+        # 출입처(그룹)별 → 주제 클러스터 → 기사(확인시점순) 구조
+        by_g = {g: [] for g in GROUP_ORDER}
+        for it in new_rows:
+            gs = display_groups(it["kws"])
+            g = gs[0] if gs else GROUP_ORDER[0]
+            by_g.setdefault(g, []).append(it)
 
-        # 파일 저장용 평문 (링크 원문 포함)
-        plain_lines = [f"🆕 새 기사 {len(new_rows)}건 ({now.strftime('%m/%d %H:%M')})"]
-        for it in new_rows[:40]:
-            t = it["pub_dt"][11:16]
-            plain_lines.append(f"\n[{','.join(display_groups(it['kws']))}] {it['title']}\n"
-                               f"  {t} | {media_name(it['source'])}\n  {it['link']}")
-        plain_text = "\n".join(plain_lines)
+        def render_check(as_html):
+            esc = tg_escape if as_html else (lambda s: s)
+            head = (f"🆕 <b>주요 기사 {len(new_rows)}건</b> " if as_html
+                    else f"🆕 주요 기사 {len(new_rows)}건 ") + f"({now.strftime('%m/%d %H:%M')})"
+            lines = [head]
+            for g in GROUP_ORDER:
+                arts = by_g.get(g, [])
+                if not arts:
+                    continue
+                clusters = cluster_by_topic(arts, lambda it: it["title"])
+                def clu_rank(clu):
+                    best = min({"🔥": 0, "⚡": 1}.get(priority_mark(a["title"]), 2) for a in clu)
+                    return (best, -len(clu))
+                clusters.sort(key=clu_rank)
+                sec = f"\n■ <b>{esc(g)}</b>" if as_html else f"\n■ {g}"
+                lines.append(sec)
+                for clu in clusters:
+                    clu.sort(key=lambda a: a["pub_dt"])
+                    multi = len(clu) > 1
+                    for idx, it in enumerate(clu):
+                        t = it["pub_dt"][11:16]
+                        mark = priority_mark(it["title"])
+                        mp = f"{mark} " if mark else ""
+                        bullet = ("▶" if idx == 0 else "  ┗") if multi else "·"
+                        src = media_name(it["source"])
+                        if as_html:
+                            lines.append(
+                                f'{mp}{bullet} <a href="{esc(it["link"])}">{esc(it["title"])}</a>'
+                                f' [{t}|{esc(src)}]')
+                        else:
+                            lines.append(f"{mp}{bullet} {it['title']} [{t}|{src}]\n    {it['link']}")
+            if skipped:
+                note = f"\n<i>선별 제외 {len(skipped)}건은 다이제스트에서 확인</i>" if as_html \
+                       else f"\n(선별 제외 {len(skipped)}건은 다이제스트에서 확인)"
+                lines.append(note)
+            return "\n".join(lines)
+
+        html_text = render_check(as_html=True)
+        plain_text = render_check(as_html=False)
 
         quiet_hours = now.hour >= 23 or now.hour < 6
         if quiet_hours:
@@ -645,65 +722,62 @@ def run_digest():
         g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
         by_group.setdefault(g, []).append(r)
 
-    # HTML 메시지 (제목 = 클릭 가능한 링크)
-    html_lines = [f"📋 <b>{tg_escape(label)}</b> | {start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}",
-                  "PLACEHOLDER_COUNT"]
-    shown = 0
-    seen_story = set()  # 섹션 간 같은 기사 중복 방지 (group_key 기준)
-    for g in GROUP_ORDER:
-        arts = by_group.get(g, [])
-        if not arts:
-            continue
-        grouped = dedup_group(arts)
-        # 앞 섹션에서 이미 나온 기사(같은 group_key)는 제외
-        grouped = [(rep, srcs) for (rep, srcs) in grouped if group_key(rep[0]) not in seen_story]
-        for rep, srcs in grouped:
-            seen_story.add(group_key(rep[0]))
-        if not grouped:
-            continue
-        grouped.sort(key=lambda gr: {"🔥": 0, "⚡": 1}.get(priority_mark(gr[0][0]), 2))
-        shown += len(grouped)
-        html_lines.append(f"\n■ <b>{tg_escape(g)}</b> ({len(grouped)}건)")
-        for rep, sources in grouped:
-            t, link, src, pub = clean_title_display(rep[0]), rep[1], media_name(rep[2]), rep[3]
-            extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
-            mark = priority_mark(rep[0])
-            mark_prefix = f"{mark} " if mark else ""
-            html_lines.append(
-                f'{mark_prefix}· [{pub[11:16]}] <a href="{tg_escape(link)}">{tg_escape(t)}</a> ({tg_escape(src)}{extra})')
-    if len(rows) == 0:
-        html_lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
-    html_lines[1] = f"주요 이슈 {shown}건 (원문 {len(rows)}건)\n" + "=" * 30
-    html_text = "\n".join(html_lines)
+    # HTML/평문 공통 렌더러
+    def render_digest(as_html):
+        esc = tg_escape if as_html else (lambda s: s)
+        head = (f"📋 <b>{esc(label)}</b> | " if as_html else f"📋 {label} | ") + \
+               f"{start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}"
+        lines = [head, "PLACEHOLDER"]
+        shown_local = 0
+        seen = set()
+        for g in GROUP_ORDER:
+            arts = by_group.get(g, [])
+            if not arts:
+                continue
+            grouped = dedup_group(arts)  # 전재(동일기사) 묶기 → [(대표item, [매체]), ...]
+            grouped = [(rep, srcs) for (rep, srcs) in grouped if group_key(rep[0]) not in seen]
+            for rep, srcs in grouped:
+                seen.add(group_key(rep[0]))
+            if not grouped:
+                continue
+            # 주제 클러스터링: grouped 항목들을 대표 제목 기준으로 묶음
+            clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
+            # 클러스터 정렬: 단독/속보 포함 클러스터 우선, 그다음 큰 클러스터 우선
+            def clu_rank(clu):
+                best = min({"🔥": 0, "⚡": 1}.get(priority_mark(gs[0][0]), 2) for gs in clu)
+                return (best, -len(clu))
+            clusters.sort(key=clu_rank)
+            shown_local += len(grouped)
+            sec_head = f"\n■ <b>{esc(g)}</b> ({len(grouped)}건)" if as_html else f"\n■ {g} ({len(grouped)}건)"
+            lines.append(sec_head)
+            for clu in clusters:
+                # 클러스터 내부: 확인시점(pub_dt) 순 정렬
+                clu.sort(key=lambda gs: gs[0][3])
+                multi = len(clu) > 1
+                for idx, (rep, sources) in enumerate(clu):
+                    t = clean_title_display(rep[0]); link = rep[1]
+                    src = media_name(rep[2]); pub = rep[3]
+                    extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
+                    mark = priority_mark(rep[0])
+                    mark_prefix = f"{mark} " if mark else ""
+                    # 주제 묶음이면 첫 기사는 ▶, 나머지는 들여쓴 ┗
+                    if multi:
+                        bullet = "▶" if idx == 0 else "  ┗"
+                    else:
+                        bullet = "·"
+                    if as_html:
+                        lines.append(
+                            f'{mark_prefix}{bullet} [{pub[11:16]}] <a href="{esc(link)}">{esc(t)}</a> ({esc(src)}{extra})')
+                    else:
+                        lines.append(f"  {mark_prefix}{bullet} [{pub[11:16]}] {t} ({src}{extra})\n      {link}")
+        if len(rows) == 0:
+            lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
+        sep = "=" * (30 if as_html else 40)
+        lines[1] = f"주요 이슈 {shown_local}건 (원문 {len(rows)}건)\n" + sep
+        return "\n".join(lines)
 
-    # 파일 저장용 평문
-    plain_lines = [f"📋 {label} | {start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}",
-                   "PLACEHOLDER_COUNT_P"]
-    shown_p = 0
-    seen_story_p = set()
-    for g in GROUP_ORDER:
-        arts = by_group.get(g, [])
-        if not arts:
-            continue
-        grouped = dedup_group(arts)
-        grouped = [(rep, srcs) for (rep, srcs) in grouped if group_key(rep[0]) not in seen_story_p]
-        for rep, srcs in grouped:
-            seen_story_p.add(group_key(rep[0]))
-        if not grouped:
-            continue
-        grouped.sort(key=lambda gr: {"🔥": 0, "⚡": 1}.get(priority_mark(gr[0][0]), 2))
-        shown_p += len(grouped)
-        plain_lines.append(f"\n■ {g} ({len(grouped)}건)")
-        for rep, sources in grouped:
-            t, link, src, pub = clean_title_display(rep[0]), rep[1], media_name(rep[2]), rep[3]
-            extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
-            mark = priority_mark(rep[0])
-            mark_prefix = f"{mark} " if mark else ""
-            plain_lines.append(f"  · {mark_prefix}[{pub[11:16]}] {t} ({src}{extra})\n    {link}")
-    if len(rows) == 0:
-        plain_lines.append("\n(해당 구간 수집 기사 없음)")
-    plain_lines[1] = f"주요 이슈 {shown_p}건 (원문 {len(rows)}건)\n" + "=" * 40
-    plain_text = "\n".join(plain_lines)
+    html_text = render_digest(as_html=True)
+    plain_text = render_digest(as_html=False)
 
     os.makedirs(DIGEST_DIR, exist_ok=True)
     fname = os.path.join(DIGEST_DIR, f"digest_{now.strftime('%Y%m%d_%H%M')}.txt")
