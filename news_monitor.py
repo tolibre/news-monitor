@@ -316,13 +316,19 @@ def priority_mark(title):
 
 PHOTO_TAGS = ["포토뉴스", "포토", "사진", "화보", "그래픽", "인포그래픽", "카드뉴스"]
 
-def is_photo_article(title):
-    """[포토]/[사진]/[화보]/[그래픽]/[카드뉴스] 등 사진 계열 태그가 붙은 기사인지 판별.
+def is_photo_article(title, link=""):
+    """[포토]/[사진]/[화보]/[그래픽]/[카드뉴스] 등 사진 계열 태그가 붙었거나,
+    URL 패턴으로 사진기사임이 확실한 경우 True.
     [영상]은 리포트일 수 있어 제외 대상에서 뺌(살림)."""
     t = title or ""
     for tag in PHOTO_TAGS:
         if re.search(rf"[\[〈<【(]\s*{tag}\s*[\]〉>】)]", t):
             return True
+    l = (link or "").lower()
+    if "news1.kr/photos/" in l:          # 뉴스1 사진 전용 URL
+        return True
+    if re.search(r"yna\.co\.kr/view/pyh", l):  # 연합뉴스 사진 ID(PYH) — 일반기사는 AKR
+        return True
     return False
 
 def dedup_group(items):
@@ -524,7 +530,7 @@ def run_check():
                          (aid, it["title"], it["link"], it["source"], it["pub_dt"],
                           now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
         # 후보: 화이트리스트 매체 + 발행 24시간 이내 + 사진기사 아님
-        if allowed and it["pub_dt"] >= fresh_cutoff and not is_photo_article(it["title"]):
+        if allowed and it["pub_dt"] >= fresh_cutoff and not is_photo_article(it["title"], it["link"]):
             new_rows.append(it)
     conn.commit()
 
@@ -628,7 +634,7 @@ def run_digest():
     rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
-    rows = [r for r in rows if not is_photo_article(r[0])]  # 사진기사 제외
+    rows = [r for r in rows if not is_photo_article(r[0], r[1])]  # 사진기사 제외
 
     # 기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)
     by_group = {g: [] for g in GROUP_ORDER}
