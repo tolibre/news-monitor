@@ -235,6 +235,11 @@ MAX_PAGES_PER_KEYWORD = 5      # 네이버: 키워드당 최대 5페이지(500�
 DAILY_CALL_SOFT_LIMIT = 20000  # 일일 호출 안전장치 (한도 25,000의 80%)
 RETENTION_DAYS = 90            # DB 보관 기간(일). 이보다 오래된 기사는 자동 삭제. 0이면 삭제 안 함.
 
+# 사내 보고양식('제목(매체명)' 한 줄씩)을 digest 뒤에 별도 메시지로 보낼지.
+# digest 전용 — check(실시간 알림)에는 보내지 않음.
+# False로 두면 기존처럼 링크 달린 다이제스트만 전송.
+SEND_REPORT_FORMAT = True
+
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # ==================== DB ====================
@@ -621,24 +626,27 @@ def tg_escape(s):
     """텔레그램 HTML 모드에서 특수문자 이스케이프."""
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-def _send_telegram(text, token, chat_id):
-    data = urllib.parse.urlencode({
+def _send_telegram(text, token, chat_id, parse_mode="HTML"):
+    payload = {
         "chat_id": chat_id, "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": "true"}).encode()
+        "disable_web_page_preview": "true"}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    data = urllib.parse.urlencode(payload).encode()
     urllib.request.urlopen(urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage",
         data=data), timeout=15)
 
-def notify(text, target="check"):
+def notify(text, target="check", parse_mode="HTML"):
     """긴 메시지는 줄(기사) 단위로 나눠 여러 개로 전송. (i/n) 표시 붙임.
-    target='check'면 실시간 봇, 'digest'면 다이제스트 봇으로 전송."""
+    target='check'면 실시간 봇, 'digest'면 다이제스트 봇으로 전송.
+    parse_mode=None이면 순수 텍스트(복사용 보고양식)로 전송."""
     token, chat_id = (TELEGRAM_DIGEST_BOT_TOKEN, TELEGRAM_DIGEST_CHAT_ID) \
         if target == "digest" else (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
     if token and chat_id:
         try:
             if len(text) <= TG_CHUNK:
-                _send_telegram(text, token, chat_id)
+                _send_telegram(text, token, chat_id, parse_mode)
                 return
             # 줄 단위로 청크 구성 (HTML 모드에서 각 기사가 한 줄이라 태그가 안 잘림)
             chunks, cur = [], ""
@@ -653,11 +661,17 @@ def notify(text, target="check"):
                 chunks.append(cur)
             total = len(chunks)
             for i, chunk in enumerate(chunks, 1):
-                _send_telegram(f"({i}/{total})\n{chunk}", token, chat_id)
+                _send_telegram(f"({i}/{total})\n{chunk}", token, chat_id, parse_mode)
             return
         except Exception as e:
             print(f"[warn] telegram: {e}")
     print(text)
+
+def notify_plain(text, target="check"):
+    """사내 보고양식 등 '복사해서 쓰는' 텍스트 전송용.
+    parse_mode를 쓰지 않으므로 따옴표·괄호·부등호가 원문 그대로 유지되고,
+    복사할 때 HTML 태그나 마크다운 기호가 딸려오지 않음."""
+    notify(text, target=target, parse_mode=None)
 
 # ==================== check 모드 ====================
 def run_check():
@@ -832,6 +846,36 @@ def run_digest():
         by_group.setdefault(g, []).append(r)
 
     # HTML/평문 공통 렌더러
+    def render_digest_report():
+        """사내 보고양식: '제목(매체명)' 한 줄씩. 전재 묶음은 대표 기사만.
+        '외 N곳'도 표기하지 않음 — 보고서에는 매체 한 곳만 적기 때문."""
+        lines = []
+        seen_r = set()
+        for g in GROUP_ORDER:
+            arts = by_group.get(g, [])
+            if not arts:
+                continue
+            grouped = dedup_group(arts)
+            grouped = [(rep, s) for (rep, s) in grouped if group_key(rep[0]) not in seen_r]
+            for rep, s in grouped:
+                seen_r.add(group_key(rep[0]))
+            if not grouped:
+                continue
+            clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
+            def clu_rank(clu):
+                best = min({"🔥": 0, "⚡": 1}.get(priority_mark(gs[0][0]), 2) for gs in clu)
+                return (best, -len(clu))
+            clusters.sort(key=clu_rank)
+            if lines:
+                lines.append("")
+            for clu in clusters:
+                clu.sort(key=lambda gs: gs[0][3])
+                for rep, sources in clu:
+                    t = clean_title_display(rep[0])
+                    src = media_name(rep[2])
+                    lines.append(f"{t}({src})")
+        return "\n".join(lines)
+
     def render_digest(as_html):
         esc = tg_escape if as_html else (lambda s: s)
         head = (f"📋 <b>{esc(label)}</b> | " if as_html else f"📋 {label} | ") + \
@@ -895,6 +939,12 @@ def run_digest():
 
     # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
     notify(html_text, target="digest")
+
+    # 사내 보고양식 — 링크 없는 순수 텍스트로 별도 전송 (복사용)
+    report_text = render_digest_report()
+    if SEND_REPORT_FORMAT and report_text:
+        notify_plain(f"📄 [보고양식] {label} {start.strftime('%m/%d %H:%M')}~{end.strftime('%H:%M')}\n\n"
+                     + report_text, target="digest")
     print(f"저장: {fname}")
     conn.close()
 
