@@ -370,21 +370,127 @@ def priority_mark(title):
         return "⚡"
     return ""
 
-PHOTO_TAGS = ["포토뉴스", "포토", "사진", "화보", "그래픽", "인포그래픽", "카드뉴스"]
+PHOTO_TAGS = ["포토뉴스", "포토", "사진", "화보", "그래픽", "인포그래픽", "카드뉴스",
+              "그래픽뉴스", "영상뉴스", "픽", "pic", "PIC", "photo", "포토와이드"]
+
+# 사진 캡션 특유의 관형형 서술어 — "발언하는 OOO", "OOO 만난 OOO" 처럼
+# 장면을 묘사하며 인물/사물을 수식하는 형태.
+CAPTION_VERBS = (
+    r"(하는|되는|시키는|나누는|나선|앉은|선|만난|듣는|잡은|맞잡은|악수하는|"
+    r"참석하는|입장하는|퇴장하는|주재하는|발언하는|모두발언하는|answering|"
+    r"인사하는|기념촬영하는|촬영하는|바라보는|웃는|미소짓는|밝히는|답하는|"
+    r"질의하는|경청하는|생각에|자리한|기다리는|이동하는|들어서는|나서는|"
+    r"둘러보는|살펴보는|시연하는|체험하는|관람하는|서명하는|전달하는|받는)"
+)
+
+# 캡션이 행사·장면명으로 끝나는 패턴 (서술 없이 명사 종결)
+CAPTION_TAIL = (
+    r"(기념촬영|간담회|회의|행사|시상식|기자회견|포럼|세미나|협약식|출범식|"
+    r"개회식|폐회식|현판식|기공식|준공식|간담|면담|접견|오찬|만찬|리셉션|"
+    r"세리머니|퍼포먼스|전경|모습|장면|현장)$"
+)
+
+# 기사다운 서술형 종결 (이게 있으면 캡션 아님)
+ARTICLE_ENDINGS = (
+    r"(한다|된다|했다|됐다|난다|본다|한다는|밝혀|밝혔다|나서|나섰다|출범|추진|"
+    r"개정|선정|돌입|투입|막는다|만든다|알린다|성공|완료|확대|강화|착수|검토|"
+    r"제시|공개|발표|도입|구축|육성|지원|참여|지정|수상|채택|승인|의결|합의|"
+    r"결정|무산|철회|반발|비판|우려|논란|전망|계획|예고|촉구|요구|주문|당부|"
+    r"경고|해명|반박|부인|시인|사과|중단|재개|연기|취소|폐지|신설|개편|"
+    r"인상|인하|급등|급락|증가|감소|둔화|회복|악화|개선|기록|돌파|넘어|"
+    r"이어|맞손|맞손잡고|손잡고|나온다|온다|간다|연다|열린다|없다|있다|"
+    r"아니다|같다|보인다|드러나|드러났다|확인|점검|조사|수사|기소|구속|"
+    r"판결|선고|무죄|유죄|배상|보상|환수|과징금|제재|처분|고발|소송|"
+    # 연구·성과·산업 계열 (사진 캡션에는 거의 안 쓰이는 명사형 종결)
+    r"규명|입증|개발|발견|관측|측정|분석|실증|시연|출시|공급|수출|수주|계약|"
+    r"체결|이전|상용화|양산|가동|준공|착공|설립|유치|모집|공모|접수|개최|"
+    r"운영|시행|적용|보급|전환|혁신|성장|진출|확산|정착|안착|달성|경신|"
+    r"우승|선발|위촉|임명|해임|사임|사퇴|퇴임|취임|승진|영입|합병|인수|"
+    r"매각|분할|상장|공시|실적|매출|영업익|순익|적자|흑자|손실|투자|"
+    r"성료|폐막|개막|마무리|종료|시작|출시|공표|고시|발간|출간|공표)$"
+)
+
+# 제목 자체가 무의미한 쓰레기 (매체명만 있거나 방송 자막 등)
+JUNK_TITLE_PATTERNS = [
+    r"^[가-힣A-Za-z0-9]{1,6}$",                  # '뉴스핌' 처럼 단어 하나
+    r"자막방송",                                   # 방송 자막 아카이브
+    r"^▒.*▒$",                                   # ▒종합 경제정보 미디어 - 이데일리IR▒
+    r"뉴스퀘어|뉴스룸|뉴스데스크|8뉴스|뉴스9|뉴스투데이",  # 방송 프로그램 통짜
+    r"^\d{4}년\s*\d{1,2}월\s*\d{1,2}일",          # '2026년 7월 22일 ...' 로 시작
+]
+
+def is_junk_title(title):
+    """제목만으로 정보가치가 없는 항목(매체명 단독, 방송 자막 등)."""
+    t = clean(title or "")
+    t = t.rsplit(" - ", 1)[0].strip()   # 구글 RSS 매체 꼬리표 제거
+    if not t:
+        return True
+    for pat in JUNK_TITLE_PATTERNS:
+        if re.search(pat, t):
+            return True
+    return False
+
+def is_caption_like(title):
+    """제목이 '기사 제목'이 아니라 '사진 캡션'처럼 생겼는지 판별.
+    아래 3가지 신호 중 2개 이상이면 캡션으로 봄:
+      (1) 관형형 서술어로 인물/사물을 수식  (발언하는 OOO, OOO 만난 OOO)
+      (2) 따옴표/말줄임표 등 기사 제목 특유의 부호가 전혀 없음
+      (3) 서술형 종결어미가 없음 (…막는다, …출범 같은 끝맺음 부재)
+    추가로 행사명 명사 종결(간담회/회의/기념촬영)도 (1) 대신 인정.
+    실제 digest 데이터로 검증: 사진 26건 전부 2개 이상, 진짜 기사는 최대 1개."""
+    t = clean(title or "")
+    t = t.rsplit(" - ", 1)[0].strip()
+    t = re.sub(r"\[[^\]]*\]", "", t).strip()   # 태그는 별도 로직이 처리
+    if not t:
+        return False
+
+    # 발언 인용(따옴표) 또는 말줄임표는 기사 제목의 확실한 표식.
+    # 사진 캡션은 발언을 인용하지 않으므로, 이게 있으면 캡션 아님으로 확정.
+    # 예: 배경훈 "통신사는 AI 인프라·플랫폼 기업"…과기정통부·통신3사 CEO 간담회
+    if re.search(r"[\"'“”‘’]", t) and re.search(r"[…]|\.\.\.", t):
+        return False
+
+    score = 0
+    # (1) 캡션형 관형 서술어 또는 행사명 종결
+    if re.search(CAPTION_VERBS + r"(\s|$)", t) or re.search(CAPTION_TAIL, t):
+        score += 1
+    # (2) 기사 제목다운 문장부호 부재
+    if not re.search(r"[\"'“”‘’…·%]|\.\.\.", t):
+        score += 1
+    # (3) 서술형 종결어미 부재
+    if not re.search(ARTICLE_ENDINGS, t):
+        score += 1
+
+    return score >= 2
 
 def is_photo_article(title, link=""):
-    """[포토]/[사진]/[화보]/[그래픽]/[카드뉴스] 등 사진 계열 태그가 붙었거나,
-    URL 패턴으로 사진기사임이 확실한 경우 True.
-    [영상]은 리포트일 수 있어 제외 대상에서 뺌(살림)."""
+    """사진/그래픽 기사 판별. 세 갈래로 확인:
+      A. [포토]/[사진]/[헤럴드pic] 등 대괄호 태그
+      B. URL 패턴 (뉴스1 /photos/, 연합 PYH, 더팩트 photomovie 등)
+      C. 제목이 사진 캡션처럼 생긴 경우 (is_caption_like)
+    [영상]은 리포트일 수 있어 태그 기준에서는 계속 제외(살림)."""
     t = title or ""
+
+    # A. 대괄호/괄호 태그 — 'pic'은 헤럴드pic 처럼 접미로 붙는 경우도 잡음
     for tag in PHOTO_TAGS:
-        if re.search(rf"[\[〈<【(]\s*{tag}\s*[\]〉>】)]", t):
+        if re.search(rf"[\[〈<【(][^\]〉>】)]*{re.escape(tag)}[^\[〈<【(]*[\]〉>】)]", t, re.I):
             return True
+
+    # B. URL 패턴
     l = (link or "").lower()
-    if "news1.kr/photos/" in l:          # 뉴스1 사진 전용 URL
+    if "news1.kr/photos/" in l:                      # 뉴스1 사진 전용
         return True
-    if re.search(r"yna\.co\.kr/view/pyh", l):  # 연합뉴스 사진 ID(PYH) — 일반기사는 AKR
+    if re.search(r"yna\.co\.kr/view/pyh", l):        # 연합뉴스 사진 ID(PYH)
         return True
+    if "/photomovie/" in l or "/photo/" in l:        # 더팩트 등 사진 섹션
+        return True
+    if re.search(r"newsis\.com/view/NISI", l, re.I): # 뉴시스 사진 ID(NISI) — 기사는 NISX
+        return True
+
+    # C. 캡션형 제목
+    if is_caption_like(t):
+        return True
+
     return False
 
 def dedup_group(items):
@@ -586,7 +692,9 @@ def run_check():
                          (aid, it["title"], it["link"], it["source"], it["pub_dt"],
                           now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
         # 후보: 화이트리스트 매체 + 발행 24시간 이내 + 사진기사 아님
-        if allowed and it["pub_dt"] >= fresh_cutoff and not is_photo_article(it["title"], it["link"]):
+        if (allowed and it["pub_dt"] >= fresh_cutoff
+                and not is_photo_article(it["title"], it["link"])
+                and not is_junk_title(it["title"])):
             new_rows.append(it)
     conn.commit()
 
@@ -712,6 +820,7 @@ def run_digest():
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
     rows = [r for r in rows if not is_photo_article(r[0], r[1])]  # 사진기사 제외
+    rows = [r for r in rows if not is_junk_title(r[0])]           # 무의미 제목 제외
 
     # 기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)
     by_group = {g: [] for g in GROUP_ORDER}
