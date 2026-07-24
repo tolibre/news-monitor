@@ -365,6 +365,13 @@ def clean_title_display(title):
             t = head
     return t
 
+def is_truncated_title(title):
+    """네이버/구글 API가 제목을 중간에서 잘라 마침표 3개(...)로 보내는 경우 판별.
+    한글 문장부호 말줄임표(…, 유니코드 U+2026)는 정상 제목에도 쓰이므로 대상이 아니고,
+    ASCII 마침표 3개로 끝나는 것만 트렁케이션으로 봄 — 실제 digest 데이터로 확인한 패턴."""
+    t = clean_title_display(title or "").strip()
+    return t.endswith("...")
+
 def priority_mark(title):
     """[단독]/[속보] 기사에 강조 이모지 부여. 단독이 속보보다 우선.
     괄호로 감싼 태그 형태([단독],〈단독〉,【단독】,(단독) 등)만 인정 — '단독주택' 같은 오탐 방지."""
@@ -848,7 +855,9 @@ def run_digest():
     # HTML/평문 공통 렌더러
     def render_digest_report():
         """사내 보고양식: '제목(매체명)' 한 줄씩. 전재 묶음은 대표 기사만.
-        '외 N곳'도 표기하지 않음 — 보고서에는 매체 한 곳만 적기 때문."""
+        '외 N곳'도 표기하지 않음 — 보고서에는 매체 한 곳만 적기 때문.
+        대표 제목이 API 트렁케이션으로 잘려있으면('...') 같은 클러스터 안에서
+        온전한 제목을 쓴 다른 매체 기사가 있는지 찾아 그것으로 대체한다."""
         lines = []
         seen_r = set()
         for g in GROUP_ORDER:
@@ -872,6 +881,12 @@ def run_digest():
                 clu.sort(key=lambda gs: gs[0][3])
                 for rep, sources in clu:
                     t = clean_title_display(rep[0])
+                    if is_truncated_title(t):
+                        # 같은 클러스터(같은 주제) 안에서 안 잘린 제목을 우선순위로 탐색
+                        alt = next((clean_title_display(g2[0][0]) for g2 in clu
+                                   if not is_truncated_title(clean_title_display(g2[0][0]))), None)
+                        if alt:
+                            t = alt
                     src = media_name(rep[2])
                     lines.append(f"{t}({src})")
         return "\n".join(lines)
