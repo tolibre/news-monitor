@@ -816,12 +816,13 @@ def run_digest():
     conn = db()
     now = datetime.datetime.now(KST)
     today = now.date()
+    is_saturday = now.weekday() == 5  # 월=0 ... 토=5, 일=6
     if now.hour < 7:     # 06:00 실행 → 야간 다이제스트: 전일 23:00 ~ 금일 06:00
         start = datetime.datetime.combine(today - datetime.timedelta(days=1),
                  datetime.time(23, 0), KST)
         end   = datetime.datetime.combine(today, datetime.time(6, 0), KST)
         label = "야간 다이제스트"
-        # 하루 1회(야간 다이제스트 시점)만 오래된 기사 정리
+        # 하루 1회(야간 다이제스트 시점)만 오래된 기사 정리 — 토요일 발송 스킵과 무관하게 계속 실행
         deleted = prune_old(conn)
         if deleted:
             print(f"[정리] {RETENTION_DAYS}일 초과 기사 {deleted}건 삭제")
@@ -833,6 +834,13 @@ def run_digest():
         start = datetime.datetime.combine(today, datetime.time(8, 30), KST)
         end   = datetime.datetime.combine(today, datetime.time(13, 30), KST)
         label = "오후 다이제스트"
+
+    if is_saturday:
+        # 토요일은 다이제스트를 발송하지 않음. DB 정리(위 prune_old)는 이미 실행됐으므로
+        # 그대로 두고 발송/저장 단계만 건너뛴다. 재수집(re-query)조차 하지 않아 API 호출도 없음.
+        print(f"[{now.strftime('%m/%d %H:%M')}] 토요일 — {label} 발송 생략")
+        conn.close()
+        return
 
     rows = conn.execute("""SELECT title,link,source,pub_dt,keywords FROM articles
                            WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
