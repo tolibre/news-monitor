@@ -753,11 +753,19 @@ def run_check():
             g = gs[0] if gs else GROUP_ORDER[0]
             by_g.setdefault(g, []).append(it)
 
+        def pick_rep(clu):
+            """주제 클러스터의 대표 기사 1건 선정.
+            우선순위: 단독/속보 > 제목이 안 잘린 것 > 먼저 보도된 것(원 보도에 가까움)."""
+            def key(a):
+                pr = {"🔥": 0, "⚡": 1}.get(priority_mark(a["title"]), 2)
+                trunc = 1 if is_truncated_title(a["title"]) else 0
+                return (pr, trunc, a["pub_dt"])
+            return min(clu, key=key)
+
         def render_check(as_html):
             esc = tg_escape if as_html else (lambda s: s)
-            head = (f"🆕 <b>주요 기사 {len(new_rows)}건</b> " if as_html
-                    else f"🆕 주요 기사 {len(new_rows)}건 ") + f"({now.strftime('%m/%d %H:%M')})"
-            lines = [head]
+            body = []
+            shown = 0
             for g in GROUP_ORDER:
                 arts = by_g.get(g, [])
                 if not arts:
@@ -767,23 +775,26 @@ def run_check():
                     best = min({"🔥": 0, "⚡": 1}.get(priority_mark(a["title"]), 2) for a in clu)
                     return (best, -len(clu))
                 clusters.sort(key=clu_rank)
-                sec = f"\n■ <b>{esc(g)}</b>" if as_html else f"\n■ {g}"
-                lines.append(sec)
+                body.append(f"\n■ <b>{esc(g)}</b>" if as_html else f"\n■ {g}")
                 for clu in clusters:
-                    clu.sort(key=lambda a: a["pub_dt"])
-                    multi = len(clu) > 1
-                    for idx, it in enumerate(clu):
-                        t = it["pub_dt"][11:16]
-                        mark = priority_mark(it["title"])
-                        mp = f"{mark} " if mark else ""
-                        bullet = ("▶" if idx == 0 else "  ┗") if multi else "·"
-                        src = media_name(it["source"])
-                        if as_html:
-                            lines.append(
-                                f'{mp}{bullet} <a href="{esc(it["link"])}">{esc(it["title"])}</a>'
-                                f' [{t}|{esc(src)}]')
-                        else:
-                            lines.append(f"{mp}{bullet} {it['title']} [{t}|{src}]\n    {it['link']}")
+                    # 같은 주제는 대표 1건만 알림. 나머지는 '(관련 N건)'으로만 표시하고
+                    # 전체 목록은 다이제스트에서 확인 (check=선별, digest=누락없음 원칙 유지).
+                    it = pick_rep(clu)
+                    shown += 1
+                    t = it["pub_dt"][11:16]
+                    mark = priority_mark(it["title"])
+                    mp = f"{mark} " if mark else ""
+                    src = media_name(it["source"])
+                    rel = f" (관련 {len(clu) - 1}건)" if len(clu) > 1 else ""
+                    if as_html:
+                        body.append(
+                            f'{mp}· <a href="{esc(it["link"])}">{esc(it["title"])}</a>'
+                            f' [{t}|{esc(src)}]{rel}')
+                    else:
+                        body.append(f"{mp}· {it['title']} [{t}|{src}]{rel}\n    {it['link']}")
+            head = (f"🆕 <b>주요 기사 {shown}건</b> " if as_html
+                    else f"🆕 주요 기사 {shown}건 ") + f"({now.strftime('%m/%d %H:%M')})"
+            lines = [head] + body
             if skipped:
                 note = f"\n<i>선별 제외 {len(skipped)}건은 다이제스트에서 확인</i>" if as_html \
                        else f"\n(선별 제외 {len(skipped)}건은 다이제스트에서 확인)"
