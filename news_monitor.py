@@ -183,6 +183,15 @@ CORE_MEDIA_NAMES = {
     "전자신문", "지디넷코리아", "ZDNet Korea", "디지털데일리", "동아사이언스",
 }
 
+def short_media_name(name):
+    """보고용 축약 매체명: 끝의 '일보'/'신문'을 떼어냄.
+    부산일보→부산, 조선일보→조선, 서울신문→서울, 경향신문→경향 등.
+    떼고 나서 2글자 미만이 되면 원래 이름을 유지한다.
+    (매일경제·서울경제 등은 접미가 다르므로 영향 없음)"""
+    n = (name or "").strip()
+    m = re.sub(r"(일보|신문)$", "", n)
+    return m if len(m) >= 2 else n
+
 def core_media(source):
     """check 알림 대상 핵심 매체인지 판별."""
     if not source:
@@ -234,11 +243,6 @@ ALERT_DIR  = os.path.join(BASE_DIR, "alerts")
 MAX_PAGES_PER_KEYWORD = 5      # 네이버: 키워드당 최대 5페이지(500건)까지 거슬러 수집
 DAILY_CALL_SOFT_LIMIT = 20000  # 일일 호출 안전장치 (한도 25,000의 80%)
 RETENTION_DAYS = 90            # DB 보관 기간(일). 이보다 오래된 기사는 자동 삭제. 0이면 삭제 안 함.
-
-# 사내 보고양식('제목(매체명)' 한 줄씩)을 digest 뒤에 별도 메시지로 보낼지.
-# digest 전용 — check(실시간 알림)에는 보내지 않음.
-# False로 두면 기존처럼 링크 달린 다이제스트만 전송.
-SEND_REPORT_FORMAT = True
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -674,12 +678,6 @@ def notify(text, target="check", parse_mode="HTML"):
             print(f"[warn] telegram: {e}")
     print(text)
 
-def notify_plain(text, target="check"):
-    """사내 보고양식 등 '복사해서 쓰는' 텍스트 전송용.
-    parse_mode를 쓰지 않으므로 따옴표·괄호·부등호가 원문 그대로 유지되고,
-    복사할 때 HTML 태그나 마크다운 기호가 딸려오지 않음."""
-    notify(text, target=target, parse_mode=None)
-
 # ==================== check 모드 ====================
 def run_check():
     conn = db()
@@ -872,44 +870,6 @@ def run_digest():
         by_group.setdefault(g, []).append(r)
 
     # HTML/평문 공통 렌더러
-    def render_digest_report():
-        """사내 보고양식: '제목(매체명)' 한 줄씩. 전재 묶음은 대표 기사만.
-        '외 N곳'도 표기하지 않음 — 보고서에는 매체 한 곳만 적기 때문.
-        대표 제목이 API 트렁케이션으로 잘려있으면('...') 같은 클러스터 안에서
-        온전한 제목을 쓴 다른 매체 기사가 있는지 찾아 그것으로 대체한다."""
-        lines = []
-        seen_r = set()
-        for g in GROUP_ORDER:
-            arts = by_group.get(g, [])
-            if not arts:
-                continue
-            grouped = dedup_group(arts)
-            grouped = [(rep, s) for (rep, s) in grouped if group_key(rep[0]) not in seen_r]
-            for rep, s in grouped:
-                seen_r.add(group_key(rep[0]))
-            if not grouped:
-                continue
-            clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
-            def clu_rank(clu):
-                best = min({"🔥": 0, "⚡": 1}.get(priority_mark(gs[0][0]), 2) for gs in clu)
-                return (best, -len(clu))
-            clusters.sort(key=clu_rank)
-            if lines:
-                lines.append("")
-            for clu in clusters:
-                clu.sort(key=lambda gs: gs[0][3])
-                for rep, sources in clu:
-                    t = clean_title_display(rep[0])
-                    if is_truncated_title(t):
-                        # 같은 클러스터(같은 주제) 안에서 안 잘린 제목을 우선순위로 탐색
-                        alt = next((clean_title_display(g2[0][0]) for g2 in clu
-                                   if not is_truncated_title(clean_title_display(g2[0][0]))), None)
-                        if alt:
-                            t = alt
-                    src = media_name(rep[2])
-                    lines.append(f"{t}({src})")
-        return "\n".join(lines)
-
     def render_digest(as_html):
         esc = tg_escape if as_html else (lambda s: s)
         head = (f"📋 <b>{esc(label)}</b> | " if as_html else f"📋 {label} | ") + \
@@ -917,6 +877,7 @@ def run_digest():
         lines = [head, "PLACEHOLDER"]
         shown_local = 0
         seen = set()
+        shown_titles = set()   # 최종 표시 제목 기준 중복 방지
         for g in GROUP_ORDER:
             arts = by_group.get(g, [])
             if not arts:
@@ -934,29 +895,43 @@ def run_digest():
                 best = min({"🔥": 0, "⚡": 1}.get(priority_mark(gs[0][0]), 2) for gs in clu)
                 return (best, -len(clu))
             clusters.sort(key=clu_rank)
-            shown_local += len(grouped)
-            sec_head = f"\n■ <b>{esc(g)}</b> ({len(grouped)}건)" if as_html else f"\n■ {g} ({len(grouped)}건)"
-            lines.append(sec_head)
+            sec_pos = len(lines)      # 섹션 헤더 자리를 잡아두고, 건수는 렌더 후 채운다
+            lines.append(None)
+            sec_count = 0
             for clu in clusters:
                 # 클러스터 내부: 확인시점(pub_dt) 순 정렬
                 clu.sort(key=lambda gs: gs[0][3])
-                multi = len(clu) > 1
-                for idx, (rep, sources) in enumerate(clu):
-                    t = clean_title_display(rep[0]); link = rep[1]
-                    src = media_name(rep[2]); pub = rep[3]
-                    extra = f" 외 {len(sources)-1}곳" if len(sources) > 1 else ""
+                for rep, sources in clu:
+                    t = clean_title_display(rep[0])
+                    if is_truncated_title(t):
+                        # 잘린 제목은 같은 주제 안의 온전한 제목으로 대체
+                        alt = next((clean_title_display(g2[0][0]) for g2 in clu
+                                    if not is_truncated_title(clean_title_display(g2[0][0]))), None)
+                        if alt:
+                            t = alt
+                    # 대체 결과 앞 줄과 완전히 같아졌으면(같은 기사의 전재) 한 줄만 남긴다
+                    tkey = re.sub(r"[\s\W]+", "", t)
+                    if tkey in shown_titles:
+                        continue
+                    shown_titles.add(tkey)
+                    shown_local += 1
+                    sec_count += 1
+                    src = short_media_name(media_name(rep[2]))
+                    link = rep[1]
                     mark = priority_mark(rep[0])
                     mark_prefix = f"{mark} " if mark else ""
-                    # 주제 묶음이면 첫 기사는 ▶, 나머지는 들여쓴 ┗
-                    if multi:
-                        bullet = "▶" if idx == 0 else "  ┗"
-                    else:
-                        bullet = "·"
-                    if as_html:
-                        lines.append(
-                            f'{mark_prefix}{bullet} [{pub[11:16]}] <a href="{esc(link)}">{esc(t)}</a> ({esc(src)}{extra})')
-                    else:
-                        lines.append(f"  {mark_prefix}{bullet} [{pub[11:16]}] {t} ({src}{extra})\n      {link}")
+                    # 제목은 일반 텍스트(복사하면 제목 줄만 깨끗하게 나옴).
+                    # 링크는 아랫줄에 별도로 두되, 화면에는 짧은 텍스트로만 보이게 앵커를 씌운다
+                    # (구글 RSS URL이 300자에 달해 그대로 노출하면 화면을 다 잡아먹기 때문).
+                    lines.append(f"{mark_prefix}{esc(t)}({esc(src)})")
+                    if link:
+                        lines.append(f'<a href="{esc(link)}">🔗 원문</a>' if as_html else link)
+            # 섹션 헤더 확정: 중복 제거 후 실제 표시된 건수를 사용
+            if sec_count == 0:
+                del lines[sec_pos]        # 전부 중복이라 빈 섹션이면 헤더도 제거
+            else:
+                lines[sec_pos] = (f"\n■ <b>{esc(g)}</b> ({sec_count}건)" if as_html
+                                  else f"\n■ {g} ({sec_count}건)")
         if len(rows) == 0:
             lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
         sep = "=" * (30 if as_html else 40)
@@ -972,13 +947,8 @@ def run_digest():
         f.write(plain_text)
 
     # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
+    # (본문 자체가 '제목(매체)' 보고양식이므로 별도 보고양식 메시지는 보내지 않음)
     notify(html_text, target="digest")
-
-    # 사내 보고양식 — 링크 없는 순수 텍스트로 별도 전송 (복사용)
-    report_text = render_digest_report()
-    if SEND_REPORT_FORMAT and report_text:
-        notify_plain(f"📄 [보고양식] {label} {start.strftime('%m/%d %H:%M')}~{end.strftime('%H:%M')}\n\n"
-                     + report_text, target="digest")
     print(f"저장: {fname}")
     conn.close()
 
