@@ -901,6 +901,7 @@ def run_digest():
             for clu in clusters:
                 # 클러스터 내부: 확인시점(pub_dt) 순 정렬
                 clu.sort(key=lambda gs: gs[0][3])
+                cluster_started = False
                 for rep, sources in clu:
                     t = clean_title_display(rep[0])
                     if is_truncated_title(t):
@@ -916,6 +917,12 @@ def run_digest():
                     shown_titles.add(tkey)
                     shown_local += 1
                     sec_count += 1
+                    # 같은 주제 묶음은 붙여서, 다른 주제 사이에는 빈 줄을 넣어 구분한다.
+                    # (제목 줄에 ▶/┗ 같은 기호를 붙이면 복사할 때 제목이 오염되므로
+                    #  기호 대신 여백으로 묶음을 표현)
+                    if sec_count > 1 and not cluster_started:
+                        lines.append("")
+                    cluster_started = True
                     src = short_media_name(media_name(rep[2]))
                     link = rep[1]
                     mark = priority_mark(rep[0])
