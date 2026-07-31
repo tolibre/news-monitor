@@ -163,13 +163,11 @@ CORE_MEDIA_DOMAINS = {
     # 방송·종편
     "kbs.co.kr", "imbc.com", "sbs.co.kr", "ytn.co.kr", "yonhapnewstv.co.kr",
     "jtbc.co.kr", "tvchosun.com", "ichannela.com", "mbn.co.kr",
-    # 경제지
-    "mk.co.kr", "hankyung.com", "sedaily.com", "mt.co.kr", "edaily.co.kr",
-    "asiae.co.kr", "heraldcorp.com", "fnnews.com",
-    # CBS
-    "nocutnews.co.kr",
-    # IT 핵심
-    "etnews.com", "zdnet.co.kr", "ddaily.co.kr", "dongascience.com",
+    # 경제지 (서울경제·이데일리·아시아경제는 제외 — check 알림량 축소, digest에는 계속 포함)
+    "mk.co.kr", "hankyung.com", "mt.co.kr", "heraldcorp.com", "fnnews.com",
+    # IT 핵심 (전자신문·지디넷·디지털데일리는 제외 — 위와 동일 이유)
+    # (현재 비어있음)
+    # CBS — 노컷뉴스는 제외 (check 알림량 축소, digest에는 계속 포함)
 }
 CORE_MEDIA_NAMES = {
     "연합뉴스", "뉴시스", "뉴스1",
@@ -177,10 +175,9 @@ CORE_MEDIA_NAMES = {
     "서울신문", "국민일보", "세계일보", "문화일보",
     "KBS", "KBS 뉴스", "MBC", "MBC 뉴스", "SBS", "SBS 뉴스", "YTN",
     "연합뉴스TV", "JTBC", "TV조선", "채널A", "MBN",
-    "매일경제", "한국경제", "서울경제", "머니투데이", "이데일리",
-    "아시아경제", "헤럴드경제", "파이낸셜뉴스",
-    "노컷뉴스", "CBS노컷뉴스",
-    "전자신문", "지디넷코리아", "ZDNet Korea", "디지털데일리", "동아사이언스",
+    # 서울경제·이데일리·아시아경제·전자신문·지디넷·디지털데일리·동아사이언스·노컷뉴스는
+    # check 알림량 축소를 위해 제외 (digest에는 계속 포함됨 — media_allowed()는 별도 유지)
+    "매일경제", "한국경제", "머니투데이", "헤럴드경제", "파이낸셜뉴스",
 }
 
 def short_media_name(name):
