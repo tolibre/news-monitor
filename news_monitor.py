@@ -319,16 +319,25 @@ def topic_tokens(title):
     for w in raw:
         if w in TOPIC_STOPWORDS:
             continue
-        # 한글 조사/어미 일부 제거(간단): 끝의 '은/는/이/가/을/를/의/에/도' 등
-        w2 = re.sub(r"(으로|에서|에게|까지|부터|이라|라며|라고|한다|했다|된다|됐다)$", "", w)
-        w2 = re.sub(r"(은|는|이|가|을|를|의|에|도|와|과|만|들)$", "", w2) if len(w) > 2 else w
+        # 한글 조사/어미 제거 — 겹조사('알뜰폰에도' 등)를 위해 더 없어질 때까지 반복.
+        # 한 번만 돌리면 '알뜰폰에도'가 '알뜰폰에'로 남아 '알뜰폰'과 다른 토큰이 돼
+        # 같은 사안이 서로 다른 주제로 쪼개진다.
+        w2 = w
+        prev = None
+        while prev != w2:
+            prev = w2
+            w2 = re.sub(r"(으로|에서|에게|까지|부터|이라|라며|라고|한다|했다|된다|됐다)$", "", w2)
+            if len(w2) > 2:
+                w2 = re.sub(r"(은|는|이|가|을|를|의|에|도|와|과|만|들)$", "", w2)
         if len(w2) >= 2 and w2 not in TOPIC_STOPWORDS:
             toks.add(w2)
     return toks
 
-def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.5):
+def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.3):
     """items를 제목 토큰 유사도로 주제별 묶음. 
     두 기사의 공통 토큰이 min_overlap개 이상이고, 작은 쪽 집합의 min_ratio 이상 겹치면 같은 주제.
+    min_ratio 기본값 0.3 — 0.5에서는 같은 사안(예: '알뜰폰 2.0' 27건)이 매체별 제목 차이만으로
+    14조각까지 쪼개졌음. 0.3으로 낮춰도 서로 다른 사안이 잘못 합쳐지는 사례는 확인되지 않음.
     반환: [[item, item, ...], ...] (묶음 리스트, 각 묶음은 원래 순서 유지)"""
     n = len(items)
     tokens = [topic_tokens(title_getter(it)) for it in items]
@@ -823,9 +832,12 @@ def run_digest():
     now = datetime.datetime.now(KST)
     today = now.date()
     is_saturday = now.weekday() == 5  # 월=0 ... 토=5, 일=6
-    if now.hour < 7:     # 06:00 실행 → 야간 다이제스트: 전일 23:00 ~ 금일 06:00
+    if now.hour < 7:     # 06:00 실행 → 야간 다이제스트: 전일 13:30 ~ 금일 06:00
+        # 전일 오후 digest(13:30) 이후 수집분을 모두 포함한다.
+        # 예전에는 '전일 23:00 ~'이라 13:30~23:00에 수집된 기사가 어느 digest에도
+        # 들어가지 않고 사라졌고, check가 06시부터 도는 탓에 야간 구간은 늘 비어 있었다.
         start = datetime.datetime.combine(today - datetime.timedelta(days=1),
-                 datetime.time(23, 0), KST)
+                 datetime.time(13, 30), KST)
         end   = datetime.datetime.combine(today, datetime.time(6, 0), KST)
         label = "야간 다이제스트"
         # 하루 1회(야간 다이제스트 시점)만 오래된 기사 정리 — 토요일 발송 스킵과 무관하게 계속 실행
