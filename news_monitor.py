@@ -983,8 +983,11 @@ def run_digest():
                                   else f"\n■ {g} ({sec_count}건)")
         if len(rows) == 0:
             lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
-        # 필터로 걸러낸 건수 표기 — 과필터 감시용
-        if photo_excluded or junk_excluded:
+        # 필터로 걸러낸 건수 + 실제 목록 표기 — 과필터 감시용.
+        # 목록을 여기 바로 싣는 이유: excluded 모드는 DB가 git으로 다음 실행까지
+        # 전달돼야 동작하는데, push가 조용히 실패하면 목록이 사라진다(실제로 겪음).
+        # digest 시점엔 이미 데이터가 손에 있으므로 왕복 없이 바로 붙인다.
+        if photo_rows or junk_rows:
             parts = []
             if photo_excluded:
                 parts.append(f"사진 {photo_excluded}건")
@@ -992,6 +995,14 @@ def run_digest():
                 parts.append(f"무의미제목 {junk_excluded}건")
             txt = "제외: " + ", ".join(parts)
             lines.append(f"\n<i>{esc(txt)}</i>" if as_html else f"\n({txt})")
+            for r, tag in [(r, "사진") for r in photo_rows] + [(r, "무의미") for r in junk_rows]:
+                ttl = clean_title_display(r[0])
+                src = short_media_name(media_name(r[2]))
+                if as_html:
+                    lines.append(f'<i>[{tag}] {esc(ttl)}({esc(src)})</i> '
+                                 f'<a href="{esc(r[1])}">🔗</a>')
+                else:
+                    lines.append(f"[{tag}] {ttl}({src})\n{r[1]}")
         sep = "=" * (30 if as_html else 40)
         lines[1] = f"주요 이슈 {shown_local}건 (원문 {len(rows)}건)\n" + sep
         return "\n".join(lines)
@@ -1021,11 +1032,21 @@ def run_excluded(days=1):
     cutoff = (now - datetime.timedelta(days=days)).isoformat()
     rows = conn.execute("""SELECT title,link,source,reason,run_dt FROM excluded_log
                            WHERE run_dt>=? ORDER BY run_dt DESC""", (cutoff,)).fetchall()
+    # 진단용: 테이블 전체 상태. "제외된 게 없다"와 "DB가 전달 안 됐다"를 구분하기 위함.
+    # 이 둘을 구분 못 해서 실제로 오진한 적 있음(digest는 제외 1건이라 했는데 조회는 0건).
+    total = conn.execute("SELECT COUNT(*) FROM excluded_log").fetchone()[0]
+    last = conn.execute("SELECT MAX(run_dt) FROM excluded_log").fetchone()[0]
+    n_art = conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
     conn.close()
 
+    diag = (f"\n\n[진단] 로그 총 {total}건 / 마지막 기록 {last or '없음'} / "
+            f"articles {n_art}건\n"
+            f"digest는 제외를 알렸는데 여기가 0건이면, DB가 git으로 전달되지 않은 것"
+            f"(Actions의 DB 커밋 단계 push 실패)입니다.")
+
     if not rows:
-        notify(f"최근 {days}일간 제외된 기사 없음", target="digest", parse_mode=None)
-        print("제외 기사 없음")
+        notify(f"최근 {days}일간 제외된 기사 없음{diag}", target="digest", parse_mode=None)
+        print(f"제외 기사 없음{diag}")
         return
 
     reason_label = {"photo": "사진", "junk": "무의미제목"}
@@ -1033,7 +1054,7 @@ def run_excluded(days=1):
     for title, link, source, reason, run_dt in rows:
         lines.append(f"[{reason_label.get(reason, reason)}] {title} ({media_name(source)})")
         lines.append(f"  {link}")
-    text = "\n".join(lines)
+    text = "\n".join(lines) + diag
     notify(text, target="digest", parse_mode=None)  # 평문 — 링크 그대로 노출해도 무방(내부 확인용)
     # notify()가 토큰 없을 때 이미 print()로 폴백하므로 여기서 별도 출력 안 함
 
