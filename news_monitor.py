@@ -257,6 +257,16 @@ def db():
     conn.execute("""CREATE TABLE IF NOT EXISTS api_calls(
         day TEXT PRIMARY KEY, cnt INTEGER
     )""")
+    # digest에서 strict 필터(사진/무의미제목)로 제외된 기사 기록.
+    # "(제외: 사진 N건)" 숫자만으로는 실제로 뭘 걸렀는지 알 수 없어서,
+    # 눈으로 확인 가능하게 별도 로그를 남긴다. news_monitor.db 자체가
+    # 매 실행 git 커밋되므로 이 테이블도 자동으로 저장소에 남는다.
+    conn.execute("""CREATE TABLE IF NOT EXISTS excluded_log(
+        id TEXT PRIMARY KEY,          -- article_id (같은 기사 중복 기록 방지)
+        title TEXT, link TEXT, source TEXT,
+        reason TEXT,                  -- photo / junk
+        run_dt TEXT                   -- 이 기사가 제외된 digest 실행 시각
+    )""")
     return conn
 
 def call_budget_ok(conn):
@@ -398,7 +408,7 @@ PHOTO_TAGS = ["포토뉴스", "포토", "사진", "화보", "그래픽", "인포
 # 사진 캡션 특유의 관형형 서술어 — "발언하는 OOO", "OOO 만난 OOO" 처럼
 # 장면을 묘사하며 인물/사물을 수식하는 형태.
 CAPTION_VERBS = (
-    r"(하는|되는|시키는|나누는|나선|앉은|선|만난|듣는|잡은|맞잡은|악수하는|"
+    r"(하는|되는|시키는|나누는|나선|앉은|만난|듣는|잡은|맞잡은|악수하는|"
     r"참석하는|입장하는|퇴장하는|주재하는|발언하는|모두발언하는|answering|"
     r"인사하는|기념촬영하는|촬영하는|바라보는|웃는|미소짓는|밝히는|답하는|"
     r"질의하는|경청하는|생각에|자리한|기다리는|이동하는|들어서는|나서는|"
@@ -452,7 +462,7 @@ def is_junk_title(title):
             return True
     return False
 
-def is_caption_like(title):
+def is_caption_like(title, strict=False):
     """제목이 '기사 제목'이 아니라 '사진 캡션'처럼 생겼는지 판별.
     아래 3가지 신호 중 2개 이상이면 캡션으로 봄:
       (1) 관형형 서술어로 인물/사물을 수식  (발언하는 OOO, OOO 만난 OOO)
@@ -472,20 +482,28 @@ def is_caption_like(title):
     if re.search(r"[\"'“”‘’]", t) and re.search(r"[…]|\.\.\.", t):
         return False
 
-    score = 0
-    # (1) 캡션형 관형 서술어 또는 행사명 종결
-    if re.search(CAPTION_VERBS + r"(\s|$)", t) or re.search(CAPTION_TAIL, t):
-        score += 1
+    # (1) 캡션형 관형 서술어 또는 행사명 종결 — **필수 조건**.
+    # 이전에는 (2)+(3)만으로도 캡션 판정이 성립했는데, (2)와 (3)은 모두 '부정형'이라
+    # 열린 집합이다: ARTICLE_ENDINGS(191개)에 없는 종결어를 쓰고 부호를 안 쓴
+    # 평범한 정책기사가 전부 걸린다. 한국어 종결형은 목록으로 다 담을 수 없으므로
+    # 이 경로는 데이터와 무관하게 계속 오탐을 낳는다.
+    # (1)은 화이트리스트(닫힌 집합)라 오탐을 만들지 않으므로 이것을 관문으로 세운다.
+    s1 = bool(re.search(CAPTION_VERBS + r"(\s|$)", t)) or bool(re.search(CAPTION_TAIL, t))
+    if not s1:
+        return False
+
     # (2) 기사 제목다운 문장부호 부재
-    if not re.search(r"[\"'“”‘’…·%]|\.\.\.", t):
-        score += 1
+    s2 = not re.search(r"[\"'“”‘’…·%]|\.\.\.", t)
     # (3) 서술형 종결어미 부재
-    if not re.search(ARTICLE_ENDINGS, t):
-        score += 1
+    s3 = not re.search(ARTICLE_ENDINGS, t)
 
-    return score >= 2
+    # strict=True(digest용): 세 신호가 모두 켜져야 캡션으로 확정.
+    #   digest의 목표는 '빠뜨리지 않는 것'이므로 확신이 있을 때만 버린다.
+    # strict=False(check용): (1)에 더해 (2)나 (3) 중 하나면 캡션.
+    #   check의 목표는 '선별'이므로 노이즈를 좀 더 적극적으로 걷어낸다.
+    return (s2 and s3) if strict else (s2 or s3)
 
-def is_photo_article(title, link=""):
+def is_photo_article(title, link="", strict=False):
     """사진/그래픽 기사 판별. 세 갈래로 확인:
       A. [포토]/[사진]/[헤럴드pic] 등 대괄호 태그
       B. URL 패턴 (뉴스1 /photos/, 연합 PYH, 더팩트 photomovie 등)
@@ -509,8 +527,8 @@ def is_photo_article(title, link=""):
     if re.search(r"newsis\.com/view/NISI", l, re.I): # 뉴시스 사진 ID(NISI) — 기사는 NISX
         return True
 
-    # C. 캡션형 제목
-    if is_caption_like(t):
+    # C. 캡션형 제목 (A/B는 태그·URL 기반 고신뢰 신호라 strict와 무관하게 적용)
+    if is_caption_like(t, strict=strict):
         return True
 
     return False
@@ -866,8 +884,23 @@ def run_digest():
     rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
-    rows = [r for r in rows if not is_photo_article(r[0], r[1])]  # 사진기사 제외
-    rows = [r for r in rows if not is_junk_title(r[0])]           # 무의미 제목 제외
+    # digest는 "빠뜨리지 않는 것"이 목표 → strict=True (확신할 때만 제외)
+    # 제외된 기사는 실체를 excluded_log 테이블에 남긴다. "(제외: N건)" 숫자만으로는
+    # 뭘 걸렀는지 알 수 없어 필터가 실제로 맞는 판단을 했는지 검증할 방법이 없기 때문.
+    # news_monitor.db 자체가 매 실행 git 커밋되므로 이 로그도 자동으로 저장소에 남는다.
+    photo_rows = [r for r in rows if is_photo_article(r[0], r[1], strict=True)]
+    rows = [r for r in rows if r not in photo_rows]
+    junk_rows = [r for r in rows if is_junk_title(r[0])]
+    rows = [r for r in rows if r not in junk_rows]
+    photo_excluded, junk_excluded = len(photo_rows), len(junk_rows)
+
+    if photo_rows or junk_rows:
+        for r, reason in [(r, "photo") for r in photo_rows] + [(r, "junk") for r in junk_rows]:
+            title, link, source = r[0], r[1], r[2]
+            aid = article_id(link, title)
+            conn.execute("""INSERT OR REPLACE INTO excluded_log VALUES(?,?,?,?,?,?)""",
+                         (aid, title, link, source, reason, now.isoformat()))
+        conn.commit()
 
     # 기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)
     by_group = {g: [] for g in GROUP_ORDER}
@@ -950,6 +983,15 @@ def run_digest():
                                   else f"\n■ {g} ({sec_count}건)")
         if len(rows) == 0:
             lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
+        # 필터로 걸러낸 건수 표기 — 과필터 감시용
+        if photo_excluded or junk_excluded:
+            parts = []
+            if photo_excluded:
+                parts.append(f"사진 {photo_excluded}건")
+            if junk_excluded:
+                parts.append(f"무의미제목 {junk_excluded}건")
+            txt = "제외: " + ", ".join(parts)
+            lines.append(f"\n<i>{esc(txt)}</i>" if as_html else f"\n({txt})")
         sep = "=" * (30 if as_html else 40)
         lines[1] = f"주요 이슈 {shown_local}건 (원문 {len(rows)}건)\n" + sep
         return "\n".join(lines)
@@ -968,6 +1010,33 @@ def run_digest():
     print(f"저장: {fname}")
     conn.close()
 
+# ==================== excluded 모드 (제외 기사 조회) ====================
+def run_excluded(days=1):
+    """최근 N일간 digest strict 필터(사진/무의미제목)로 제외된 기사 목록을 텔레그램(digest 봇)으로 전송.
+    "(제외: 사진 N건)" 숫자 뒤에 실제로 뭐가 걸렸는지 확인하고 싶을 때 수동 실행.
+    cron-job.org에 별도 잡을 안 만들었다면, GitHub Actions 화면에서
+    workflow_dispatch의 mode 입력에 'excluded'를 넣어 수동 실행하면 된다."""
+    conn = db()
+    now = datetime.datetime.now(KST)
+    cutoff = (now - datetime.timedelta(days=days)).isoformat()
+    rows = conn.execute("""SELECT title,link,source,reason,run_dt FROM excluded_log
+                           WHERE run_dt>=? ORDER BY run_dt DESC""", (cutoff,)).fetchall()
+    conn.close()
+
+    if not rows:
+        notify(f"최근 {days}일간 제외된 기사 없음", target="digest", parse_mode=None)
+        print("제외 기사 없음")
+        return
+
+    reason_label = {"photo": "사진", "junk": "무의미제목"}
+    lines = [f"🔍 최근 {days}일 제외 기사 {len(rows)}건 (사진/무의미제목 strict 필터)", "=" * 30]
+    for title, link, source, reason, run_dt in rows:
+        lines.append(f"[{reason_label.get(reason, reason)}] {title} ({media_name(source)})")
+        lines.append(f"  {link}")
+    text = "\n".join(lines)
+    notify(text, target="digest", parse_mode=None)  # 평문 — 링크 그대로 노출해도 무방(내부 확인용)
+    # notify()가 토큰 없을 때 이미 print()로 폴백하므로 여기서 별도 출력 안 함
+
 # ==================== main ====================
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "check"
@@ -975,5 +1044,8 @@ if __name__ == "__main__":
         run_check()
     elif mode == "digest":
         run_digest()
+    elif mode == "excluded":
+        days = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+        run_excluded(days)
     else:
-        print("usage: python news_monitor.py [check|digest]")
+        print("usage: python news_monitor.py [check|digest|excluded [days]]")
