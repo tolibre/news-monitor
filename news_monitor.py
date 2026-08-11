@@ -21,9 +21,16 @@ import xml.etree.ElementTree as ET
 import json
 
 # ==================== 설정 ====================
+# 표시 순서는 이 리스트 순서를 그대로 따른다.
+# GROUP_ORDER 생성, check의 display_groups(), digest의 rep_kw 선정이 모두
+# 이 순서를 참조하므로 여기만 바꾸면 check/digest 양쪽이 함께 바뀐다.
+# (2026-08-11: 공정위 → 방미통위 → 과기정통부 → 우주항공청 순으로 변경)
 KEYWORDS = [
-    "과학기술정보통신부", "과기정통부", "과기부", "우주항공청",
-    "공정거래위원회", "공정위", "방송미디어통신위원회", "방미통위",
+    "공정거래위원회", "공정위",
+    "방송미디어통신위원회", "방미통위",
+    "과학기술정보통신부", "과기정통부", "과기부",
+    "우주항공청",
+    "CBS",
 ]
 
 # 키워드가 매칭되어도, 제목에 이 표현이 있으면 오탐으로 보고 완전히 제외.
@@ -32,6 +39,41 @@ EXCLUDE_TERMS = [
     "대한체육회", "스포츠공정위원회",
 ]
 
+# ==================== CBS 키워드 전용 관문 ====================
+# CBS는 다른 키워드와 성격이 다르다. 우리가 원하는 건 'CBS라는 회사에 관한 기사'인데,
+# CBS는 언론사라서 검색에는 세 종류가 뒤섞여 들어온다:
+#   (a) CBS 회사 사안         ← 원하는 것
+#   (b) CBS가 생산한 기사      ← 구글 RSS 제목 꼬리표 ' - CBS노컷뉴스'
+#   (c) CBS에서 발화된 걸 인용  ← "CBS 라디오 인터뷰에서", "김현정의 뉴스쇼" — 압도적 다수
+#   (d) 미국 CBS 방송 인용
+#
+# 설계: 부정 필터("이런 건 빼자")로 접근하면 캡션 필터 때와 같은 실패를 반복한다.
+# 한국어 인용 표현은 열린 집합이라 목록으로 다 담을 수 없고, 계속 샌다.
+# 그래서 **긍정 관문**을 세운다 — 회사 사안 어휘(닫힌 집합)가 제목에 있을 때만 통과.
+# 관문이 좁아 (a)도 일부 놓치지만, 사용자 지침대로 '놓침 > 넘침'을 선택한 것.
+CBS_SUBJECT_TERMS = [
+    "사장", "이사회", "노조", "언론노조", "파업", "임단협", "징계", "해고",
+    "재허가", "재승인", "방송평가", "방송법", "과징금", "제재",
+    "지분", "매각", "인수", "적자", "흑자", "매출", "임금",
+    "창사", "사옥", "압수수색", "고발", "소송", "선임", "사퇴", "채용",
+]
+
+# 위 관문을 통과해도 이게 있으면 (b)(c)(d)로 보고 제외.
+# 관문과 달리 이쪽은 열린 집합이라 완벽할 수 없다 — 어디까지나 보조 장치.
+CBS_CONTEXT_EXCLUDE = [
+    "라디오", "표준FM", "음악FM", "뉴스쇼", "김현정", "박재홍", "한판승부",
+    "시사자키", "출연", "인터뷰", "노컷", "미국", "CBS방송", "CBS뉴스",
+    "CBS News", "인터뷰서",
+]
+
+# 키워드당 네이버 수집 페이지 상한(기본 MAX_PAGES_PER_KEYWORD).
+# CBS는 관문을 못 넘는 후보가 대부분이라 DB에 남지 않고, 그래서 fetch_naver의
+# '이 페이지 전부 기수집분' 조기중단이 영영 걸리지 않는다. 매 실행 5페이지를
+# 다 긁는 걸 막기 위해 1페이지(최신 100건)로 제한. 30분마다 도니 충분하다.
+KEYWORD_MAX_PAGES = {
+    "CBS": 1,
+}
+
 # 같은 기관을 가리키는 키워드를 하나의 다이제스트 섹션으로 통합.
 # (키워드 → 대표 그룹명). 여기 없는 키워드는 그 자체가 그룹명이 됨.
 KEYWORD_GROUPS = {
@@ -39,6 +81,7 @@ KEYWORD_GROUPS = {
     "공정거래위원회": "공정위", "공정위": "공정위",
     "방송미디어통신위원회": "방미통위", "방미통위": "방미통위",
     "우주항공청": "우주항공청",
+    "CBS": "CBS",
 }
 # 다이제스트 섹션 표시 순서 (그룹명 기준, 중복 제거)
 GROUP_ORDER = []
@@ -573,10 +616,45 @@ def is_excluded(title):
     t = title or ""
     return any(term in t for term in EXCLUDE_TERMS)
 
+def cbs_subject(title):
+    """제목이 'CBS라는 회사를 다룬 기사'인지 판별 (CBS 키워드 전용 관문).
+    CBS 언급 + 회사 사안 어휘 1개 이상 + 인용/출처 표지 없음 → True."""
+    t = clean(title or "")
+    t = t.rsplit(" - ", 1)[0].strip()          # 구글 RSS 매체 꼬리표 제거
+    # 영문에 둘러싸인 CBS(CBSN 등)는 제외. 'CBS노컷뉴스'는 한글이 붙어 여기서 통과되지만
+    # 아래 CBS_CONTEXT_EXCLUDE의 '노컷'이 잡는다.
+    if not re.search(r"(?<![A-Za-z])CBS(?![A-Za-z])", t):
+        return False
+    if any(x in t for x in CBS_CONTEXT_EXCLUDE):
+        return False
+    return any(x in t for x in CBS_SUBJECT_TERMS)
+
+# 키워드 → 추가 판정 함수. 여기 등록된 키워드는 제목이 함수를 통과해야만 매칭 인정.
+# 전역 EXCLUDE_TERMS와 달리 해당 키워드에만 적용되므로, 다른 출입처 기사에는
+# 영향을 주지 않는다. (예: '라디오'를 전역 제외어로 넣으면 과기정통부 주파수
+# 기사까지 통째로 날아간다 — 그래서 키워드별로 분리했다.)
+KEYWORD_GATES = {
+    "CBS": cbs_subject,
+}
+
 def matched_keywords(title):
+    """제목에서 매칭된 키워드 목록. 게이트가 있는 키워드는 게이트 통과 시에만 인정.
+    구글 RSS의 ' - 매체명' 꼬리표는 떼고 본다 — 안 그러면 CBS노컷뉴스가 만든 기사가
+    전부 'CBS' 키워드에 걸린다. (기존 4개 출입처 키워드는 매체명에 포함될 일이 없어
+    이 변경의 영향을 받지 않는다.)"""
     if is_excluded(title):
         return []
-    return [k for k in KEYWORDS if k in title]
+    t = clean(title or "")
+    t = t.rsplit(" - ", 1)[0].strip()
+    out = []
+    for k in KEYWORDS:
+        if k not in t:
+            continue
+        gate = KEYWORD_GATES.get(k)
+        if gate and not gate(title):
+            continue
+        out.append(k)
+    return out
 
 # ==================== 수집: 네이버 ====================
 def fetch_naver(conn, keyword, known_ids):
@@ -584,7 +662,8 @@ def fetch_naver(conn, keyword, known_ids):
     if not (NAVER_CLIENT_ID and NAVER_CLIENT_SECRET):
         return []
     new_items = []
-    for page in range(MAX_PAGES_PER_KEYWORD):
+    max_pages = KEYWORD_MAX_PAGES.get(keyword, MAX_PAGES_PER_KEYWORD)
+    for page in range(max_pages):
         if not call_budget_ok(conn):
             print("[warn] 일일 호출 안전장치 도달 — 네이버 수집 중단")
             break
@@ -708,6 +787,8 @@ def run_check():
     now = datetime.datetime.now(KST)
     known = set(r[0] for r in conn.execute("SELECT id FROM articles"))
     collected = {}  # aid -> item(+keywords set)
+    # 게이트 키워드(CBS) 관측용 카운터. 관문이 너무 좁은지 로그로 감시한다.
+    cbs_candidates = cbs_passed = 0
 
     for kw in KEYWORDS:
         for it in fetch_naver(conn, kw, set(known) - set(collected)) + \
@@ -715,16 +796,33 @@ def run_check():
             aid = it["id"]
             if is_excluded(it["title"]):
                 continue  # 오탐 제외어 포함 시 아예 수집하지 않음
+            # 게이트가 걸린 키워드(CBS)는 제목이 관문을 통과할 때만 인정한다.
+            # 네이버 검색은 본문까지 훑기 때문에 제목에 CBS가 없는 기사도 잔뜩 돌려주고,
+            # 아래 폴백(or {kw})이 그걸 전부 CBS 섹션으로 밀어넣어 버린다.
+            gate = KEYWORD_GATES.get(kw)
+            gate_ok = True
+            if gate:
+                cbs_candidates += 1
+                gate_ok = gate(it["title"])
+                if gate_ok:
+                    cbs_passed += 1
             if aid in known and aid not in collected:
                 continue
             if aid in collected:
-                collected[aid]["kws"].add(kw)
+                if gate_ok:
+                    collected[aid]["kws"].add(kw)
                 continue
-            kws = set(matched_keywords(it["title"])) or {kw}
+            kws = set(matched_keywords(it["title"]))
+            if not kws:
+                if gate:
+                    continue  # 게이트 키워드는 폴백 금지 — 관문을 못 넘으면 수집 안 함
+                kws = {kw}
             it["kws"] = kws
             collected[aid] = it
 
     new_rows = []
+    if cbs_candidates:
+        print(f"[CBS] 검색 결과 {cbs_candidates}건 중 관문 통과 {cbs_passed}건")
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     for aid, it in collected.items():
         if aid in known:
