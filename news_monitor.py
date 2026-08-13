@@ -435,6 +435,46 @@ def is_truncated_title(title):
     t = clean_title_display(title or "").strip()
     return t.endswith("...")
 
+# ==================== 중요도 점수 ====================
+# 출입처 섹션 구조는 그대로 두고, **섹션 안에서** 클러스터(주제 묶음)를 중요도 순으로 정렬한다.
+# 새로 수집하는 데이터 없이 이미 가진 신호만 조합하므로 회귀 위험이 작다.
+#
+# 신호 3가지:
+#   - 단독/속보 태그        : 기자 판단이 이미 들어간 가장 강한 신호
+#   - 전재 매체 수(확산도)   : 여러 매체가 받아쓴 사안 = 파급력이 큰 사안
+#   - 핵심매체 보도 여부     : 통신사·종합일간지·주요 방송이 다뤘는지
+#
+# 가중치는 여기서 조정한다. 값을 바꾸면 check/digest 양쪽에 함께 반영된다.
+# 주의: 규칙 기반 점수라 오정렬은 반드시 생긴다. 조용히 중요한 단독 기사가
+# 대형 전재 사안에 밀릴 수 있다. 단독을 항상 최상단에 두려면 EXCLUSIVE를 크게(예: 99) 잡으면
+# 사실상 사전식 정렬이 된다.
+# 2026-08-13: 사용자 결정 — 단독을 절대 우선으로. exclusive/breaking을 크게 잡아
+# 사실상 사전식 정렬로 만든다(단독 > 속보 > 나머지, 그 안에서 확산도·핵심매체 순).
+IMPORTANCE_WEIGHTS = {
+    "exclusive":  99.0,  # [단독] — 항상 섹션 최상단
+    "breaking":   50.0,  # [속보] — 단독 다음
+    "per_source": 0.5,   # 전재 매체 1곳당
+    "max_spread": 3.0,   # 전재 점수 상한 (한 사안이 매체 수만으로 독주하지 않게)
+    "core_media": 1.0,   # 핵심매체가 보도했으면 가산
+}
+
+def importance_score(titles, n_sources=1, sources=()):
+    """클러스터의 중요도 점수. 높을수록 위로.
+    titles  : 클러스터에 속한 기사 제목들 (단독/속보 판정용)
+    n_sources: 이 사안을 보도한 매체 수 (전재 확산도)
+    sources : 매체 목록 (핵심매체 포함 여부 판정용)"""
+    W = IMPORTANCE_WEIGHTS
+    score = 0.0
+    marks = {priority_mark(t) for t in titles}
+    if "🔥" in marks:
+        score += W["exclusive"]
+    elif "⚡" in marks:
+        score += W["breaking"]
+    score += min((max(n_sources, 1) - 1) * W["per_source"], W["max_spread"])
+    if any(core_media(s) for s in sources):
+        score += W["core_media"]
+    return score
+
 def priority_mark(title):
     """[단독]/[속보] 기사에 강조 이모지 부여. 단독이 속보보다 우선.
     괄호로 감싼 태그 형태([단독],〈단독〉,【단독】,(단독) 등)만 인정 — '단독주택' 같은 오탐 방지."""
@@ -616,18 +656,22 @@ def is_excluded(title):
     t = title or ""
     return any(term in t for term in EXCLUDE_TERMS)
 
-def cbs_subject(title):
-    """제목이 'CBS라는 회사를 다룬 기사'인지 판별 (CBS 키워드 전용 관문).
-    CBS 언급 + 회사 사안 어휘 1개 이상 + 인용/출처 표지 없음 → True."""
+def cbs_gate_reason(title):
+    """cbs_subject의 판정 근거를 단계별로 반환 — 관문 어디서 막혔는지 계측용.
+    반환: 'no_cbs' | 'context' | 'no_subject' | 'pass'"""
     t = clean(title or "")
-    t = t.rsplit(" - ", 1)[0].strip()          # 구글 RSS 매체 꼬리표 제거
-    # 영문에 둘러싸인 CBS(CBSN 등)는 제외. 'CBS노컷뉴스'는 한글이 붙어 여기서 통과되지만
-    # 아래 CBS_CONTEXT_EXCLUDE의 '노컷'이 잡는다.
+    t = t.rsplit(" - ", 1)[0].strip()
     if not re.search(r"(?<![A-Za-z])CBS(?![A-Za-z])", t):
-        return False
+        return "no_cbs"          # 제목에 CBS 없음 (네이버는 본문까지 검색하므로 대다수가 여기)
     if any(x in t for x in CBS_CONTEXT_EXCLUDE):
-        return False
-    return any(x in t for x in CBS_SUBJECT_TERMS)
+        return "context"         # 인용/출처/미국 CBS 표지에 걸림
+    if not any(x in t for x in CBS_SUBJECT_TERMS):
+        return "no_subject"      # 회사 사안 어휘 없음 → 관문 어휘가 좁다는 신호
+    return "pass"
+
+def cbs_subject(title):
+    """제목이 'CBS라는 회사를 다룬 기사'인지 판별 (CBS 키워드 전용 관문)."""
+    return cbs_gate_reason(title) == "pass"
 
 # 키워드 → 추가 판정 함수. 여기 등록된 키워드는 제목이 함수를 통과해야만 매칭 인정.
 # 전역 EXCLUDE_TERMS와 달리 해당 키워드에만 적용되므로, 다른 출입처 기사에는
@@ -789,6 +833,8 @@ def run_check():
     collected = {}  # aid -> item(+keywords set)
     # 게이트 키워드(CBS) 관측용 카운터. 관문이 너무 좁은지 로그로 감시한다.
     cbs_candidates = cbs_passed = 0
+    cbs_stage = {}      # 관문 단계별 탈락 집계
+    cbs_samples = []    # 제목에 CBS가 있었는데 탈락한 것들 (관문 조정용 표본)
 
     for kw in KEYWORDS:
         for it in fetch_naver(conn, kw, set(known) - set(collected)) + \
@@ -803,9 +849,15 @@ def run_check():
             gate_ok = True
             if gate:
                 cbs_candidates += 1
-                gate_ok = gate(it["title"])
+                reason = cbs_gate_reason(it["title"])
+                cbs_stage[reason] = cbs_stage.get(reason, 0) + 1
+                gate_ok = (reason == "pass")
                 if gate_ok:
                     cbs_passed += 1
+                elif reason in ("context", "no_subject"):
+                    # 제목에 CBS가 있는데도 걸러진 것 — 관문 조정 판단에 필요한 표본.
+                    # no_cbs(본문만 매칭)는 양이 많고 정보가치가 없어 남기지 않는다.
+                    cbs_samples.append(f"[{reason}] {it['title'][:60]}")
             if aid in known and aid not in collected:
                 continue
             if aid in collected:
@@ -822,7 +874,12 @@ def run_check():
 
     new_rows = []
     if cbs_candidates:
-        print(f"[CBS] 검색 결과 {cbs_candidates}건 중 관문 통과 {cbs_passed}건")
+        st = cbs_stage
+        print(f"[CBS] 검색 {cbs_candidates}건 → 제목에CBS없음 {st.get('no_cbs',0)} / "
+              f"인용·출처차단 {st.get('context',0)} / 주제어없음 {st.get('no_subject',0)} / "
+              f"통과 {cbs_passed}건")
+        for s in cbs_samples[:15]:
+            print(f"  [CBS탈락] {s}")
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     for aid, it in collected.items():
         if aid in known:
@@ -892,8 +949,17 @@ def run_check():
                     continue
                 clusters = cluster_by_topic(arts, lambda it: it["title"])
                 def clu_rank(clu):
-                    best = min({"🔥": 0, "⚡": 1}.get(priority_mark(a["title"]), 2) for a in clu)
-                    return (best, -len(clu))
+                    # 섹션 안에서 중요도 순 정렬. 확산도는 이번 배치 크기가 아니라
+                    # pickup_count(최근 24시간 같은 제목 그룹의 매체 수)를 쓴다 —
+                    # 이번 실행에 1건만 새로 들어왔어도 이미 널리 퍼진 사안일 수 있기 때문.
+                    srcs = set()
+                    for a in clu:
+                        srcs |= pickup_count.get(group_key(a["title"]), set())
+                        srcs.add(a["source"])
+                    sc = importance_score([a["title"] for a in clu],
+                                          n_sources=len(srcs), sources=srcs)
+                    # 점수 동률이면 먼저 보도된 것(원 보도에 가까움) 우선
+                    return (-sc, min(a["pub_dt"] for a in clu))
                 clusters.sort(key=clu_rank)
                 body.append(f"\n■ <b>{esc(g)}</b>" if as_html else f"\n■ {g}")
                 for clu in clusters:
@@ -1030,10 +1096,15 @@ def run_digest():
                 continue
             # 주제 클러스터링: grouped 항목들을 대표 제목 기준으로 묶음
             clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
-            # 클러스터 정렬: 단독/속보 포함 클러스터 우선, 그다음 큰 클러스터 우선
+            # 클러스터 정렬: 섹션 안에서 중요도 순 (단독·속보 > 전재 확산 > 핵심매체)
             def clu_rank(clu):
-                best = min({"🔥": 0, "⚡": 1}.get(priority_mark(gs[0][0]), 2) for gs in clu)
-                return (best, -len(clu))
+                titles = [gs[0][0] for gs in clu]
+                srcs = set()
+                for rep, sources in clu:
+                    srcs |= set(sources)
+                sc = importance_score(titles, n_sources=len(srcs), sources=srcs)
+                # 점수 동률이면 먼저 보도된 것 우선
+                return (-sc, min(gs[0][3] for gs in clu))
             clusters.sort(key=clu_rank)
             sec_pos = len(lines)      # 섹션 헤더 자리를 잡아두고, 건수는 렌더 후 채운다
             lines.append(None)
