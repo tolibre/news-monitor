@@ -20,18 +20,81 @@ import sys, os, re, html, sqlite3, hashlib, datetime, urllib.parse, urllib.reque
 import xml.etree.ElementTree as ET
 import json
 
+# 임포트 시점에 duty_active()가 사용하므로 최상단에 둔다.
+KST = datetime.timezone(datetime.timedelta(hours=9))
+
 # ==================== 설정 ====================
+# ==================== 당직 모드 ====================
+# 휴일 당직 때만 추가로 볼 출입처. 아래 DUTY_DATES에 날짜를 넣으면 그날만 활성화되고
+# 다음 날 자동으로 원복된다. 끄는 걸 잊어도 문제가 생기지 않게 날짜 기준으로 만들었다.
+# (환경변수 DUTY_MODE=1로도 강제 활성화 가능 — 급할 때 workflow_dispatch에서 주입)
+DUTY_DATES = {
+    "2026-08-17",   # 광복절 대체공휴일 당직
+}
+
+DUTY_KEYWORDS = [
+    "재정경제부", "재경부",
+    "국가데이터처", "데이터처",
+    "기획예산처", "예산처",
+    "국토교통부", "국토부",
+    "산업통상부", "산업부",
+    "중소벤처기업부", "중기부",
+    "개인정보보호위원회", "개인정보위",
+    "농림축산식품부", "농식품부",
+]
+
+DUTY_KEYWORD_GROUPS = {
+    "재정경제부": "재경부", "재경부": "재경부",
+    "국가데이터처": "국가데이터처", "데이터처": "국가데이터처",
+    "기획예산처": "기획예산처", "예산처": "기획예산처",
+    "국토교통부": "국토부", "국토부": "국토부",
+    "산업통상부": "산업부", "산업부": "산업부",
+    "중소벤처기업부": "중기부", "중기부": "중기부",
+    "개인정보보호위원회": "개인정보위", "개인정보위": "개인정보위",
+    "농림축산식품부": "농식품부", "농식품부": "농식품부",
+}
+
+# 짧은 약칭이 다른 단어의 일부로 걸리는 오탐 방지.
+# 해당 표현을 제목에서 지운 뒤에도 키워드가 남아야 진짜 매칭으로 인정한다.
+# ('데이터처리'는 매우 흔해서 이게 없으면 국가데이터처 섹션이 무관한 기사로 뒤덮인다)
+KEYWORD_ANTIPATTERNS = {
+    "산업부":   [r"산업부문", r"산업부흥", r"산업부산물", r"산업부지", r"산업부총리"],
+    "예산처":   [r"예산처리", r"예산처분"],
+    "데이터처": [r"데이터처리"],
+    "국토부":   [r"국토부지"],
+    "재경부":   [],
+    "중기부":   [],
+    "농식품부": [],
+    "개인정보위": [],
+}
+
+def strip_antipatterns(text, kw):
+    """kw의 오탐 표현을 제거한 문자열 반환."""
+    t = text
+    for pat in KEYWORD_ANTIPATTERNS.get(kw, []):
+        t = re.sub(pat, "", t)
+    return t
+
+def duty_active():
+    """오늘이 당직일인지. 날짜는 KST 기준."""
+    if os.environ.get("DUTY_MODE", "").strip() in ("1", "true", "True", "yes"):
+        return True
+    return datetime.datetime.now(KST).strftime("%Y-%m-%d") in DUTY_DATES
+
 # 표시 순서는 이 리스트 순서를 그대로 따른다.
 # GROUP_ORDER 생성, check의 display_groups(), digest의 rep_kw 선정이 모두
 # 이 순서를 참조하므로 여기만 바꾸면 check/digest 양쪽이 함께 바뀐다.
 # (2026-08-11: 공정위 → 방미통위 → 과기정통부 → 우주항공청 순으로 변경)
-KEYWORDS = [
+BASE_KEYWORDS = [
     "공정거래위원회", "공정위",
     "방송미디어통신위원회", "방미통위",
     "과학기술정보통신부", "과기정통부", "과기부",
     "우주항공청",
     "CBS",
 ]
+
+# 당직일에는 추가 출입처가 기존 출입처 **뒤에** 붙는다 (평소 출입처가 항상 상단).
+KEYWORDS = BASE_KEYWORDS + (DUTY_KEYWORDS if duty_active() else [])
 
 # 키워드가 매칭되어도, 제목에 이 표현이 있으면 오탐으로 보고 완전히 제외.
 # 예: "공정위"가 "스포츠공정위원회"에도 포함되어 오매칭되는 문제 방지.
@@ -83,12 +146,27 @@ KEYWORD_GROUPS = {
     "우주항공청": "우주항공청",
     "CBS": "CBS",
 }
+# 당직 키워드 매핑은 활성 여부와 무관하게 항상 합쳐둔다.
+# 당직 다음 날 06:00 다이제스트가 전날 13:30~06:00 구간(=당직 시간대)을 커버하는데,
+# 그때 duty_active()는 이미 False다. 매핑이 없으면 그 기사들의 그룹을 못 찾는다.
+KEYWORD_GROUPS.update(DUTY_KEYWORD_GROUPS)
 # 다이제스트 섹션 표시 순서 (그룹명 기준, 중복 제거)
 GROUP_ORDER = []
 for _k in KEYWORDS:
     _g = KEYWORD_GROUPS.get(_k, _k)
     if _g not in GROUP_ORDER:
         GROUP_ORDER.append(_g)
+
+# 당직 다음 날처럼 duty_active()가 꺼진 상태에서 당직 시간대 기사를 렌더할 때,
+# GROUP_ORDER에 없는 그룹이 데이터에만 존재할 수 있다. 그대로 두면 렌더 루프가
+# GROUP_ORDER만 돌기 때문에 그 기사들이 **조용히 사라진다**.
+# 데이터에 실제로 있는 그룹을 뒤에 덧붙여 누락을 막는다.
+def effective_group_order(present):
+    order = [g for g in GROUP_ORDER]
+    for g in present:
+        if g not in order:
+            order.append(g)
+    return order
 
 def display_groups(kws):
     """매칭된 키워드 집합(kws)을 표시용 그룹명 리스트로 축약.
@@ -284,7 +362,7 @@ MAX_PAGES_PER_KEYWORD = 5      # 네이버: 키워드당 최대 5페이지(500�
 DAILY_CALL_SOFT_LIMIT = 20000  # 일일 호출 안전장치 (한도 25,000의 80%)
 RETENTION_DAYS = 90            # DB 보관 기간(일). 이보다 오래된 기사는 자동 삭제. 0이면 삭제 안 함.
 
-KST = datetime.timezone(datetime.timedelta(hours=9))
+# KST는 파일 상단(설정부 앞)으로 옮김 — duty_active()가 임포트 시점에 쓰기 때문
 
 # ==================== DB ====================
 def db():
@@ -616,6 +694,74 @@ def is_photo_article(title, link="", strict=False):
 
     return False
 
+# ==================== 대표 기사 선정 우선순위 ====================
+# 보도자료 등 기관 소스로 여러 매체가 같은 내용을 쓴 묶음에서는 통신사 기사를 대표로 세운다.
+# 원문에 가장 가깝고 링크가 안정적이며, 제목이 사안을 건조하게 요약하는 경향이 있어서다.
+# 순서상 앞일수록 우선. 여기 없는 매체는 모두 동일하게 후순위.
+WIRE_ORDER = ["연합뉴스", "뉴시스", "뉴스1"]
+
+def wire_rank(source):
+    """통신사 우선순위. 낮을수록 우선. 통신사가 아니면 len(WIRE_ORDER)."""
+    n = media_name(source)
+    try:
+        return WIRE_ORDER.index(n)
+    except ValueError:
+        return len(WIRE_ORDER)
+
+def article_rank(title, source, pub_dt):
+    """묶음 안에서 대표/표시 순서를 정하는 정렬 키.
+    단독·속보 > 통신사(연합 > 뉴시스 > 뉴스1) > 먼저 보도된 것.
+    단독이 통신사보다 앞서는 건 사용자 지침('단독 기사가 아니라면 통신사 우선')에 따른 것."""
+    pr = {"🔥": 0, "⚡": 1}.get(priority_mark(title), 2)
+    return (pr, wire_rank(source), pub_dt)
+
+# 통신사보다 이만큼(분) 앞서 발행됐으면 '원 보도'로 보고 대표 자리를 지켜준다.
+# 보도자료 전재는 대개 같은 시간대에 일제히 풀리므로, 뚜렷한 시차가 있으면
+# 그 매체가 먼저 취재해 쓴 것으로 본다. ([단독] 태그가 없는 특종을 구제하는 장치)
+SCOOP_LEAD_MINUTES = 60
+
+def _pr_tier(title):
+    return {"🔥": 0, "⚡": 1}.get(priority_mark(title), 2)
+
+def _parse_dt(s):
+    try:
+        return datetime.datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+def pick_representative(members, get_title, get_source, get_pub):
+    """묶음의 대표 기사 선정.
+    기본: 단독·속보 > 통신사(연합 > 뉴시스 > 뉴스1) > 발행순.
+    예외: 통신사가 대표로 뽑혔더라도, 비통신사가 '가장 먼저 쓴 통신사'보다
+          SCOOP_LEAD_MINUTES 이상 앞서 발행했으면 그쪽을 대표로 유지한다."""
+    base = min(members, key=lambda x: article_rank(get_title(x), get_source(x), get_pub(x)))
+    if wire_rank(get_source(base)) >= len(WIRE_ORDER):
+        return base                      # 대표가 이미 비통신사 — 예외 규칙 불필요
+
+    # 비교 기준은 '가장 먼저 쓴 통신사' 시각. 대표(연합)의 시각을 쓰면
+    # 뉴시스가 더 먼저 쓴 경우에 시차가 부풀려져 오판한다.
+    wire_dts = [_parse_dt(get_pub(x)) for x in members
+                if wire_rank(get_source(x)) < len(WIRE_ORDER)]
+    wire_dts = [d for d in wire_dts if d]
+    if not wire_dts:
+        return base
+    earliest_wire = min(wire_dts)
+
+    base_pr = _pr_tier(get_title(base))
+    best, best_dt = None, None
+    for mm in members:
+        if wire_rank(get_source(mm)) < len(WIRE_ORDER):
+            continue                     # 통신사끼리는 이 규칙의 대상이 아님
+        if _pr_tier(get_title(mm)) > base_pr:
+            continue                     # 단독·속보 등급이 더 낮으면 승격시키지 않음
+        dt = _parse_dt(get_pub(mm))
+        if dt is None:
+            continue
+        if (earliest_wire - dt).total_seconds() >= SCOOP_LEAD_MINUTES * 60:
+            if best_dt is None or dt < best_dt:
+                best, best_dt = mm, dt
+    return best or base
+
 def dedup_group(items):
     """items: [(title,link,source,pub_dt,...), ...] → 같은 기사 묶어서
     [(대표item, [모든 매체명]), ...] 반환. 대표는 화이트리스트 우선순위 높은 매체."""
@@ -630,8 +776,9 @@ def dedup_group(items):
     result = []
     for k in order:
         members = groups[k]
-        # 대표 기사: pub_dt 가장 빠른 것(원 보도에 가까움) 우선
-        rep = min(members, key=lambda x: x[3])
+        # 대표 기사: 단독·속보 > 통신사(연합 우선) > 발행순.
+        # 단, 비통신사가 통신사보다 1시간 이상 먼저 썼으면 원 보도로 보고 대표 유지.
+        rep = pick_representative(members, lambda x: x[0], lambda x: x[2], lambda x: x[3])
         sources = []
         for m in members:
             s = m[2]
@@ -692,8 +839,8 @@ def matched_keywords(title):
     t = t.rsplit(" - ", 1)[0].strip()
     out = []
     for k in KEYWORDS:
-        if k not in t:
-            continue
+        if k not in strip_antipatterns(t, k):
+            continue          # 오탐 표현('산업부문','데이터처리' 등)뿐이면 매칭 아님
         gate = KEYWORD_GATES.get(k)
         if gate and not gate(title):
             continue
@@ -868,7 +1015,11 @@ def run_check():
             if not kws:
                 if gate:
                     continue  # 게이트 키워드는 폴백 금지 — 관문을 못 넘으면 수집 안 함
-                kws = {kw}
+                # 제목에 키워드가 있었는데도 매칭이 안 됐다면 오탐 표현에 걸린 것
+                # ('한국산업부문' 등). 폴백으로 되살리면 오탐이 그대로 들어온다.
+                if kw in clean(it["title"]):
+                    continue
+                kws = {kw}   # 제목엔 없고 본문에만 있는 경우 — 검색어를 그대로 사용
             it["kws"] = kws
             collected[aid] = it
 
@@ -932,18 +1083,18 @@ def run_check():
 
         def pick_rep(clu):
             """주제 클러스터의 대표 기사 1건 선정.
-            우선순위: 단독/속보 > 제목이 안 잘린 것 > 먼저 보도된 것(원 보도에 가까움)."""
-            def key(a):
-                pr = {"🔥": 0, "⚡": 1}.get(priority_mark(a["title"]), 2)
-                trunc = 1 if is_truncated_title(a["title"]) else 0
-                return (pr, trunc, a["pub_dt"])
-            return min(clu, key=key)
+            단독/속보 > 통신사(연합 우선) > 발행순 + 원 보도(1시간 이상 선행) 예외.
+            그 위에 '제목이 잘리지 않은 것'을 먼저 거른다 — check는 digest와 달리
+            잘린 제목을 대체할 방법이 없어 그대로 알림에 노출되기 때문."""
+            whole = [a for a in clu if not is_truncated_title(a["title"])] or clu
+            return pick_representative(whole, lambda a: a["title"],
+                                       lambda a: a["source"], lambda a: a["pub_dt"])
 
         def render_check(as_html):
             esc = tg_escape if as_html else (lambda s: s)
             body = []
             shown = 0
-            for g in GROUP_ORDER:
+            for g in effective_group_order(by_g.keys()):
                 arts = by_g.get(g, [])
                 if not arts:
                     continue
@@ -1084,7 +1235,7 @@ def run_digest():
         shown_local = 0
         seen = set()
         shown_titles = set()   # 최종 표시 제목 기준 중복 방지
-        for g in GROUP_ORDER:
+        for g in effective_group_order(by_group.keys()):
             arts = by_group.get(g, [])
             if not arts:
                 continue
@@ -1110,8 +1261,8 @@ def run_digest():
             lines.append(None)
             sec_count = 0
             for clu in clusters:
-                # 클러스터 내부: 확인시점(pub_dt) 순 정렬
-                clu.sort(key=lambda gs: gs[0][3])
+                # 클러스터 내부: 단독·속보 > 통신사(연합 우선) > 발행순
+                clu.sort(key=lambda gs: article_rank(gs[0][0], gs[0][2], gs[0][3]))
                 cluster_started = False
                 for rep, sources in clu:
                     t = clean_title_display(rep[0])
