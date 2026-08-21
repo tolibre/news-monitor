@@ -1084,40 +1084,14 @@ def run_check():
         pickup_count = {}
         recent = conn.execute("SELECT title, source FROM articles WHERE seen_dt >= ?",
                               ((now - datetime.timedelta(hours=24)).isoformat(),)).fetchall()
-            for title, source in recent:
+        for title, source in recent:
             k = group_key(title)
             pickup_count.setdefault(k, set()).add(source)
         for it in new_rows:
             k = group_key(it["title"])
             pickup_count.setdefault(k, set()).add(it["source"])
 
-        # 이미 알린 사안 재알림 방지.
-        # 네이버판과 구글판은 링크가 달라 article_id가 갈리는데, 구글 RSS가
-        # 30분쯤 늦게 들어온다. 그래서 같은 기사가 다음 실행에 '새 기사'로
-        # 다시 알림된다(실측: 연합 [인사] 기사가 11:00·11:30 두 번).
-        # 클러스터링은 같은 배치 안에서만 작동하므로 이 경우를 못 잡는다.
-        prior = {}
-        for _t, _s in conn.execute(
-                "SELECT title,source FROM articles WHERE seen_dt>=? AND seen_dt<?",
-                ((now - datetime.timedelta(hours=24)).isoformat(), now.isoformat())):
-            prior.setdefault(group_key(_t), []).append((_t, _s))
-
-        def already_alerted(k):
-            """이번 배치 이전에 이미 알림 조건을 만족했던 제목 그룹인지.
-            군소매체 1곳만 나왔다가(=그땐 미알림) 나중에 연합이 받는 경우는
-            False를 반환해야 한다 — '전재 확산' 알림을 죽이면 안 되기 때문."""
-            m = prior.get(k)
-            if not m:
-                return False
-            if len({s for _, s in m}) >= 2:
-                return True
-            return any(core_media(s) or priority_mark(t) for t, s in m)
-
         def selected(it):
-            # [단독]·[속보]는 후속 보도가 중요할 수 있어 억제 대상에서 뺀다
-            if not priority_mark(it["title"]) and already_alerted(group_key(it["title"])):
-                return False
-              
             if core_media(it["source"]):
                 return True
             if priority_mark(it["title"]):
