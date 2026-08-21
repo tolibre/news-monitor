@@ -21,6 +21,7 @@ backfill.py — 임의 시간 구간 소급 수집 (일회성)
   python backfill.py "2026-08-20 20:00"
   python backfill.py "2026-08-20 20:00" "2026-08-21 09:30"
   python backfill.py --groups 국토부,농식품부 "2026-08-20 20:00"
+  python backfill.py --title-only            # 제목에 부처명 있는 것만 (최소량)
 
 환경변수: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET,
          TELEGRAM_DIGEST_BOT_TOKEN / TELEGRAM_DIGEST_CHAT_ID
@@ -35,6 +36,7 @@ from news_monitor import (
     media_allowed, media_name, short_media_name,
     is_photo_article, is_junk_title, is_truncated_title,
     dedup_group, cluster_by_topic, http_get, article_id,
+    importance_score, article_rank,
     notify, tg_escape, strip_antipatterns,
     DUTY_KEYWORDS, DUTY_KEYWORD_GROUPS,
     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET,
@@ -57,23 +59,38 @@ def keywords_for(groups):
     return out
 
 
-def kw_match(title, kws):
-    """news_monitor.run_check()와 **동일한** 판정을 한다.
-    네이버는 본문까지 검색하므로 제목에 부처명이 없는 기사가 대다수인데,
-    check는 그걸 살린다(검색어를 그대로 신뢰). backfill이 제목 매칭만 인정하면
-    같은 구간인데도 check보다 훨씬 적게 잡혀 '소급'이 성립하지 않는다.
-      - 제목에 키워드가 있고 오탐 표현이 아님        → 매칭
-      - 제목에 어떤 키워드도 없음(본문 매칭)          → 매칭 (check와 동일)
-      - 제목에 있지만 오탐 표현뿐('산업부문' 등)      → 탈락
-    """
+# tier 0 판정에만 쓰는 별칭. **검색어가 아니다.**
+# '산업장관'은 기관명이 아니라 직함이라 DUTY_KEYWORDS에 넣을 성질이 아니지만,
+# 제목에 이게 있으면 그 부처 기사인 게 분명하므로 '확실' 칸으로 올린다.
+TITLE_ALIASES = {
+    "산업부":     ["산업장관", "산업통상장관"],
+    "중기부":     ["중기장관", "중소벤처기업장관"],
+    "개인정보위": ["개보위", "개인정보보호위"],
+    "국토부":     ["국토장관", "국토교통장관"],
+    "농식품부":   ["농식품장관", "농림축산식품장관"],
+}
+
+
+def kw_tier(title, kws, aliases=()):
+    """기사가 이 출입처와 얼마나 확실히 엮이는지 판정.
+      0  = 제목에 부처명이 있음 (확실)
+      1  = 제목엔 없고 본문에만 (참고) — 네이버가 본문까지 검색해서 돌려준 것
+      None = 제목에 있지만 오탐 표현뿐('산업부문' 등) → 버림
+
+    1을 버리면 '정부, 태국산 동관 반덤핑관세'처럼 제목에 부처명을 안 쓴
+    진짜 기사가 통째로 날아가고, 1을 0과 섞으면 본문에 한 번 스친 기사가
+    섹션을 뒤덮는다. 그래서 버리지 않고 **나눠서** 보여준다.
+    (run_check도 1을 수집한다 — 여기서 버리면 소급이 check보다 좁아진다)"""
     t = clean(title or "")
     t = t.rsplit(" - ", 1)[0].strip()
     for kw in kws:
         if kw in strip_antipatterns(t, kw):
-            return True
+            return 0
+    if any(a in t for a in aliases):
+        return 0
     if not any(kw in t for kw in kws):
-        return True          # 제목엔 없고 본문에만 — check가 살리는 경로
-    return False
+        return 1
+    return None
 
 
 MAX_PAGES = 10          # 네이버 start 한도(1000) 기준 최대치. 구간이 길어 필요함.
@@ -158,8 +175,8 @@ def fetch_google_range(keyword, since, until, seen):
     return out
 
 
-def collect(since, until, group_map):
-    """그룹 → ([기사], [(제외기사, 사유)])."""
+def collect(since, until, group_map, title_only=False):
+    """그룹 → ({tier: [기사]}, [(제외기사, 사유)])."""
     seen = set()
     by_group, excluded, stats = {}, {}, {}
     for g, kws in group_map.items():
@@ -169,22 +186,30 @@ def collect(since, until, group_map):
             if GOOGLE_ENABLED:
                 raw += fetch_google_range(kw, since, until, seen)
         n_raw = len(raw)
-        raw = [it for it in raw if kw_match(it["title"], kws)]
-        n_kw = len(raw)
-        raw = [it for it in raw if media_allowed(it["source"])]
-        n_media = len(raw)
-        # digest와 같은 기준: 누락 방지가 목적이므로 strict=True
-        keep, drop = [], []
+        tiered = []
         for it in raw:
+            tr = kw_tier(it["title"], kws, TITLE_ALIASES.get(g, ()))
+            if tr is None or (title_only and tr == 1):
+                continue
+            it["tier"] = tr
+            tiered.append(it)
+        n_kw = len(tiered)
+        tiered = [it for it in tiered if media_allowed(it["source"])]
+        n_media = len(tiered)
+        # digest와 같은 기준: 누락 방지가 목적이므로 strict=True
+        keep, drop = {0: [], 1: []}, []
+        for it in tiered:
             if is_photo_article(it["title"], it["link"], strict=True):
                 drop.append((it, "사진"))
             elif is_junk_title(it["title"]):
                 drop.append((it, "무의미"))
             else:
-                keep.append(it)
-        by_group[g] = sorted(keep, key=lambda x: x["pub_dt"])
+                keep[it["tier"]].append(it)
+        for tr in (0, 1):
+            keep[tr].sort(key=lambda x: x["pub_dt"])
+        by_group[g] = keep
         excluded[g] = drop
-        stats[g] = (n_raw, n_kw, n_media, len(keep))
+        stats[g] = (n_raw, n_kw, n_media, len(keep[0]), len(keep[1]))
     return by_group, excluded, stats
 
 
@@ -195,24 +220,26 @@ def render(by_group, excluded, stats, group_map, since, until, as_html=True):
     lines = [head, "PLACEHOLDER"]
     total = 0
     shown_titles = set()
-    for g in group_map:
-        arts = by_group.get(g, [])
-        if not arts:
-            continue
+
+    def render_items(arts, out):
+        """dedup → 클러스터 → 중요도순. 실제 표시된 줄 수를 반환."""
+        nonlocal total
+        n = 0
         tuples = [(a["title"], a["link"], a["source"], a["pub_dt"]) for a in arts]
         grouped = dedup_group(tuples)
         clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
 
         def clu_rank(clu):
-            best = min({"🔥": 0, "⚡": 1}.get(priority_mark(gs[0][0]), 2) for gs in clu)
-            return (best, -len(clu))
+            srcs = set()
+            for rep, sources in clu:
+                srcs |= set(sources)
+            sc = importance_score([gs[0][0] for gs in clu],
+                                  n_sources=len(srcs), sources=srcs)
+            return (-sc, min(gs[0][3] for gs in clu))
         clusters.sort(key=clu_rank)
 
-        sec_pos = len(lines)
-        lines.append(None)
-        sec = 0
         for clu in clusters:
-            clu.sort(key=lambda gs: gs[0][3])
+            clu.sort(key=lambda gs: article_rank(gs[0][0], gs[0][2], gs[0][3]))
             started = False
             for rep, sources in clu:
                 t = clean_title_display(rep[0])
@@ -225,27 +252,45 @@ def render(by_group, excluded, stats, group_map, since, until, as_html=True):
                 if tkey in shown_titles:
                     continue
                 shown_titles.add(tkey)
-                sec += 1
+                n += 1
                 total += 1
-                if sec > 1 and not started:
-                    lines.append("")
+                if n > 1 and not started:
+                    out.append("")
                 started = True
                 mark = priority_mark(rep[0])
                 mp = f"{mark} " if mark else ""
                 src = short_media_name(media_name(rep[2]))
                 hhmm = rep[3][11:16]
-                lines.append(f"{mp}{esc(t)}({esc(src)} {hhmm})")
+                out.append(f"{mp}{esc(t)}({esc(src)} {hhmm})")
                 if rep[1]:
-                    lines.append(f'<a href="{esc(rep[1])}">🔗 원문</a>' if as_html else rep[1])
-        if sec == 0:
+                    out.append(f'<a href="{esc(rep[1])}">🔗 원문</a>' if as_html else rep[1])
+        return n
+
+    for g in group_map:
+        tiers = by_group.get(g, {0: [], 1: []})
+        if not (tiers[0] or tiers[1]):
+            continue
+        sec_pos = len(lines)
+        lines.append(None)
+        n0 = render_items(tiers[0], lines) if tiers[0] else 0
+        n1 = 0
+        if tiers[1]:
+            sub = []
+            n1 = render_items(tiers[1], sub)
+            if n1:
+                note = "— 이하 본문 언급 (제목에 부처명 없음) —"
+                lines.append(f"\n<i>{esc(note)}</i>" if as_html else f"\n{note}")
+                lines += sub
+        if n0 + n1 == 0:
             del lines[sec_pos]
-        else:
-            lines[sec_pos] = (f"\n■ <b>{esc(g)}</b> ({sec}건)" if as_html
-                              else f"\n■ {g} ({sec}건)")
+            continue
+        cnt = f"{n0}건" + (f" +본문 {n1}건" if n1 else "")
+        lines[sec_pos] = (f"\n■ <b>{esc(g)}</b> ({cnt})" if as_html
+                          else f"\n■ {g} ({cnt})")
 
     if total == 0:
         lines.append("\n(구간 내 해당 기사 없음)")
-    # 필터로 걸러낸 기사의 실체 — 숫자만으로는 과필터인지 알 수 없다.
+
     drops = [(g, it, tag) for g in group_map for (it, tag) in excluded.get(g, [])]
     if drops:
         txt = f"제외 {len(drops)}건 (사진/무의미제목)"
@@ -259,10 +304,9 @@ def render(by_group, excluded, stats, group_map, since, until, as_html=True):
             else:
                 lines.append(f"[{tag}] {ttl}({src})\n{it['link']}")
 
-    # 단계별 카운터 — 0건이 나왔을 때 어느 단계에서 죽었는지 바로 보이게
-    diag = ["", "[단계별] 원수집 → 오탐제외 → 화이트리스트 → 필터통과"]
-    for g, (a, b, c, d) in stats.items():
-        diag.append(f"  {g}: {a} → {b} → {c} → {d}")
+    diag = ["", "[단계별] 원수집 → 오탐제외 → 화이트리스트 → 통과(제목/본문)"]
+    for g, (a, b, c, d0, d1) in stats.items():
+        diag.append(f"  {g}: {a} → {b} → {c} → {d0}/{d1}")
     lines.append("\n" + ("<i>" + esc("\n".join(diag)) + "</i>" if as_html
                          else "\n".join(diag)))
     lines[1] = f"총 {total}건\n" + ("=" * (30 if as_html else 40))
@@ -293,6 +337,9 @@ if __name__ == "__main__":
         i = argv.index("--groups")
         groups = [x for x in re.split(r"[,\s]+", argv[i + 1]) if x]
         del argv[i:i + 2]
+    title_only = "--title-only" in argv
+    if title_only:
+        argv.remove("--title-only")
     group_map = keywords_for(groups)
     if argv:
         since = parse_dt(argv[0])
@@ -303,7 +350,7 @@ if __name__ == "__main__":
     if since >= until:
         raise SystemExit("시작 시각이 종료 시각보다 늦습니다.")
     print(f"구간: {since} ~ {until} / 대상: {', '.join(groups)}")
-    by_group, excluded, stats = collect(since, until, group_map)
+    by_group, excluded, stats = collect(since, until, group_map, title_only)
     notify(render(by_group, excluded, stats, group_map, since, until, as_html=True),
            target="digest")
     print(render(by_group, excluded, stats, group_map, since, until, as_html=False))
