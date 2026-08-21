@@ -8,7 +8,27 @@ on:
         required: false
         default: 'check'
         type: choice
-        options: [check, digest, excluded]
+        options: [check, digest, excluded, backfill]
+      duty:
+        description: '당직 출입처 강제 (1=8개 전체 / "산업부,중기부" 형태로 일부만). 비우면 DUTY_DATES 날짜 기준.'
+        required: false
+        default: ''
+        type: string
+      since:
+        description: 'backfill 시작 시각 (예: 2026-08-20 20:00). 비우면 어제 20:00.'
+        required: false
+        default: ''
+        type: string
+      until:
+        description: 'backfill 종료 시각. 비우면 지금.'
+        required: false
+        default: ''
+        type: string
+      groups:
+        description: 'backfill 대상 그룹 (예: 산업부,중기부,개인정보위). 비우면 기본값.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: news-monitor
@@ -42,9 +62,34 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_DIGEST_BOT_TOKEN: ${{ secrets.TELEGRAM_DIGEST_BOT_TOKEN }}
           TELEGRAM_DIGEST_CHAT_ID: ${{ secrets.TELEGRAM_DIGEST_CHAT_ID }}
-        run: python news_monitor.py ${{ steps.mode.outputs.mode }}
+          # cron-job.org가 보내는 body에는 이 값이 없어 빈 문자열이 된다.
+          # 즉 정기 실행(*/30 check)은 항상 DUTY_DATES 날짜 기준으로 동작한다.
+          DUTY_MODE: ${{ github.event.inputs.duty }}
+          BF_SINCE: ${{ github.event.inputs.since }}
+          BF_UNTIL: ${{ github.event.inputs.until }}
+          BF_GROUPS: ${{ github.event.inputs.groups }}
+        run: |
+          MODE="${{ steps.mode.outputs.mode }}"
+          if [ "$MODE" = "backfill" ]; then
+            ARGS=""
+            [ -n "$BF_GROUPS" ] && ARGS="--groups $BF_GROUPS"
+            if [ -n "$BF_SINCE" ]; then
+              if [ -n "$BF_UNTIL" ]; then
+                python backfill.py $ARGS "$BF_SINCE" "$BF_UNTIL"
+              else
+                python backfill.py $ARGS "$BF_SINCE"
+              fi
+            else
+              python backfill.py $ARGS
+            fi
+          else
+            python news_monitor.py "$MODE"
+          fi
 
       - name: DB 변경사항 커밋 (다음 실행에서 중복 방지용)
+        # backfill은 DB를 건드리지 않으므로 커밋 단계를 통째로 건너뛴다.
+        # (불필요한 git 왕복은 동시 실행 시 push 경합 위험만 늘린다)
+        if: steps.mode.outputs.mode != 'backfill'
         run: |
           git config user.name "news-monitor-bot"
           git config user.email "actions@users.noreply.github.com"
