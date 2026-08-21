@@ -1084,10 +1084,10 @@ def run_check():
         pickup_count = {}
         recent = conn.execute("SELECT title, source FROM articles WHERE seen_dt >= ?",
                               ((now - datetime.timedelta(hours=24)).isoformat(),)).fetchall()
-        for title, source in recent:
+            for title, source in recent:
             k = group_key(title)
             pickup_count.setdefault(k, set()).add(source)
-            for it in new_rows:
+        for it in new_rows:
             k = group_key(it["title"])
             pickup_count.setdefault(k, set()).add(it["source"])
 
