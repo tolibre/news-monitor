@@ -57,12 +57,23 @@ def keywords_for(groups):
     return out
 
 
-def kw_hit(title, kw):
-    """제목에 kw가 있고, 그게 오매칭(antipattern)이 아닌지.
-    판정 로직은 news_monitor.strip_antipatterns를 그대로 쓴다."""
+def kw_match(title, kws):
+    """news_monitor.run_check()와 **동일한** 판정을 한다.
+    네이버는 본문까지 검색하므로 제목에 부처명이 없는 기사가 대다수인데,
+    check는 그걸 살린다(검색어를 그대로 신뢰). backfill이 제목 매칭만 인정하면
+    같은 구간인데도 check보다 훨씬 적게 잡혀 '소급'이 성립하지 않는다.
+      - 제목에 키워드가 있고 오탐 표현이 아님        → 매칭
+      - 제목에 어떤 키워드도 없음(본문 매칭)          → 매칭 (check와 동일)
+      - 제목에 있지만 오탐 표현뿐('산업부문' 등)      → 탈락
+    """
     t = clean(title or "")
     t = t.rsplit(" - ", 1)[0].strip()
-    return kw in strip_antipatterns(t, kw)
+    for kw in kws:
+        if kw in strip_antipatterns(t, kw):
+            return True
+    if not any(kw in t for kw in kws):
+        return True          # 제목엔 없고 본문에만 — check가 살리는 경로
+    return False
 
 
 MAX_PAGES = 10          # 네이버 start 한도(1000) 기준 최대치. 구간이 길어 필요함.
@@ -148,10 +159,9 @@ def fetch_google_range(keyword, since, until, seen):
 
 
 def collect(since, until, group_map):
-    """그룹 → [기사]."""
+    """그룹 → ([기사], [(제외기사, 사유)])."""
     seen = set()
-    by_group = {g: [] for g in group_map}
-    stats = {}
+    by_group, excluded, stats = {}, {}, {}
     for g, kws in group_map.items():
         raw = []
         for kw in kws:
@@ -159,21 +169,26 @@ def collect(since, until, group_map):
             if GOOGLE_ENABLED:
                 raw += fetch_google_range(kw, since, until, seen)
         n_raw = len(raw)
-        # 키워드 재확인(antipattern 적용) — 검색엔진이 본문 매칭으로 준 것도 걸러짐
-        raw = [it for it in raw if any(kw_hit(it["title"], kw) for kw in kws)]
+        raw = [it for it in raw if kw_match(it["title"], kws)]
         n_kw = len(raw)
         raw = [it for it in raw if media_allowed(it["source"])]
         n_media = len(raw)
         # digest와 같은 기준: 누락 방지가 목적이므로 strict=True
-        raw = [it for it in raw
-               if not is_photo_article(it["title"], it["link"], strict=True)
-               and not is_junk_title(it["title"])]
-        by_group[g] = sorted(raw, key=lambda x: x["pub_dt"])
-        stats[g] = (n_raw, n_kw, n_media, len(raw))
-    return by_group, stats
+        keep, drop = [], []
+        for it in raw:
+            if is_photo_article(it["title"], it["link"], strict=True):
+                drop.append((it, "사진"))
+            elif is_junk_title(it["title"]):
+                drop.append((it, "무의미"))
+            else:
+                keep.append(it)
+        by_group[g] = sorted(keep, key=lambda x: x["pub_dt"])
+        excluded[g] = drop
+        stats[g] = (n_raw, n_kw, n_media, len(keep))
+    return by_group, excluded, stats
 
 
-def render(by_group, stats, group_map, since, until, as_html=True):
+def render(by_group, excluded, stats, group_map, since, until, as_html=True):
     esc = tg_escape if as_html else (lambda s: s)
     head = ("📌 <b>소급 수집</b> | " if as_html else "📌 소급 수집 | ") + \
            f"{since.strftime('%m/%d %H:%M')} ~ {until.strftime('%m/%d %H:%M')}"
@@ -230,8 +245,22 @@ def render(by_group, stats, group_map, since, until, as_html=True):
 
     if total == 0:
         lines.append("\n(구간 내 해당 기사 없음)")
+    # 필터로 걸러낸 기사의 실체 — 숫자만으로는 과필터인지 알 수 없다.
+    drops = [(g, it, tag) for g in group_map for (it, tag) in excluded.get(g, [])]
+    if drops:
+        txt = f"제외 {len(drops)}건 (사진/무의미제목)"
+        lines.append(f"\n<i>{esc(txt)}</i>" if as_html else f"\n({txt})")
+        for g, it, tag in drops:
+            ttl = clean_title_display(it["title"])
+            src = short_media_name(media_name(it["source"]))
+            if as_html:
+                lines.append(f'<i>[{tag}] {esc(ttl)}({esc(src)})</i> '
+                             f'<a href="{esc(it["link"])}">🔗</a>')
+            else:
+                lines.append(f"[{tag}] {ttl}({src})\n{it['link']}")
+
     # 단계별 카운터 — 0건이 나왔을 때 어느 단계에서 죽었는지 바로 보이게
-    diag = ["", "[단계별] 원수집 → 키워드확인 → 화이트리스트 → 필터통과"]
+    diag = ["", "[단계별] 원수집 → 오탐제외 → 화이트리스트 → 필터통과"]
     for g, (a, b, c, d) in stats.items():
         diag.append(f"  {g}: {a} → {b} → {c} → {d}")
     lines.append("\n" + ("<i>" + esc("\n".join(diag)) + "</i>" if as_html
@@ -274,6 +303,7 @@ if __name__ == "__main__":
     if since >= until:
         raise SystemExit("시작 시각이 종료 시각보다 늦습니다.")
     print(f"구간: {since} ~ {until} / 대상: {', '.join(groups)}")
-    by_group, stats = collect(since, until, group_map)
-    notify(render(by_group, stats, group_map, since, until, as_html=True), target="digest")
-    print(render(by_group, stats, group_map, since, until, as_html=False))
+    by_group, excluded, stats = collect(since, until, group_map)
+    notify(render(by_group, excluded, stats, group_map, since, until, as_html=True),
+           target="digest")
+    print(render(by_group, excluded, stats, group_map, since, until, as_html=False))
