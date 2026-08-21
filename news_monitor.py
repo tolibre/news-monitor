@@ -29,7 +29,8 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 # 다음 날 자동으로 원복된다. 끄는 걸 잊어도 문제가 생기지 않게 날짜 기준으로 만들었다.
 # (환경변수 DUTY_MODE=1로도 강제 활성화 가능 — 급할 때 workflow_dispatch에서 주입)
 DUTY_DATES = {
-    "2026-08-17",   # 광복절 대체공휴일 당직
+    "2026-08-17": None,                              # 광복절 대체공휴일 당직
+    "2026-08-21": ["산업부", "중기부", "개인정보위"],   # 임시 — 3개 부처만
 }
 
 DUTY_KEYWORDS = [
@@ -63,7 +64,7 @@ KEYWORD_ANTIPATTERNS = {
     "데이터처": [r"데이터처리"],
     "국토부":   [r"국토부지"],
     "재경부":   [],
-    "중기부":   [],
+    "중기부":   [r"중기부문", r"중기부담", r"중기부진", r"중기부채"],
     "농식품부": [],
     "개인정보위": [],
 }
@@ -75,11 +76,36 @@ def strip_antipatterns(text, kw):
         t = re.sub(pat, "", t)
     return t
 
+DUTY_ALL_GROUPS = []
+for _k in DUTY_KEYWORDS:
+    _g = DUTY_KEYWORD_GROUPS[_k]
+    if _g not in DUTY_ALL_GROUPS:
+        DUTY_ALL_GROUPS.append(_g)
+def duty_groups():
+    """오늘 활성화할 당직 그룹명 목록. 비당직이면 []. 날짜는 KST 기준.
+    모르는 그룹명은 경고를 낸다 — 오타로 빈 목록이 되면 그날 수집이 통째로
+    조용히 사라지는데, 이게 이 시스템에서 가장 위험한 실패 양상이다."""
+    env = os.environ.get("DUTY_MODE", "").strip()
+    if env in ("1", "true", "True", "yes", "all", "ALL"):
+        return list(DUTY_ALL_GROUPS)
+    if env:
+        want = {x.strip() for x in re.split(r"[,\s]+", env) if x.strip()}
+        unknown = want - set(DUTY_ALL_GROUPS)
+        if unknown:
+            print(f"[warn] DUTY_MODE에 모르는 그룹: {', '.join(sorted(unknown))}")
+        return [g for g in DUTY_ALL_GROUPS if g in want]
+    today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    if today not in DUTY_DATES:
+        return []
+    sel = DUTY_DATES[today]
+    if sel is None:
+        return list(DUTY_ALL_GROUPS)
+    unknown = set(sel) - set(DUTY_ALL_GROUPS)
+    if unknown:
+        print(f"[warn] DUTY_DATES[{today}]에 모르는 그룹: {', '.join(sorted(unknown))}")
+    return [g for g in DUTY_ALL_GROUPS if g in sel]
 def duty_active():
-    """오늘이 당직일인지. 날짜는 KST 기준."""
-    if os.environ.get("DUTY_MODE", "").strip() in ("1", "true", "True", "yes"):
-        return True
-    return datetime.datetime.now(KST).strftime("%Y-%m-%d") in DUTY_DATES
+    return bool(duty_groups())
 
 # 표시 순서는 이 리스트 순서를 그대로 따른다.
 # GROUP_ORDER 생성, check의 display_groups(), digest의 rep_kw 선정이 모두
@@ -94,7 +120,11 @@ BASE_KEYWORDS = [
 ]
 
 # 당직일에는 추가 출입처가 기존 출입처 **뒤에** 붙는다 (평소 출입처가 항상 상단).
-KEYWORDS = BASE_KEYWORDS + (DUTY_KEYWORDS if duty_active() else [])
+_DUTY_ON = duty_groups()
+KEYWORDS = BASE_KEYWORDS + [k for k in DUTY_KEYWORDS
+                            if DUTY_KEYWORD_GROUPS[k] in _DUTY_ON]
+if _DUTY_ON:
+    print(f"[duty] 당직 출입처 활성: {', '.join(_DUTY_ON)}")
 
 # 키워드가 매칭되어도, 제목에 이 표현이 있으면 오탐으로 보고 완전히 제외.
 # 예: "공정위"가 "스포츠공정위원회"에도 포함되어 오매칭되는 문제 방지.
