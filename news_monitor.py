@@ -132,6 +132,29 @@ EXCLUDE_TERMS = [
     "대한체육회", "스포츠공정위원회",
 ]
 
+# ==================== check 재알림 억제 (2026-08-21) ====================
+# 문제: 같은 사안이 30분마다 새 전재가 들어올 때마다 다시 알림에 올라왔다.
+# 실측(8/21 17:00~23:00, 알림 70건) — 박정성 통상교섭본부장 임명 9회, 석유 최고가
+# 동결 6회, AI 챌린지 4회. 선별 통과 조건 중 하나가 '전재 2곳 이상'이라
+# **널리 보도될수록 더 자주 울리는** 구조였다. check의 목적(선별)과 정반대다.
+#
+# 해결: 한 번 알린 주제를 alerted_topics 테이블에 남기고, 창(window) 안에서
+# 같은 주제가 다시 올라오면 억제한다. check 전용 — digest는 '빠뜨리지 않는 게
+# 목적'이므로 손대지 않는다(사용자 결정 2026-08-21).
+#
+# 주의: 억제는 '기사를 버리는' 게 아니라 '알림만 참는' 것이다. DB에는 그대로
+# 쌓이고 digest에는 전부 나온다. 그래서 여기서 좀 과하게 잡아도 기사 유실은 없다.
+TOPIC_SUPPRESS_HOURS = 12   # 최초 알림 시각 기준. 12시간 뒤에는 같은 사안도 다시 알림.
+TOPIC_MIN_OVERLAP = 2       # 같은 주제로 볼 최소 공통 토큰 수 (cluster_by_topic과 동일 기준)
+TOPIC_MIN_RATIO   = 0.3     # 작은 쪽 토큰 집합 대비 겹침 비율 하한 (동일)
+
+# 억제의 유일한 예외: **등급이 올라갔을 때**.
+# 일반 기사로 먼저 알린 사안에 [속보]가 붙거나, 속보 뒤에 [단독]이 나오면
+# 새로운 전개일 가능성이 있으므로 한 번 더 알린다. 반대로 이미 [속보]로 알린 뒤에
+# 뒤늦은 속보가 계속 들어오는 건(오늘 박정성 임명이 정확히 이 경우) 억제한다.
+# "속보면 무조건 통과"로 두면 오늘 데이터에서 같은 임명 속보가 3회 더 울렸다.
+TOPIC_ESCALATION_ONLY = True
+
 # ==================== CBS 키워드 전용 관문 ====================
 # CBS는 다른 키워드와 성격이 다르다. 우리가 원하는 건 'CBS라는 회사에 관한 기사'인데,
 # CBS는 언론사라서 검색에는 세 종류가 뒤섞여 들어온다:
@@ -418,6 +441,18 @@ def db():
         reason TEXT,                  -- photo / junk
         run_dt TEXT                   -- 이 기사가 제외된 digest 실행 시각
     )""")
+    # check가 이미 알린 주제. 같은 사안이 30분마다 다시 울리는 걸 막는 데 쓴다.
+    # articles와 마찬가지로 매 실행 git 커밋되는 news_monitor.db에 함께 실려
+    # 다음 실행으로 넘어간다(= check 실행 간 상태 전달 수단이 이미 검증된 경로).
+    conn.execute("""CREATE TABLE IF NOT EXISTS alerted_topics(
+        key TEXT PRIMARY KEY,         -- group_key(제목) 또는 '인사:<기관>'
+        title TEXT,                   -- 최초 알림 제목 (사후 확인용)
+        tokens TEXT,                  -- topic_tokens 공백 결합 (유사도 비교용)
+        tier INTEGER,                 -- 최초 알림 등급 0=단독 1=속보 2=일반
+        first_dt TEXT,                -- 최초 알림 시각 (억제 창 기준)
+        last_dt TEXT,                 -- 마지막으로 억제/재알림한 시각
+        hits INTEGER                  -- 이 주제로 억제한 누적 건수 (과억제 감시용)
+    )""")
     return conn
 
 def call_budget_ok(conn):
@@ -642,16 +677,52 @@ JUNK_TITLE_PATTERNS = [
     r"^\d{4}년\s*\d{1,2}월\s*\d{1,2}일",          # '2026년 7월 22일 ...' 로 시작
 ]
 
-def is_junk_title(title):
-    """제목만으로 정보가치가 없는 항목(매체명 단독, 방송 자막 등)."""
+# check 전용 추가 패턴 (2026-08-21). digest에는 적용하지 않는다 —
+# 헤드라인 모음 안에 출입처 기사가 한 줄 들어 있을 수 있고, digest는
+# '빠뜨리지 않는 것'이 목적이라 그 한 줄을 버릴 이유가 없다.
+# check는 선별이 목적이므로 개별 기사가 아닌 묶음/편성 기사는 알리지 않는다.
+# (실측 계기: '[연합뉴스 이 시각 헤드라인] - 18:00'이 산업부 섹션에 알림으로 떴음)
+JUNK_TITLE_PATTERNS_CHECK = [
+    r"\[[^\]]*이\s*시각[^\]]*\]",                 # [연합뉴스 이 시각 헤드라인]
+    r"이\s*시각\s*(헤드라인|주요\s*뉴스)",           # 대괄호 없이 쓰는 매체 대비
+    r"^\[?(오늘의|주요|간추린)\s*(뉴스|소식)",       # 오늘의 뉴스 / 간추린 소식
+    r"헤드라인\s*(뉴스)?\s*[-–]\s*\d{1,2}[:시]",   # 헤드라인 - 18:00
+]
+
+def is_junk_title(title, strict=False):
+    """제목만으로 정보가치가 없는 항목(매체명 단독, 방송 자막 등).
+    strict=True(digest)면 기존 고신뢰 패턴만 적용하고, strict=False(check)면
+    묶음/편성 기사 패턴까지 추가로 적용한다. is_caption_like·is_photo_article과
+    같은 비대칭 분리 원칙(check=선별 / digest=누락방지)을 따른다."""
     t = clean(title or "")
     t = t.rsplit(" - ", 1)[0].strip()   # 구글 RSS 매체 꼬리표 제거
     if not t:
         return True
-    for pat in JUNK_TITLE_PATTERNS:
+    pats = JUNK_TITLE_PATTERNS if strict else JUNK_TITLE_PATTERNS + JUNK_TITLE_PATTERNS_CHECK
+    for pat in pats:
         if re.search(pat, t):
             return True
     return False
+
+# ==================== [인사] 명단 기사 묶기 (check 전용) ====================
+# '[인사] 산업통상부' 같은 인사 명단은 매체마다 따로 들어오는데 내용은 같다.
+# 제목이 기관명 한 덩어리뿐이라 topic_tokens가 토큰 1개만 뽑아내고,
+# cluster_by_topic의 min_overlap=2를 영영 못 넘겨 매체 수만큼 그대로 알림에 올라온다.
+# (8/21 실측: 알림 70건 중 17건이 인사 명단. 18:30에 3건, 19:00에 5건 연속)
+# → 클러스터링에 맡기지 말고 기관명 기준으로 먼저 1건으로 병합한다.
+INSA_TITLE_RE = re.compile(r"^\s*[\[〈<【(]\s*인사\s*[\]〉>】)]\s*(.+)$")
+
+def insa_key(title):
+    """'[인사] 과학기술정보통신부 외' → '인사:과학기술정보통신부'.
+    인사 명단 기사가 아니면 None. 여러 기관이 나열된 경우 첫 기관만 본다
+    ('[인사]과학기술정보통신부·한국원자력안전기술원' → 과학기술정보통신부)."""
+    t = clean(title or "").rsplit(" - ", 1)[0].strip()
+    m = INSA_TITLE_RE.match(t)
+    if not m:
+        return None
+    body = re.split(r"[·,／/]|\s외(\s|$)", m.group(1))[0]
+    body = re.sub(r"[\s\W]+", "", body)[:12]
+    return ("인사:" + body) if body else None
 
 def is_caption_like(title, strict=False):
     """제목이 '기사 제목'이 아니라 '사진 캡션'처럼 생겼는지 판별.
@@ -791,6 +862,98 @@ def pick_representative(members, get_title, get_source, get_pub):
             if best_dt is None or dt < best_dt:
                 best, best_dt = mm, dt
     return best or base
+
+# ==================== 재알림 억제 (check 전용) ====================
+# 그룹별 '자기 이름' 토큰 — 그 섹션 안에서는 정보량이 없는 단어들.
+GROUP_SELF_TOKENS = {}
+for _k in set(list(KEYWORD_GROUPS.keys()) + list(KEYWORD_GROUPS.values())):
+    _g = KEYWORD_GROUPS.get(_k, _k)
+    GROUP_SELF_TOKENS.setdefault(_g, set()).update(topic_tokens(_k) or {_k})
+
+def topic_signature(group, title):
+    """주제 식별용 (key, tokens, tier). key는 저장/완전일치 비교용,
+    tokens는 유사도 비교용. 인사 명단은 기관명 key만 쓴다(토큰이 1개뿐이라
+    유사도 비교가 성립하지 않음).
+
+    key 앞에 출입처 그룹을 붙여 **억제를 섹션 안으로 가둔다.** 그러지 않으면
+    서로 다른 부처의 다른 사안이 흔한 토큰만으로 묶여 조용히 삼켜진다
+    (8/21 실측: 중기부 '소셜벤처 리그 1788건 신청'이 과기정통부
+    'AI·디지털 사회문제 해결 챌린지'에 '사회문제·해결' 두 토큰으로 걸려 억제됐음)."""
+    ik = insa_key(title)
+    if ik:
+        return f"{group}|{ik}", set(), _pr_tier(title)
+    # 이미 그 섹션 안에서만 비교하므로 부처명 토큰은 변별력이 0이다. 그대로 두면
+    # '과기정통부'+'2026' 두 토큰만으로 서로 다른 사안이 같은 주제로 묶인다
+    # (8/19 실측: '과기정통부 2026 GovTech 창업경진대회 모집'이
+    #  '연세대 …과기정통부 2026년 이공계 박사 우수장학금 선정'에 걸려 억제됐음).
+    # 빼면 억제가 느슨해지는 쪽이라, 놓치지 않기 우선 원칙에도 맞는다.
+    toks = topic_tokens(title) - GROUP_SELF_TOKENS.get(group, set())
+    return f"{group}|{group_key(title)}", toks, _pr_tier(title)
+
+def load_alerted_topics(conn, now):
+    """억제 창(TOPIC_SUPPRESS_HOURS) 안에 이미 알린 주제 목록.
+    창은 first_dt(최초 알림) 기준 — last_dt로 재면 계속 전재되는 사안이
+    영원히 억제되어, 반나절 뒤의 새 전개까지 묻힌다."""
+    cutoff = (now - datetime.timedelta(hours=TOPIC_SUPPRESS_HOURS)).isoformat()
+    out = []
+    for key, title, toks, tier, first_dt in conn.execute(
+            "SELECT key,title,tokens,tier,first_dt FROM alerted_topics WHERE first_dt>=?",
+            (cutoff,)):
+        out.append({"key": key, "title": title, "first_dt": first_dt,
+                    "tokens": set((toks or "").split()),
+                    "tier": tier if tier is not None else 2})
+    return out
+
+def find_alerted(prior, key, tokens):
+    """prior에서 (key, tokens)와 같은 주제를 찾아 반환. 없으면 None.
+    비교는 같은 출입처 그룹 안에서만 한다(key의 '<그룹>|' 접두).
+    인사 key끼리는 완전일치만, 나머지는 cluster_by_topic과 동일한 토큰 유사도."""
+    grp = key.split("|", 1)[0]
+    is_insa = "|인사:" in key
+    for e in prior:
+        if e["key"].split("|", 1)[0] != grp:
+            continue                      # 다른 출입처 섹션의 주제와는 비교하지 않음
+        e_insa = "|인사:" in e["key"]
+        if is_insa or e_insa:
+            if e["key"] == key:
+                return e
+            continue                      # 인사 ↔ 일반 기사는 서로 비교하지 않음
+        if e["key"] == key:
+            return e
+        a, b = e["tokens"], tokens
+        if not a or not b:
+            continue
+        common = a & b
+        # 판정 기준은 cluster_by_topic과 **완전히 동일**하게 둔다. 한 실행 안에서
+        # 같은 묶음으로 볼 기사라면 실행이 바뀌어도 같은 묶음이어야 하고,
+        # 여기만 다른 규칙을 쓰면 두 기준이 조용히 어긋난다.
+        if (len(common) >= TOPIC_MIN_OVERLAP
+                and len(common) / min(len(a), len(b)) >= TOPIC_MIN_RATIO):
+            return e
+    return None
+
+def record_alerted_topic(conn, key, title, tokens, tier, now):
+    """알린 주제를 기록/갱신. 이미 있으면 등급만 올리고 last_dt를 갱신한다."""
+    row = conn.execute("SELECT tier,hits FROM alerted_topics WHERE key=?", (key,)).fetchone()
+    if row:
+        conn.execute("UPDATE alerted_topics SET tier=?, last_dt=? WHERE key=?",
+                     (min(row[0] if row[0] is not None else 2, tier), now.isoformat(), key))
+    else:
+        conn.execute("INSERT INTO alerted_topics VALUES(?,?,?,?,?,?,0)",
+                     (key, title, " ".join(sorted(tokens)), tier,
+                      now.isoformat(), now.isoformat()))
+
+def bump_suppressed(conn, key, now):
+    """억제 1건 기록. 주제의 토큰 집합은 **최초 제목 그대로 고정**한다.
+    억제된 제목의 토큰을 주제에 합쳐 넣는(학습하는) 방식도 만들어 측정해 봤는데,
+    같은 사안을 조금 더 잘 잡는 대신 주제가 스펀지처럼 부풀어 무관한 기사를
+    삼켰다. 8/19 실데이터에서 누적을 켰을 때만 억제된 23건 중
+    '국립한국해양대 정보보호특성화대학 선정', '바오밥에이바이오 양자이득 연구
+    주관기관 선정', '[기자수첩] 국가대표 NPU' 처럼 '모두의 AI' 사안과 아무
+    상관없는 기사들이 섞여 있었다. 하루 알림 73건 대 96건 — 23건 더 줄이자고
+    무관 기사를 조용히 삼킬 이유가 없다(사용자 지침: 놓치지 않기 우선)."""
+    conn.execute("UPDATE alerted_topics SET hits=hits+1, last_dt=? WHERE key=?",
+                 (now.isoformat(), key))
 
 def dedup_group(items):
     """items: [(title,link,source,pub_dt,...), ...] → 같은 기사 묶어서
@@ -1103,6 +1266,7 @@ def run_check():
         skipped = [it for it in new_rows if not selected(it)]
         new_rows = [it for it in new_rows if selected(it)]
 
+    sections, shown, suppressed = [], 0, []
     if new_rows:
         # 출입처(그룹)별 → 주제 클러스터 → 기사(확인시점순) 구조
         by_g = {g: [] for g in GROUP_ORDER}
@@ -1120,39 +1284,109 @@ def run_check():
             return pick_representative(whole, lambda a: a["title"],
                                        lambda a: a["source"], lambda a: a["pub_dt"])
 
+        # ===== 표시 구조를 렌더 전에 한 번만 확정한다 =====
+        # 예전에는 클러스터링이 render_check() 안에 있어서 HTML/평문 두 번 돌았다.
+        # 재알림 억제는 상태(alerted_topics)를 건드리므로 두 번 돌면 안 된다.
+        # → 섹션 구조를 먼저 만들고, render_check()는 포맷만 담당하게 분리.
+        prior_topics = load_alerted_topics(conn, now)   # suppressed: (제목, 최초 알림 제목)
+
+        def clu_rank(clu):
+            # 섹션 안에서 중요도 순 정렬. 확산도는 이번 배치 크기가 아니라
+            # pickup_count(최근 24시간 같은 제목 그룹의 매체 수)를 쓴다 —
+            # 이번 실행에 1건만 새로 들어왔어도 이미 널리 퍼진 사안일 수 있기 때문.
+            srcs = set()
+            for a in clu:
+                srcs |= pickup_count.get(group_key(a["title"]), set())
+                srcs.add(a["source"])
+            sc = importance_score([a["title"] for a in clu],
+                                  n_sources=len(srcs), sources=srcs)
+            # 점수 동률이면 먼저 보도된 것(원 보도에 가까움) 우선
+            return (-sc, min(a["pub_dt"] for a in clu))
+
+        sections = []            # [(그룹명, [(대표기사, 묶음크기), ...]), ...]
+        for g in effective_group_order(by_g.keys()):
+            arts = by_g.get(g, [])
+            if not arts:
+                continue
+            # (1) [인사] 명단 먼저 병합 — 기관명이 같으면 매체 수와 무관하게 1건.
+            #     제목 토큰이 기관명 하나뿐이라 cluster_by_topic이 못 묶는 구간이다.
+            insa_bucket = {}
+            rest = []
+            for it in arts:
+                k = insa_key(it["title"])
+                if k:
+                    insa_bucket.setdefault(k, []).append(it)
+                else:
+                    rest.append(it)
+            merged = list(rest)
+            insa_extra = {}      # 대표기사 id → 병합된 나머지 건수
+            for k, members in insa_bucket.items():
+                rep = pick_rep(members)
+                merged.append(rep)
+                insa_extra[id(rep)] = len(members) - 1
+
+            # (2) 주제 클러스터링
+            clusters = cluster_by_topic(merged, lambda it: it["title"])
+            clusters.sort(key=clu_rank)
+
+            rows = []
+            for clu in clusters:
+                # 같은 주제는 대표 1건만 알림. 나머지는 '(관련 N건)'으로만 표시하고
+                # 전체 목록은 다이제스트에서 확인 (check=선별, digest=누락없음 원칙 유지).
+                it = pick_rep(clu)
+                extra = len(clu) - 1 + sum(insa_extra.get(id(a), 0) for a in clu)
+
+                # (3) 재알림 억제 — 창 안에서 이미 알린 주제면 건너뛴다.
+                key, toks, tier = topic_signature(g, it["title"])
+                hit = find_alerted(prior_topics, key, toks)
+                if hit is not None:
+                    # 등급 상승(일반→속보, 속보→단독)이면서, 그 기사가 최초 알림
+                    # **이후에 발행**됐을 때만 새 전개로 보고 한 번 더 알린다.
+                    # 발행시각 조건이 없으면, 구글 RSS가 몇 시간 늦게 물어오는
+                    # 옛 속보가 계속 '승격'으로 인정돼 같은 임명 기사가 반복된다
+                    # (8/21 실측: 박정성 임명 속보가 15:19·15:22·15:30자로 세 번 재알림).
+                    escalated = (TOPIC_ESCALATION_ONLY and tier < hit["tier"]
+                                 and it["pub_dt"] > (hit.get("first_dt") or ""))
+                    if not escalated:
+                        suppressed.append((it["title"], hit["title"]))
+                        bump_suppressed(conn, hit["key"], now)
+                        continue
+                    # 승격은 기존 행을 갱신한다. 새 key로 INSERT하면 같은 사안이
+                    # 서로 다른 등급의 행 두 개로 남아, 다음 실행에서 낮은 등급 행에
+                    # 매칭돼 또 승격 판정이 난다(재알림 무한 반복의 실제 원인이었음).
+                    hit["tier"] = tier
+                    conn.execute("UPDATE alerted_topics SET tier=?, last_dt=? WHERE key=?",
+                                 (tier, now.isoformat(), hit["key"]))
+                else:
+                    record_alerted_topic(conn, key, it["title"], toks, tier, now)
+                    prior_topics.append({"key": key, "title": it["title"], "tokens": toks,
+                                         "tier": tier, "first_dt": now.isoformat()})
+                rows.append((it, extra))
+            if rows:
+                sections.append((g, rows))
+
+        shown = sum(len(rows) for _, rows in sections)
+        conn.commit()
+
+        if suppressed:
+            # 숫자만 남기면 뭘 삼켰는지 알 수 없다(excluded_log 때 배운 것).
+            # Actions 로그와 alerts 파일에 제목을 그대로 남겨 과억제를 감시한다.
+            print(f"[억제] 이미 알린 주제 {len(suppressed)}건:")
+            for t, first in suppressed:
+                print(f"  · {t[:60]}\n      ← 최초: {first[:60]}")
+
+    if new_rows and shown:
         def render_check(as_html):
             esc = tg_escape if as_html else (lambda s: s)
             body = []
-            shown = 0
-            for g in effective_group_order(by_g.keys()):
-                arts = by_g.get(g, [])
-                if not arts:
-                    continue
-                clusters = cluster_by_topic(arts, lambda it: it["title"])
-                def clu_rank(clu):
-                    # 섹션 안에서 중요도 순 정렬. 확산도는 이번 배치 크기가 아니라
-                    # pickup_count(최근 24시간 같은 제목 그룹의 매체 수)를 쓴다 —
-                    # 이번 실행에 1건만 새로 들어왔어도 이미 널리 퍼진 사안일 수 있기 때문.
-                    srcs = set()
-                    for a in clu:
-                        srcs |= pickup_count.get(group_key(a["title"]), set())
-                        srcs.add(a["source"])
-                    sc = importance_score([a["title"] for a in clu],
-                                          n_sources=len(srcs), sources=srcs)
-                    # 점수 동률이면 먼저 보도된 것(원 보도에 가까움) 우선
-                    return (-sc, min(a["pub_dt"] for a in clu))
-                clusters.sort(key=clu_rank)
+            for g, rows in sections:
                 body.append(f"\n■ <b>{esc(g)}</b>" if as_html else f"\n■ {g}")
-                for clu in clusters:
-                    # 같은 주제는 대표 1건만 알림. 나머지는 '(관련 N건)'으로만 표시하고
-                    # 전체 목록은 다이제스트에서 확인 (check=선별, digest=누락없음 원칙 유지).
-                    it = pick_rep(clu)
-                    shown += 1
+                for it, extra in rows:
                     t = it["pub_dt"][11:16]
                     mark = priority_mark(it["title"])
                     mp = f"{mark} " if mark else ""
                     src = media_name(it["source"])
-                    rel = f" (관련 {len(clu) - 1}건)" if len(clu) > 1 else ""
+                    rel = f" (관련 {extra}건)" if extra > 0 else ""
                     if as_html:
                         body.append(
                             f'{mp}· <a href="{esc(it["link"])}">{esc(it["title"])}</a>'
@@ -1162,10 +1396,14 @@ def run_check():
             head = (f"🆕 <b>주요 기사 {shown}건</b> " if as_html
                     else f"🆕 주요 기사 {shown}건 ") + f"({now.strftime('%m/%d %H:%M')})"
             lines = [head] + body
+            notes = []
             if skipped:
-                note = f"\n<i>선별 제외 {len(skipped)}건은 다이제스트에서 확인</i>" if as_html \
-                       else f"\n(선별 제외 {len(skipped)}건은 다이제스트에서 확인)"
-                lines.append(note)
+                notes.append(f"선별 제외 {len(skipped)}건은 다이제스트에서 확인")
+            if suppressed:
+                notes.append(f"기알림 {len(suppressed)}건 억제")
+            if notes:
+                txt = " · ".join(notes)
+                lines.append(f"\n<i>{esc(txt)}</i>" if as_html else f"\n({txt})")
             return "\n".join(lines)
 
         html_text = render_check(as_html=True)
@@ -1180,13 +1418,22 @@ def run_check():
         os.makedirs(ALERT_DIR, exist_ok=True)
         fname = os.path.join(ALERT_DIR, f"{now.strftime('%Y-%m-%d')}.txt")
         with open(fname, "a", encoding="utf-8") as f:
-            f.write(plain_text + "\n\n" + ("-" * 40) + "\n\n")
+            f.write(plain_text + "\n\n")
+            if suppressed:
+                f.write("[억제된 기알림 주제]\n")
+                for t, first in suppressed:
+                    f.write(f"  · {t}\n      ← 최초: {first}\n")
+                f.write("\n")
+            f.write(("-" * 40) + "\n\n")
         print(f"저장: {fname}")
     else:
+        parts = []
         if skipped:
-            print(f"[{now.strftime('%H:%M')}] 주요 기사 없음 (선별 제외 {len(skipped)}건은 다이제스트로)")
-        else:
-            print(f"[{now.strftime('%H:%M')}] 새 기사 없음")
+            parts.append(f"선별 제외 {len(skipped)}건")
+        if suppressed:
+            parts.append(f"기알림 억제 {len(suppressed)}건")
+        tail = f" ({', '.join(parts)}은 다이제스트로)" if parts else ""
+        print(f"[{now.strftime('%H:%M')}] 새로 알릴 기사 없음{tail}")
     conn.close()
 
 # ==================== digest 모드 ====================
@@ -1235,7 +1482,8 @@ def run_digest():
     # news_monitor.db 자체가 매 실행 git 커밋되므로 이 로그도 자동으로 저장소에 남는다.
     photo_rows = [r for r in rows if is_photo_article(r[0], r[1], strict=True)]
     rows = [r for r in rows if r not in photo_rows]
-    junk_rows = [r for r in rows if is_junk_title(r[0])]
+    # strict=True — digest는 기존 고신뢰 패턴만 적용한다(check 전용 묶음기사 패턴 제외).
+    junk_rows = [r for r in rows if is_junk_title(r[0], strict=True)]
     rows = [r for r in rows if r not in junk_rows]
     photo_excluded, junk_excluded = len(photo_rows), len(junk_rows)
 
