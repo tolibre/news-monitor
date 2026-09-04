@@ -5,7 +5,7 @@ news_monitor.py  (v2 — 네이버 API 주 수집원 / 무과금 / DB 기반 다
 
 모드:
   python news_monitor.py check   : 실시간 수집 (5분 간격 스케줄 권장)
-  python news_monitor.py digest  : 다이제스트 출력 (08:30 / 13:30 스케줄)
+  python news_monitor.py digest  : 다이제스트 출력 (06:00 / 08:30 / 13:30 / 17:30 / 22:00 스케줄)
 
 수집원:
   1) 네이버 뉴스 검색 API (주) — 무료, 일 25,000회 한도, 최신순 페이지네이션
@@ -357,8 +357,9 @@ KEYWORD_GROUPS = {
     "CBS": "CBS",
 }
 # 당직 키워드 매핑은 활성 여부와 무관하게 항상 합쳐둔다.
-# 당직 다음 날 06:00 다이제스트가 전날 13:30~06:00 구간(=당직 시간대)을 커버하는데,
-# 그때 duty_active()는 이미 False다. 매핑이 없으면 그 기사들의 그룹을 못 찾는다.
+# 당직일 17:30·22:00 다이제스트, 그리고 당직 다음 날 06:00 다이제스트(전날 22:00~
+# 금일 06:00 구간)가 당직 시간대 기사를 나눠 커버하는데, 그때 duty_active()는
+# 이미(또는 아직) False인 경우가 있다. 매핑이 없으면 그 기사들의 그룹을 못 찾는다.
 KEYWORD_GROUPS.update(DUTY_KEYWORD_GROUPS)
 # 다이제스트 섹션 표시 순서 (그룹명 기준, 중복 제거)
 GROUP_ORDER = []
@@ -1774,12 +1775,18 @@ def run_digest():
     now = datetime.datetime.now(KST)
     today = now.date()
     is_saturday = now.weekday() == 5  # 월=0 ... 토=5, 일=6
-    if now.hour < 7:     # 06:00 실행 → 야간 다이제스트: 전일 13:30 ~ 금일 06:00
-        # 전일 오후 digest(13:30) 이후 수집분을 모두 포함한다.
+    # 2026-09-04: 17:30/22:00 슬롯 추가. 이전엔 3분기(06:00/08:30/13:30)뿐이었고
+    # 06:00 다이제스트가 '전일 13:30 ~ 금일 06:00'을 통째로 커버했다. 17:30·22:00이
+    # 생기면서 13:30~22:00 구간은 그쪽이 먼저 보내므로, 06:00의 시작 경계도
+    # '전일 22:00'로 당겨야 한다 — 안 그러면 06:00 다이제스트가 17:30·22:00이 이미
+    # 보낸 내용을 통째로 중복 발송한다.
+    if now.hour < 7:     # 06:00 실행 → 야간 다이제스트: 전일 22:00 ~ 금일 06:00
         # 예전에는 '전일 23:00 ~'이라 13:30~23:00에 수집된 기사가 어느 digest에도
-        # 들어가지 않고 사라졌고, check가 06시부터 도는 탓에 야간 구간은 늘 비어 있었다.
+        # 들어가지 않고 사라졌던 적이 있다(check가 06시부터 도는 탓에 야간 구간이
+        # 비었음). 지금은 17:30·22:00 다이제스트가 13:30~22:00을 먼저 커버하므로
+        # 06:00은 그 이후(22:00~)만 이어받으면 빈틈이 없다.
         start = datetime.datetime.combine(today - datetime.timedelta(days=1),
-                 datetime.time(13, 30), KST)
+                 datetime.time(22, 0), KST)
         end   = datetime.datetime.combine(today, datetime.time(6, 0), KST)
         label = "야간 다이제스트"
         # 하루 1회(야간 다이제스트 시점)만 오래된 기사 정리 — 토요일 발송 스킵과 무관하게 계속 실행
@@ -1790,10 +1797,18 @@ def run_digest():
         start = datetime.datetime.combine(today, datetime.time(6, 0), KST)
         end   = datetime.datetime.combine(today, datetime.time(8, 30), KST)
         label = "오전 다이제스트"
-    else:                # 13:30 실행 → 금일 08:30 ~ 13:30
+    elif now.hour < 15:  # 13:30 실행 → 금일 08:30 ~ 13:30
         start = datetime.datetime.combine(today, datetime.time(8, 30), KST)
         end   = datetime.datetime.combine(today, datetime.time(13, 30), KST)
         label = "오후 다이제스트"
+    elif now.hour < 20:  # 17:30 실행 → 금일 13:30 ~ 17:30
+        start = datetime.datetime.combine(today, datetime.time(13, 30), KST)
+        end   = datetime.datetime.combine(today, datetime.time(17, 30), KST)
+        label = "저녁 다이제스트"
+    else:                # 22:00 실행 → 금일 17:30 ~ 22:00
+        start = datetime.datetime.combine(today, datetime.time(17, 30), KST)
+        end   = datetime.datetime.combine(today, datetime.time(22, 0), KST)
+        label = "밤 다이제스트"
 
     if is_saturday:
         # 토요일은 다이제스트를 발송하지 않음. DB 정리(위 prune_old)는 이미 실행됐으므로
