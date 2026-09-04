@@ -367,6 +367,14 @@ for _k in KEYWORDS:
     if _g not in GROUP_ORDER:
         GROUP_ORDER.append(_g)
 
+# 그룹명 → 그 그룹을 대표하는 KEYWORDS 원소 하나. 폴백 기사 그룹 재배정
+# (REASSIGN_SCOPE_PAIRS/reassign_fallback_group, 아래 GROUP_SCOPE 절 참조)에서
+# "이 그룹으로 옮긴다"를 "이 키워드로 kws를 바꾼다"로 변환할 때 쓴다.
+REP_KEYWORD_FOR_GROUP = {}
+for _k in KEYWORDS:
+    _g = KEYWORD_GROUPS.get(_k, _k)
+    REP_KEYWORD_FOR_GROUP.setdefault(_g, _k)
+
 # 당직 다음 날처럼 duty_active()가 꺼진 상태에서 당직 시간대 기사를 렌더할 때,
 # GROUP_ORDER에 없는 그룹이 데이터에만 존재할 수 있다. 그대로 두면 렌더 루프가
 # GROUP_ORDER만 돌기 때문에 그 기사들이 **조용히 사라진다**.
@@ -686,11 +694,51 @@ def topic_tokens(title):
             toks.add(w2)
     return toks
 
+# ==================== 흔한 토큰 판별 (2026-09-03, 클러스터링+재알림 억제 공용) ====================
+# 문제(0-4-1 실측, 인수인계 문서): TOPIC_MIN_OVERLAP=2/TOPIC_MIN_RATIO=0.3은 토큰의
+# '흔함'을 보지 않는다. 개인정보위 서로 다른 두 유출 사고가 {'개인정보','유출'}만으로,
+# 공정위 서로 다른 두 승인 건이 {'승인','경쟁력','강화'}만으로 같은 주제로 묶여
+# (클러스터링에서는 잘못 합쳐지고, 억제에서는 억울하게 알림이 눌렸다.
+#
+# 해결: 겹치는 토큰이 전부 '흔한 토큰'(TOPIC_COMMON_TOKENS)뿐이면 불충분한 겹침으로
+# 본다 — 실제 사안 이름 없이 절차 용어만 같아서는 같은 주제로 인정하지 않는다.
+# TOPIC_COMMON_TOKENS는 POLICY_SIGNALS(소관 관문에서 이미 "정책 신호어라 그 자체로는
+# 부처 특정이 안 된다"고 판단해 둔 어휘)를 그대로 재사용하고, 실측으로 확인된 몇 개
+# (개인정보·유출·강화·확대·경쟁력 등)만 더했다 — 그룹별 문서빈도를 새로 계산하는
+# 대신, 이미 검증된 "정책 일반어" 개념을 재사용한 것. 담합·누리호처럼 문서빈도는
+# 높아도 그 자체가 사안을 특정하는 강한 어휘(GROUP_SCOPE의 strong)는 포함하지 않는다
+# — 실제로 이런 어휘를 흔하다고 깎으면 진짜 같은 사안의 재보도까지 갈라진다.
+#
+# **주의**: 이 판정은 cluster_by_topic(digest+check 클러스터링)과 find_alerted(check
+# 재알림 억제) 양쪽에서 **반드시 동일하게** 적용해야 한다. 한 실행 안에서 같은
+# 묶음으로 볼 기사라면 다른 실행에서도 같은 묶음이어야 하는데, 여기만 다른 기준을
+# 쓰면 두 기준이 조용히 어긋난다(find_alerted 기존 주석과 같은 이유) — 그래서 두
+# 함수 다 아래 significant_overlap() 하나만 호출한다.
+TOPIC_COMMON_TOKENS = set(POLICY_SIGNALS) | {
+    "개인정보", "유출", "강화", "확대", "경쟁력", "참여", "운영", "환영", "재추진",
+}
+
+def significant_overlap(a, b, min_overlap=2, min_ratio=0.3):
+    """두 토큰 집합이 '같은 주제'로 볼 만큼 겹치는지 판정.
+    cluster_by_topic과 find_alerted가 공유하는 유일한 판정 함수 — 둘 중 하나만
+    고치면 두 기준이 어긋나므로 반드시 여기만 고친다."""
+    common = a & b
+    if len(common) < min_overlap:
+        return False
+    smaller = min(len(a), len(b))
+    if smaller == 0 or len(common) / smaller < min_ratio:
+        return False
+    if common <= TOPIC_COMMON_TOKENS:
+        return False   # 겹침이 전부 흔한 토큰뿐 — 사안을 특정하는 어휘가 없음
+    return True
+
 def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.3):
-    """items를 제목 토큰 유사도로 주제별 묶음. 
+    """items를 제목 토큰 유사도로 주제별 묶음.
     두 기사의 공통 토큰이 min_overlap개 이상이고, 작은 쪽 집합의 min_ratio 이상 겹치면 같은 주제.
-    min_ratio 기본값 0.3 — 0.5에서는 같은 사안(예: '알뜰폰 2.0' 27건)이 매체별 제목 차이만으로
-    14조각까지 쪼개졌음. 0.3으로 낮춰도 서로 다른 사안이 잘못 합쳐지는 사례는 확인되지 않음.
+    단, 겹치는 토큰이 전부 흔한 토큰(TOPIC_COMMON_TOKENS)뿐이면 겹침으로 인정하지 않는다
+    (significant_overlap 참조). min_ratio 기본값 0.3 — 0.5에서는 같은 사안(예: '알뜰폰 2.0'
+    27건)이 매체별 제목 차이만으로 14조각까지 쪼개졌음. 0.3으로 낮춰도 서로 다른 사안이
+    잘못 합쳐지는 사례는 확인되지 않음.
     반환: [[item, item, ...], ...] (묶음 리스트, 각 묶음은 원래 순서 유지)"""
     n = len(items)
     tokens = [topic_tokens(title_getter(it)) for it in items]
@@ -708,9 +756,7 @@ def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.3):
         for j in range(i + 1, n):
             if not tokens[i] or not tokens[j]:
                 continue
-            common = tokens[i] & tokens[j]
-            smaller = min(len(tokens[i]), len(tokens[j]))
-            if len(common) >= min_overlap and len(common) / smaller >= min_ratio:
+            if significant_overlap(tokens[i], tokens[j], min_overlap, min_ratio):
                 union(i, j)
     clusters = {}
     for i in range(n):
@@ -1080,12 +1126,10 @@ def find_alerted(prior, key, tokens):
         a, b = e["tokens"], tokens
         if not a or not b:
             continue
-        common = a & b
-        # 판정 기준은 cluster_by_topic과 **완전히 동일**하게 둔다. 한 실행 안에서
-        # 같은 묶음으로 볼 기사라면 실행이 바뀌어도 같은 묶음이어야 하고,
-        # 여기만 다른 규칙을 쓰면 두 기준이 조용히 어긋난다.
-        if (len(common) >= TOPIC_MIN_OVERLAP
-                and len(common) / min(len(a), len(b)) >= TOPIC_MIN_RATIO):
+        # 판정 기준은 cluster_by_topic과 **완전히 동일**하게 둔다(significant_overlap
+        # 공용 함수). 한 실행 안에서 같은 묶음으로 볼 기사라면 실행이 바뀌어도 같은
+        # 묶음이어야 하고, 여기만 다른 규칙을 쓰면 두 기준이 조용히 어긋난다.
+        if significant_overlap(a, b, TOPIC_MIN_OVERLAP, TOPIC_MIN_RATIO):
             return e
     return None
 
@@ -1224,6 +1268,63 @@ def scope_gate(title, kws):
                 return True, f"약:{weak[0]}+{s}"
         return False, f"{g}|약어휘만({weak[0]})"
     return False, f"{g}|소관어휘없음"
+
+# ==================== 폴백 기사 그룹 재배정 (check+digest 공용, 2026-09-03) ====================
+# 문제(0-2 실측, 인수인계 문서): 폴백 기사는 "어느 키워드로 검색됐는가"만으로 그룹이
+# 정해진다. 본문이 실제로는 다른 부처 사안인데 검색어만 우연히 걸린 경우, 소관 관문도
+# **엉뚱한 부처의 어휘 목록으로 판정**받아 억울하게 탈락한다.
+# 실측 사례: "누리호 발사 중 폭발 한다면"…19개 기관 합동 재난훈련 <연합뉴스TV> —
+# 우주항공청 강한 어휘 '누리호'가 제목에 있는데도 과기정통부로 배정돼
+# [과기정통부|소관어휘없음]으로 탈락했다.
+#
+# 이 문제는 check(관문 판정)와 digest(그룹 표시) 양쪽에 그대로 나타난다 — digest도
+# DB의 keywords 컬럼으로 그룹을 나누기 때문이다. kws 자체를 재배정해 DB에 그대로
+# 저장하면 두 군데 다 저절로 고쳐진다(사용자 결정 2026-09-03: check·digest 모두 적용).
+#
+# 재배정 범위를 과기정통부 ↔ 우주항공청 두 그룹으로 좁힌 이유: 실데이터로 전체 그룹
+# 조합을 다 열어 재배정 후보를 뽑아봤더니, 공정위·방미통위를 포함시키면 그 그룹들의
+# 강한 어휘에 든 매체명·인명(KBS·SBS·EBS, '위성락' 등)이 무관한 기사에 우연히
+# 등장한 것만으로 잘못 재배정되는 사례가 다수 나왔다(예: 'SBS 드라마 흥행' 기사가
+# 방미통위로, 위성락 외교안보실장 기사가 '위성' 때문에 우주항공청으로).
+# 반면 과기정통부 ↔ 우주항공청 쌍은 실제로 인접 영역(우주·AI·R&D 정책)이라
+# 재배정 후보 47건을 전수 확인한 결과 전부 타당한 재배정이었다. 다른 그룹으로
+# 넓히려면 그 그룹들의 강한 어휘를 매체명·인명과 겹치지 않게 먼저 다듬어야 한다.
+REASSIGN_SCOPE_PAIRS = {
+    "과기정통부": ["우주항공청"],
+    "우주항공청": ["과기정통부"],
+}
+
+def reassign_fallback_group(title, kws):
+    """폴백 기사(제목에 출입처 키워드 없음)가 자기 그룹 소관 관문에서
+    '소관어휘없음'으로 탈락했을 때, REASSIGN_SCOPE_PAIRS에 정의된 다른 그룹의
+    **강한** 어휘와 매치되면 그 그룹으로 재배정한다.
+    (통과여부, 사유, 최종 kws) 반환. kws가 바뀌면 호출자가 DB에 그대로 저장해야
+    check·digest 양쪽에 반영된다.
+
+    '약어휘만' 탈락은 건드리지 않는다 — 약한 어휘는 원래 그룹과도 어느 정도 관련이
+    있다는 뜻이라 재배정 판단이 애매해진다. '소관어휘없음'(완전 무관)일 때만,
+    그것도 강한 어휘로만 재배정해 오분류를 줄이는 쪽으로만 움직인다."""
+    if matched_keywords(title):
+        return True, "제목매칭", kws
+    ok, why = scope_gate(title, kws)
+    if ok or "소관어휘없음" not in why:
+        return ok, why, kws
+    gs = display_groups(kws)
+    g = gs[0] if gs else None
+    targets = REASSIGN_SCOPE_PAIRS.get(g, [])
+    if not targets:
+        return ok, why, kws
+    t = clean(title or "").rsplit(" - ", 1)[0].strip()
+    for tg in targets:
+        spec = GROUP_SCOPE.get(tg)
+        if not spec:
+            continue
+        for w in spec["strong"]:
+            if w in t:
+                new_kw = REP_KEYWORD_FOR_GROUP.get(tg)
+                if new_kw:
+                    return True, f"재배정:{g}→{tg}(강:{w.strip()})", {new_kw}
+    return ok, why, kws
 
 # ==================== 수집: 네이버 ====================
 def fetch_naver(conn, keyword, known_ids):
@@ -1403,6 +1504,7 @@ def run_check():
 
     new_rows = []
     off_scope = []      # 소관 관문에서 걸러낸 폴백 기사 (감시용)
+    reassigned = []     # 그룹 재배정된 폴백 기사 (감시용, check+digest 공용)
     if cbs_candidates:
         st = cbs_stage
         print(f"[CBS] 검색 {cbs_candidates}건 → 제목에CBS없음 {st.get('no_cbs',0)} / "
@@ -1414,6 +1516,13 @@ def run_check():
     for aid, it in collected.items():
         if aid in known:
             continue
+        # 그룹 재배정 — DB 저장 **전에** 적용해야 digest도 올바른 그룹으로 표시된다.
+        # (check만 고칠 거면 아래 scope_gate 자리에서 해도 되지만, kws 자체가
+        # DB의 keywords 컬럼에 그대로 실리므로 여기서 먼저 바로잡는다.)
+        ok, why, new_kws = reassign_fallback_group(it["title"], it["kws"])
+        if new_kws != it["kws"]:
+            reassigned.append((it["title"], why))
+            it["kws"] = new_kws
         allowed = media_allowed(it["source"])
         if allowed or STORE_NON_WHITELIST:
             conn.execute("INSERT OR IGNORE INTO articles VALUES(?,?,?,?,?,?,?,?)",
@@ -1425,12 +1534,21 @@ def run_check():
                 and not is_junk_title(it["title"])):
             # 폴백 기사 소관 관문 — check 전용. DB 저장은 위에서 이미 끝났고
             # digest는 DB를 읽으므로 여기서 걸러도 digest에는 그대로 나온다.
-            ok, why = scope_gate(it["title"], it["kws"])
+            # (ok/why는 위 reassign_fallback_group()이 이미 계산해 둔 것을 그대로 씀 —
+            # 재배정으로 통과했으면 ok=True, 재배정 후보가 없었으면 원래 scope_gate 결과.)
             if ok:
                 new_rows.append(it)
             else:
                 off_scope.append((it["title"], why))
     conn.commit()
+
+    if reassigned:
+        # 무엇을 옮겼는지 목록으로 남긴다(과잉 재배정 감시). 숫자만으로는 판단할 수 없다.
+        print(f"[그룹재배정] 폴백 기사 {len(reassigned)}건 그룹 재배정:")
+        for t, why in reassigned[:30]:
+            print(f"  · [{why}] {t[:70]}")
+        if len(reassigned) > 30:
+            print(f"  … 외 {len(reassigned) - 30}건")
 
     if off_scope:
         # 무엇을 삼켰는지 목록으로 남긴다(과차단 감시). 숫자만으로는 판단할 수 없다.
@@ -1629,6 +1747,11 @@ def run_check():
             if off_scope:
                 f.write("[소관 관문에서 제외된 폴백 기사]\n")
                 for t, why in off_scope:
+                    f.write(f"  · [{why}] {t}\n")
+                f.write("\n")
+            if reassigned:
+                f.write("[그룹 재배정된 폴백 기사]\n")
+                for t, why in reassigned:
                     f.write(f"  · [{why}] {t}\n")
                 f.write("\n")
             f.write(("-" * 40) + "\n\n")
