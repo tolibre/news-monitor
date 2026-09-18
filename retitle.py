@@ -40,6 +40,13 @@ from news_monitor import db, is_truncated_title, clean_title_display, clean
 
 APPLY = os.environ.get("APPLY") == "1"
 
+# 시험 실행용. 비우면(기본) 대상 전체(현재 약 14,431건) 처리 — SLEEP_BETWEEN만으로도
+# 시간이 꽤 걸리고(0.3초*건수, 네트워크 대기 별도), concurrency 그룹이 news-monitor로
+# check/digest와 공유되어 cancel-in-progress:false라 그 사이 check/digest 실행이
+# 전부 대기열에 쌓인다. 수치 확인이 목적인 첫 드라이런은 LIMIT을 걸어 최근 기사
+# 위주 소량만 빠르게 돌리는 것을 권장.
+LIMIT = int(os.environ.get("LIMIT") or 0)
+
 TIMEOUT = 12            # 초. 개별 기사 페이지 하나 못 받아온다고 전체를 막으면 안 됨.
 SLEEP_BETWEEN = 0.3     # 초. 언론사 서버에 짧은 시간 안에 몰아치지 않기 위한 최소 예의.
 MAX_RETRY = 1           # 일시적 오류 1회만 재시도(과도한 재시도는 오히려 민폐).
@@ -186,10 +193,18 @@ def recover_title(raw_title, link):
 
 def main():
     conn = db()
-    rows = conn.execute("SELECT id, title, link, source FROM articles").fetchall()
+    # 최근 수집분부터 처리 — LIMIT을 걸었을 때 지금 다이제스트에 실제로 나가는
+    # 기사 위주로 확인할 수 있도록 seen_dt 최신순 정렬.
+    rows = conn.execute(
+        "SELECT id, title, link, source FROM articles ORDER BY seen_dt DESC"
+    ).fetchall()
     targets = [r for r in rows if is_truncated_title(r[1])]
+    total_truncated = len(targets)
+    if LIMIT > 0:
+        targets = targets[:LIMIT]
 
-    print(f"[retitle] 전체 {len(rows)}건 중 잘린 제목 {len(targets)}건 대상 "
+    limit_note = f", LIMIT={LIMIT}으로 {len(targets)}건만 처리" if LIMIT > 0 else ""
+    print(f"[retitle] 전체 {len(rows)}건 중 잘린 제목 {total_truncated}건 대상{limit_note} "
           f"({'APPLY=1, 실제 기록' if APPLY else 'DRY-RUN, DB 미기록'})")
 
     ok = fail = 0
