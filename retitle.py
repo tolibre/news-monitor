@@ -47,9 +47,9 @@ APPLY = os.environ.get("APPLY") == "1"
 # 위주 소량만 빠르게 돌리는 것을 권장.
 LIMIT = int(os.environ.get("LIMIT") or 0)
 
-TIMEOUT = 12            # 초. 개별 기사 페이지 하나 못 받아온다고 전체를 막으면 안 됨.
+TIMEOUT = 15            # 초. 개별 기사 페이지 하나 못 받아온다고 전체를 막으면 안 됨.
 SLEEP_BETWEEN = 0.3     # 초. 언론사 서버에 짧은 시간 안에 몰아치지 않기 위한 최소 예의.
-MAX_RETRY = 1           # 일시적 오류 1회만 재시도(과도한 재시도는 오히려 민폐).
+MAX_RETRY = 2           # 30건 시험에서 타임아웃 1건 확인 — 일시적 오류 재시도를 1→2회로.
 
 # 한국 언론사 사이트에서 실제로 마주치는 인코딩. Content-Type/meta에 charset이
 # 없거나 못 읽은 페이지에 한해 이 순서로 시도한다.
@@ -125,12 +125,21 @@ def decode_html(raw_bytes, header_charset=None):
 def fetch_og_title(url):
     """원문 페이지에서 og:title을 읽어온다.
     반환: (og_title_or_None, 실패사유_or_None)"""
+    # 30건 시험 드라이런에서 businesspost.co.kr·news1.kr이 403으로 막힘 확인.
+    # Referer/Accept 없이 UA만 보내는 요청을 스크레이퍼로 보고 차단하는 언론사가
+    # 있어, 실제 브라우저 탐색과 더 비슷하게 헤더를 보강한다(Accept-Encoding은
+    # 일부러 안 보냄 — gzip 압축 응답을 여기서 해제하지 않으므로 받으면 깨진다).
+    # Akamai/Cloudflare류 봇 차단은 헤더만으론 못 뚫을 수 있어, 이건 실제
+    # 네트워크가 되는 환경(Actions)에서 결과로만 확인 가능하다.
     req = urllib.request.Request(
         url,
         headers={
             "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                             "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"),
+            "Accept": ("text/html,application/xhtml+xml,application/xml;q=0.9,"
+                       "image/webp,*/*;q=0.8"),
             "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+            "Referer": "https://www.google.com/",
         },
     )
     raw = None
