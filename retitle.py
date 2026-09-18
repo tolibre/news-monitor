@@ -183,8 +183,20 @@ def recover_title(raw_title, link):
     orig_clean = clean(raw_title).strip()
     orig_prefix = orig_clean[:-3].rstrip() if orig_clean.endswith("...") else orig_clean
 
-    # 공백 차이(줄바꿈/이중공백 등)는 무시하고 문자 나열만 비교.
-    if not new_clean.replace(" ", "").startswith(orig_prefix.replace(" ", "")):
+    # 30건 시험 드라이런 실측(2026-09-19)에서 확인: 네이버 API가 따옴표를 ASCII로
+    # 납작하게 펴서 보낸다(원문 페이지엔 타이포그래피 따옴표 그대로인데 DB엔 '/"만
+    # 있음). 예) DB: "5개 단체, '배달..." vs og:title: "5개 단체, '배달..."(U+2018).
+    # 내용은 같은데 따옴표 글자만 달라 접두 비교에서 오탐 실패로 걸렸다 — 비교용으로만
+    # 정규화(저장값은 og:title 원문 그대로 유지, clean_title_display 결과 손대지 않음).
+    _QUOTE_NORMALIZE = str.maketrans({
+        "‘": "'", "’": "'",   # ' '  → '
+        "“": '"', "”": '"',   # " "  → "
+    })
+
+    def _norm_for_compare(s):
+        return s.translate(_QUOTE_NORMALIZE).replace(" ", "")
+
+    if not _norm_for_compare(new_clean).startswith(_norm_for_compare(orig_prefix)):
         return None, (f"접두 불일치: 원본 '{orig_prefix[:25]}...' vs "
                        f"복구본 '{new_clean[:25]}...'")
 
