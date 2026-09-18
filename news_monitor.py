@@ -869,6 +869,28 @@ TOPIC_COMMON_TOKENS = set(POLICY_SIGNALS) | {
     "개인정보", "유출", "강화", "확대", "경쟁력", "참여", "운영", "환영", "재추진",
 }
 
+# ==================== 출입처명 토큰 (2026-09-19, 클러스터 오결합 점검) ====================
+# 문제(실측): TOPIC_COMMON_TOKENS는 '조사'·'제재'·'심의'는 흔한 토큰으로 보면서
+# **출입처명 자체('공정위')는 사안을 특정하는 어휘로 쳤다.** 그런데 출입처명은 그
+# 섹션 안에서 변별력이 정확히 0이다 — 섹션 이름이기 때문이다. 그래서 겹침이
+# {공정위, 조사}뿐인 두 기사가 "흔한 토큰만은 아니다"로 통과해 버렸다.
+#
+# 실제 피해(2026-09-17 저녁 공정위 섹션): '무신사 무혐의'(3건) ·'디지털교과서
+# 태블릿 담합'(7건)·'관광공사 트립닷컴'(1건)·'법원 집행정지'(1건) 네 사안이
+# 12건짜리 한 클러스터로 합쳐졌다. 다리가 된 연결은 전부 두 토큰짜리였다 —
+# {공정위,조사} / {공정위,제재} / {공정위,제재}. 텔레그램에선 빈 줄 하나 차이라
+# 눈에 안 띄지만, HTML에서 전재를 접으면 무관한 기사가 '+N건' 뒤로 숨는다.
+#
+# 목록을 손으로 적지 않고 KEYWORD_GROUPS에서 유도하는 이유: 당직 출입처가 추가되면
+# (DUTY_KEYWORD_GROUPS) 그 부처명도 자동으로 포함돼야 하기 때문이다. 손으로 적으면
+# 출입처가 늘 때마다 조용히 낡는다.
+#
+# **인명 키워드는 제외한다** — '나이영'은 KEYWORD_GROUPS의 키지만 부처명이 아니라
+# 사람 이름이고, 희귀해서 변별력이 매우 높다. 여기 넣으면 CBS 인사 기사가 갈라진다.
+CLUSTER_PERSON_KEYWORDS = {"나이영"}
+CLUSTER_AGENCY_TOKENS = (set(KEYWORD_GROUPS.keys()) | set(KEYWORD_GROUPS.values())) \
+                        - CLUSTER_PERSON_KEYWORDS
+
 def significant_overlap(a, b, min_overlap=2, min_ratio=0.3):
     """두 토큰 집합이 '같은 주제'로 볼 만큼 겹치는지 판정.
     cluster_by_topic과 find_alerted가 공유하는 유일한 판정 함수 — 둘 중 하나만
@@ -879,8 +901,18 @@ def significant_overlap(a, b, min_overlap=2, min_ratio=0.3):
     smaller = min(len(a), len(b))
     if smaller == 0 or len(common) / smaller < min_ratio:
         return False
-    if common <= TOPIC_COMMON_TOKENS:
-        return False   # 겹침이 전부 흔한 토큰뿐 — 사안을 특정하는 어휘가 없음
+    if common <= (TOPIC_COMMON_TOKENS | CLUSTER_AGENCY_TOKENS):
+        # 겹침이 전부 '흔한 토큰 + 출입처명'뿐 — 사안을 특정하는 어휘가 없음.
+        #
+        # 단 하나의 예외: 겹친 출입처명이 2개 이상이면 인정한다. 부처가 함께 움직인
+        # 사안(예: '과기정통부·방미통위 실무협의회')은 **부처명 쌍 자체가 사안**이라,
+        # 이걸 막으면 같은 기사가 갈라진다. 실측(09/17 밤 방미통위): 실무협의회 5건 중
+        # 'AI부터 미디어까지…방미통위·과기정통부, 손잡고 첫 실무협의회 개최'가 나머지와
+        # {과기정통부, 방미통위}로만 이어져 있어, 예외가 없으면 혼자 떨어져 나갔다.
+        # 반대로 이번에 잡으려는 오결합의 다리는 전부 출입처명이 **하나**뿐이었으므로
+        # (＝{공정위,조사}) 이 예외가 그것들을 되살리지는 않는다.
+        if len(common & CLUSTER_AGENCY_TOKENS) < 2:
+            return False
     return True
 
 def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.3):
@@ -894,6 +926,7 @@ def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.3):
     n = len(items)
     tokens = [topic_tokens(title_getter(it)) for it in items]
     parent = list(range(n))
+    adj = [set() for _ in range(n)]      # 사슬 절단(아래 _split_chain)용 인접 목록
     def find(x):
         while parent[x] != x:
             parent[x] = parent[parent[x]]
@@ -908,13 +941,92 @@ def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.3):
             if not tokens[i] or not tokens[j]:
                 continue
             if significant_overlap(tokens[i], tokens[j], min_overlap, min_ratio):
+                adj[i].add(j)
+                adj[j].add(i)
                 union(i, j)
-    clusters = {}
+    comps = {}
     for i in range(n):
-        r = find(i)
-        clusters.setdefault(r, []).append(items[i])
+        comps.setdefault(find(i), []).append(i)
+    out = []
+    for r in comps:
+        idx = comps[r]
+        if len(idx) < CLUSTER_CHAIN_MIN:
+            out.append(idx)
+        else:
+            out.extend(_split_chain(idx, adj))
     # 원래 등장 순서(첫 멤버 인덱스) 기준 정렬
-    return [clusters[k] for k in sorted(clusters.keys())]
+    out.sort(key=min)
+    return [[items[i] for i in sorted(idx)] for idx in out]
+
+# ==================== 사슬 오결합 절단 (2026-09-19) ====================
+# 위 union-find는 단일연결(single-linkage)이다 — A~B, B~C면 A와 C가 한 토큰도
+# 안 겹쳐도 한 묶음이 된다. 평소엔 같은 사안의 제목 변형을 이어주는 고마운 성질이지만,
+# **여러 사안을 함께 다룬 기사**가 끼면 그 기사가 다리가 돼 무관한 사안이 줄줄이 붙는다.
+#
+# 실측(7일·25개 슬롯 재생):
+#  - 09/15 오후 중기부 **122건 한 묶음** — '이소영 중기부 후보자 청문회'에
+#    '김승원 법무부 후보자 청문회'가 통째로 붙어 있었다. 다리는 '국회, 오늘
+#    이형일·김승원·이소영 인사청문회'처럼 세 사람을 같이 쓴 종합 기사들.
+#  - 09/18 야간 대미투자 **116건 한 묶음** — '대미투자 협상'에 '호르무즈 파병'과
+#    '미·일 반도체 공장'이 붙었다. 다리는 '파병부터 대미투자까지…' 같은 기사.
+#  - 30건 이상 거대 클러스터에 전체 기사묶음의 13.2%가 들어가 있었다.
+#
+# 해결: 임계 크기 이상인 묶음만 **star(중심-주변) 방식으로 재분할**한다. 가장 많은
+# 이웃을 가진 기사를 중심으로 잡고 그 중심과 **직접** 겹치는 것만 한 묶음으로 떼어낸 뒤,
+# 남은 것에 같은 절차를 반복한다. 사슬을 타고 멀리 붙은 기사는 중심과 직접 겹치지
+# 않으므로 떨어져 나간다.
+#
+# **임계값을 두는 이유**: 작은 묶음은 지금 동작 그대로 두기 위해서다(회귀 위험 최소화).
+# 실측으로 임계 10·15·20·30을 비교했더니 거대 클러스터 해소 효과는 전부 같은데
+# (최대 122건 → 46~53건) **임계가 낮을수록 중간 크기의 진짜 사안이 다쳤다** —
+# 임계 10에서는 '쿠팡 정보보호 자문위'(17건)에서 1건이, '소부장 특화단지'(16건)에서
+# 1건이 떨어져 나가고, '개인정보위 5개사 개선권고'(16건)는 같은 사안이 10+6으로
+# 갈렸다. 그래서 30으로 잡았다 — 30건 미만 묶음은 이 패치 전과 **완전히 동일**하게
+# 동작한다.
+#
+# **되붙임(CLUSTER_CHAIN_ABSORB)이 필요한 이유**: star는 중심과 직접 겹치는 것만
+# 떼어내므로, 같은 사안인데 중심과 우연히 안 겹친 1~2건이 홀로 떨어져 나간다
+# (실측: 임계 30에서 고아 조각 72개 — '마일리지 통합' 42건에서 1건, '누리호 5차'
+# 31건에서 4건). 조각 크기가 2건 이하면 이웃이 가장 많은 큰 조각으로 되돌린다.
+# 되붙임을 켜면 고아 조각이 **72개 → 0개**가 되고, 그래도 끊어야 할 사슬은 그대로
+# 끊긴다(중기부 122건 → 김승원 14건·정점식 9건 분리, 대미투자 116건 → 미일 반도체
+# 16건·국회보고 14건 분리). '마일리지' 42건과 '누리호' 31건은 한 묶음으로 유지된다.
+#
+# **왜 min_ratio를 올리거나 삼각형 필터를 쓰지 않는가**:
+#  - min_ratio 0.5는 인수인계 4항에 이미 기록된 함정이다 — 같은 사안('알뜰폰 2.0'
+#    27건)이 매체별 제목 차이만으로 14조각까지 쪼개졌다.
+#  - "공통 이웃이 없는 연결만 끊기"(삼각형 필터)도 실측했으나 **거대 클러스터를 전혀
+#    못 깼다**(최대 113건 유지). 다리가 되는 종합기사를 여러 매체가 같이 써서 다리
+#    자체가 삼각형을 이루기 때문이다.
+CLUSTER_CHAIN_MIN    = 30    # 이 크기 이상인 묶음만 사슬 절단 대상
+CLUSTER_CHAIN_ABSORB = 2     # 절단 후 이 크기 이하 조각은 큰 조각으로 되돌림
+
+def _split_chain(idx, adj):
+    """단일연결로 뭉친 묶음을 star 방식으로 재분할. 반환: [[인덱스,...], ...]"""
+    remaining = set(idx)
+    pieces = []
+    while remaining:
+        # 남은 것들 중 이웃이 가장 많은 기사를 중심으로. 동률이면 먼저 등장한 것.
+        seed = max(remaining, key=lambda i: (len(adj[i] & remaining), -i))
+        members = {seed} | (adj[seed] & remaining)
+        pieces.append(set(members))
+        remaining -= members
+
+    # 되붙임 — 같은 사안인데 중심과 우연히 안 겹쳐 떨어져 나온 작은 조각 회수.
+    big   = [p for p in pieces if len(p) >  CLUSTER_CHAIN_ABSORB]
+    small = [p for p in pieces if len(p) <= CLUSTER_CHAIN_ABSORB]
+    leftover = []
+    for p in small:
+        best, best_edges = None, 0
+        for q in big:
+            e = sum(len(adj[i] & q) for i in p)
+            if e > best_edges:
+                best, best_edges = q, e
+        if best is not None:
+            best |= p          # 이웃이 가장 많은 큰 조각으로 회수
+        else:
+            leftover.append(p)  # 어느 큰 조각과도 안 겹치면 그대로 독립
+    return [sorted(p) for p in big + leftover]
 
 def clean_title_display(title):
     """표시용 제목: 구글 RSS의 ' - 매체명' 꼬리표 제거 (매체명은 별도 표시하므로).
