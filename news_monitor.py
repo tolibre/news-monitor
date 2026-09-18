@@ -81,6 +81,8 @@ KEYWORD_ANTIPATTERNS = {
     "중기부":   [r"중기부문", r"중기부담", r"중기부진", r"중기부채"],
     "농식품부": [],
     "개인정보위": [],
+    # '나이'+'영향/영업' 등이 붙어 오매칭되는 것 방지 (현재 DB에 실례는 없으나 예방).
+    "나이영":   [r"나이영향", r"나이영업", r"나이영어"],
 }
 
 def strip_antipatterns(text, kw):
@@ -131,6 +133,13 @@ BASE_KEYWORDS = [
     "과학기술정보통신부", "과기정통부", "과기부",
     "우주항공청",
     "CBS",
+    # CBS 사장 이름 (사용자 제공, 2026-09-18). 'CBS' 키워드는 제목에 CBS가 있어야
+    # 하는 관문(KEYWORD_GATES)이 걸려 있어 사장 이름만 쓴 기사를 못 잡는다.
+    # 실측 근거: DB 전체에서 '나이영'이 들어간 제목은 'CBS 신임 사장에 나이영 전
+    # 강원CBS 본부장'(한국기자협회) 단 1건이고 오탐이 없다 — 흔한 이름이 아니라
+    # '이소영'류의 위험(0-10)이 없다. 별도 키워드로 두므로 CBS 관문의 영향을
+    # 받지 않고, 제목에 이름만 있어도 CBS 섹션으로 들어온다.
+    "나이영",
 ]
 
 # ==================== 임시 키워드 (특정 이슈, 만료일 있음) ====================
@@ -217,9 +226,16 @@ GROUP_SCOPE = {
             "공정거래조정원", "전원회의", "시정명령", "의결권", "주총", "주주총회",
             "리콜", "위약금",
             "주병기",  # 공정거래위원장(2025-09-16~, 0-10 참조)
+            # 2026-09-18 보강 — 관문에서 탈락한 실제 공정위 사안에서 역산했다.
+            # (정몽규 HDC '계열사 누락' 사건이 핵심매체 12건인데 전부 탈락했다)
+            "계열사 누락", "계열사누락", "지정자료", "동일인", "기업집단",
+            "상호출자", "순환출자", "채무보증", "내부거래", "부당공동행위",
+            "재판소원", "이의신청", "시정조치", "심판정", "자진시정",
+            "소비자분쟁", "분쟁조정위", "집단소송", "소비자단체", "상생협의체",
+            "끼워팔기", "재판매가격", "최저가보장",
         ],
         "weak": ["소비자", "광고", "과징금", "인수", "합병", "독점", "경쟁",
-                 "수수료", "환불"],
+                 "수수료", "환불", "제재", "조사", "허위자료"],
     },
     "방미통위": {
         "strong": [
@@ -233,9 +249,27 @@ GROUP_SCOPE = {
             "뉴스제휴", "KBS", "MBC", "SBS", "EBS", "YTN", "TBS",
             "연합뉴스TV", "코바코",
             "김종철", "고민수",  # 위원장·초대 부위원장(0-10 참조)
+            # 2026-09-18 보강 — 방미심위 심의 사안이 통째로 비어 있었다.
+            # (청소년 사이버도박 자진신고가 핵심매체 9건인데 전부 탈락, 불법사금융
+            #  광고 심의 기사도 전부 탈락 — 둘 다 방미심위 소관이다)
+            "방문진", "방송문화진흥", "공영방송", "시청자위원회", "편성위원회",
+            "시정요구", "접속차단", "접속 차단", "불법사금융", "불법금융광고",
+            "불법 도박", "사이버도박", "사이버 도박", "도박사이트",
+            "불법중계", "불법 중계", "재난방송", "재난 수어", "수어방송",
+            "팩트체크", "유해정보", "유해매체", "전기통신사업법",
+            "위성방송", "홈쇼핑", "방송광고", "재송신", "경인방송",
         ],
-        "weak": ["콘텐츠", "채널", "시청", "플랫폼", "통신", "광고", "심의", "제재",
-                 "중계", "메타", "유튜브", "넷플릭스", "틱톡"],
+        # loose 모드(GROUP_GATE_MODE)에서는 이 어휘 **하나만 있어도 통과**한다.
+        # 그래서 포괄적인 낱말은 오히려 빼야 한다 — 실측으로 확인한 것:
+        #   "광고" → 식약처 글루텐프리 부당광고 기사 6건이 방미통위로 끌려왔다.
+        #            (불법사금융·불법금융광고·방송광고·중간광고는 strong에 있어 그대로 잡힌다)
+        #   "도박" → 강원랜드·경찰 폴리마켓 수사 기사가 끌려왔다.
+        #            (사이버도박·불법 도박·도박사이트는 strong에 있다)
+        #   "보도"/"취재" → 아무 기사에나 등장해 loose에서 사실상 전체 통과가 된다.
+        # 즉 strong으로 승격한 어휘의 포괄 상위어는 weak에서 내리는 것이 맞다.
+        "weak": ["콘텐츠", "채널", "시청", "플랫폼", "통신", "심의", "제재",
+                 "중계", "메타", "유튜브", "넷플릭스", "틱톡",
+                 "음란", "불법촬영", "언론사", "방영"],
     },
     "과기정통부": {
         "strong": [
@@ -252,6 +286,16 @@ GROUP_SCOPE = {
             "원자력연", "표준연", "천문연", "ETRI", "정보통신", "디지털 격차",
             "과기인상", "부총리", "과기혁신본부", "연구재단",
             "배경훈",  # 부총리 겸 과기정통부 장관(0-10 참조, 실측 1437건 중 무관 1건뿐 — 안전)
+            # 2026-09-18 보강 — strict 모드(GROUP_GATE_MODE)로 바꾸면서, 약한 어휘로
+            # 통과하던 **실제 정책 기사**가 함께 떨어지는 것을 실측으로 확인해 메웠다.
+            # (AIDC 특별법 시행령, 정부 AI 4.7조 출자, AI 윤리원칙, 연구소기업
+            #  라이징스타, 공공나노팹 등이 전부 '약어휘만'으로 탈락하고 있었다)
+            "AIDC", "AI DC", "AI 데이터센터", "피지컬AI", "피지컬 AI",
+            "연구소기업", "초고성능컴퓨팅", "나노팹", "공공팹", "공공 팹",
+            "AI 윤리", "AI기금",
+            "핵융합", "양자컴", "K-NPU", "AI 기본계획", "AI 인재",
+            "특화 AI", "파운데이션 모델", "소버린 AI", "국가 AI",
+            "구혁채", "류제명",  # 1·2차관 (흔하지 않은 이름 — 오탐 위험 낮음)
         ],
         "weak": ["AI", "인공지능", "반도체", "디지털", "기술", "연구", "과학",
                  "혁신", "창업", "특구", "바이오", "로봇", "데이터", "NPU",
@@ -264,6 +308,12 @@ GROUP_SCOPE = {
             "발사장", "탐사선", "천리안", "정지궤도", "저궤도", "우주산업",
             "항공기", "UAM", "도심항공", "무인기", "에어쇼",
             "오태석",  # 우주항공청장 2대(2026-02-02~, 0-10 참조)
+            # 2026-09-18 보강 — 산하·유관 연구기관과 항공 부품 영역이 비어 있었다.
+            # ('[단독] 뻔히 감사 착수 알면서…그 업체 또 계약한 항우연'이 탈락했다)
+            "항우연", "항공우주연구원", "천문연구원", "민항기", "항공부품",
+            "기체부품", "항공복합재", "우주기업", "우주탐사", "우주개발",
+            "위성발사", "재사용 발사체", "큐브위성", "초소형위성",
+            "우주항공복합단지", "항공정비", "MRO",
         ],
         "weak": ["항공", "로켓", "궤도", "탐사", "천문", "드론", "사천"],
     },
@@ -379,7 +429,17 @@ CBS_SUBJECT_TERMS = [
     "재허가", "재승인", "방송평가", "방송법", "과징금", "제재",
     "지분", "매각", "인수", "적자", "흑자", "매출", "임금",
     "창사", "사옥", "압수수색", "고발", "소송", "선임", "사퇴", "채용",
+    # 2026-09-18 확대 (사용자 요청: "CBS 섹션을 한 번도 본 적이 없다, 필터를 약하게").
+    # 진단 결과 관문은 막혀 있지 않았다(제목에 CBS가 있는 46건 중 45건 통과) —
+    # 진짜 원인은 ①수집량 자체가 적고 ②언론 전문지가 화이트리스트 밖이었던 것.
+    # 그래도 회사 사안 어휘를 넉넉히 넓혀 관문 쪽 여지도 함께 열어 둔다.
+    "본부장", "운영이사장", "이사장", "대표", "임명", "내정", "취임", "퇴임",
+    "보도", "특종", "편성", "조직개편", "인사", "경영", "이사", "감사",
+    "구성원", "기자협회", "기자상", "수상", "재정", "광고", "후원", "모금",
+    "송출", "지회", "본사", "지역본부", "사규", "단협",
 ]
+# (주의: '표준FM'·'인터뷰' 등은 CBS_CONTEXT_EXCLUDE에 있어 어차피 먼저 걸러진다 —
+#  주제어에 중복으로 넣지 말 것. 관문 순서는 context → subject다.)
 
 # 위 관문을 통과해도 이게 있으면 (b)(c)(d)로 보고 제외.
 # 관문과 달리 이쪽은 열린 집합이라 완벽할 수 없다 — 어디까지나 보조 장치.
@@ -387,6 +447,16 @@ CBS_CONTEXT_EXCLUDE = [
     "라디오", "표준FM", "음악FM", "뉴스쇼", "김현정", "박재홍", "한판승부",
     "시사자키", "출연", "인터뷰", "노컷", "미국", "CBS방송", "CBS뉴스",
     "CBS News", "인터뷰서",
+    # 2026-09-18: 주제어를 넓힌 만큼 '미국 CBS' 차단을 함께 강화한다.
+    # 넓힌 어휘('대표','해고','보도')가 하필 미국 CBS 기사와 잘 맞물려서다
+    # (실측: '백악관 실세, CBS 이민자 추방 보도물 제작진 해고 요구'가 그대로 통과).
+    "백악관", "트럼프", "美", "워싱턴", "뉴욕", "할리우드", "파라마운트",
+    "앵커칼럼", "60분", "스콧 펠리", "특파원",
+    # 순수 종교 행사물만 차단. **'목사'·'교회'는 일부러 넣지 않았다** —
+    # '울산CBS 제4대 운영이사장에 박연식 담임목사 취임'처럼 CBS 조직 인사 기사에
+    # 그대로 등장하기 때문이다. 사용자가 CBS는 "더 약하게"를 요청했으므로
+    # 인사 기사를 삼킬 수 있는 낱말은 제외어에서 뺀다.
+    "선교", "기도회", "예배", "찬양", "성가대", "부흥회", "리사이틀", "성료",
 ]
 
 # 키워드당 네이버 수집 페이지 상한(기본 MAX_PAGES_PER_KEYWORD).
@@ -404,7 +474,7 @@ KEYWORD_GROUPS = {
     "공정거래위원회": "공정위", "공정위": "공정위",
     "방송미디어통신위원회": "방미통위", "방미통위": "방미통위",
     "우주항공청": "우주항공청",
-    "CBS": "CBS",
+    "CBS": "CBS", "나이영": "CBS",
 }
 # 당직 키워드 매핑은 활성 여부와 무관하게 항상 합쳐둔다.
 # 당직일 17:30·22:00 다이제스트, 그리고 당직 다음 날 06:00 다이제스트(전날 22:00~
@@ -492,6 +562,15 @@ MEDIA_NAMES = {
     "조선비즈", "뉴스핌", "이투데이", "아주경제", "데일리안", "쿠키뉴스", "아시아투데이",
     "헬로디디", "HelloDD", "사이언스타임즈",
     "대전일보", "경남신문", "부산일보", "매일신문",
+    # 언론 전문지 (2026-09-18 추가). 두 요청을 한 번에 해결한다:
+    #  ① CBS: 'CBS 신임 사장에 나이영 전 강원CBS 본부장'(한국기자협회) 기사가
+    #     DB에 들어와 있었는데 이 매체가 화이트리스트에 없어 한 번도 전달되지
+    #     않았다 — CBS 섹션이 안 보인 진짜 원인이다(관문 아님).
+    #  ② 방미통위: 이 매체들이 방미통위·방미심위 사안을 가장 촘촘히 쓴다
+    #     (실측 표본: 방문진 보궐이사 임명처분 취소, YTN 재승인 숙의,
+    #      경인방송 비밀계약서 방송법 위반 검토, TBS 정상화 협의체 등).
+    # 미디어오늘은 이미 들어 있었다.
+    "한국기자협회", "기자협회보", "미디어스", "PD저널", "방송기술저널",
 }
 
 # 화이트리스트 밖 기사도 DB에는 저장할지 (True 권장: 나중에 매체 추가 시 과거 기사 확인 가능)
@@ -705,11 +784,32 @@ def clean(text):
 def norm_title(t):
     return re.sub(r"[\s\W]+", "", clean(t))[:60]
 
+def strip_media_tail(t, max_len=15, max_rounds=3):
+    """구글 RSS의 ' - 매체명' 꼬리표 제거. **반복** 제거한다.
+
+    2026-09-18 실측: 머니투데이 등 일부 매체는 꼬리표가 두 번 붙어 온다
+    ('제목 - 머니투데이 - 머니투데이'). rsplit을 한 번만 쓰면 '제목 - 머니투데이'가
+    남아, 같은 기사의 네이버판과 구글판이 서로 다른 group_key를 갖게 되고
+    dedup_group이 병합에 실패해 digest에 같은 기사가 두 줄로 나왔다.
+    (최근 7일 88건 해당, 제목키 52건이 추가 병합됨)
+
+    max_rounds로 상한을 두는 이유: 제목 본문에 ' - '가 여러 번 쓰인 기사에서
+    무한히 깎여나가지 않게 하기 위함이다."""
+    t = t or ""
+    for _ in range(max_rounds):
+        if " - " not in t:
+            break
+        head, tail = t.rsplit(" - ", 1)
+        if len(tail) > max_len or not head.strip():
+            break
+        t = head
+    return t
+
 def group_key(title):
     """전재 기사 묶기용 제목 키. [단독][속보] 등 대괄호 태그와 ' - 매체명' 꼬리표 제거 후 정규화."""
     t = clean(title)
     t = re.sub(r"\[[^\]]*\]", "", t)          # [단독] [속보] [종합] 등 제거
-    t = t.rsplit(" - ", 1)[0]                   # 구글 RSS의 ' - 매체명' 꼬리표 제거
+    t = strip_media_tail(t)                     # 구글 RSS의 ' - 매체명' 꼬리표 제거(반복)
     t = re.sub(r"\([^)]*\)$", "", t).strip()    # 끝의 (종합) (종합2보) 등 제거
     return re.sub(r"[\s\W]+", "", t)[:50]
 
@@ -817,13 +917,9 @@ def cluster_by_topic(items, title_getter, min_overlap=2, min_ratio=0.3):
     return [clusters[k] for k in sorted(clusters.keys())]
 
 def clean_title_display(title):
-    """표시용 제목: 구글 RSS의 ' - 매체명' 꼬리표 제거 (매체명은 별도 표시하므로)."""
-    t = clean(title)
-    if " - " in t:
-        head, tail = t.rsplit(" - ", 1)
-        if len(tail) <= 15:  # 꼬리표가 매체명 길이면 제거
-            t = head
-    return t
+    """표시용 제목: 구글 RSS의 ' - 매체명' 꼬리표 제거 (매체명은 별도 표시하므로).
+    꼬리표가 두 번 붙어 오는 매체가 있어 반복 제거한다(strip_media_tail 주석 참조)."""
+    return strip_media_tail(clean(title))
 
 def is_truncated_title(title):
     """네이버/구글 API가 제목을 중간에서 잘라 마침표 3개(...)로 보내는 경우 판별.
@@ -957,6 +1053,173 @@ def is_junk_title(title, strict=False):
         if re.search(pat, t):
             return True
     return False
+
+# ==================== 노이즈 필터 (2026-09-18) ====================
+# 실측 근거(최근 7일, alerted_topics 735건 + digest 통과 7,620건 전수 분석):
+# check 알림의 69%가 폴백 경로(제목에 출입처명 없이 본문만 매칭)인데, 그 안에
+# 반복적으로 올라오는 무정보 유형이 뚜렷했다. 사용자 결정(09/18)에 따라
+# 두 층으로 나눈다 — "check는 선별, digest는 누락방지" 원칙을 그대로 따른다.
+#
+#   NOISE_BOTH       : 순수 오탐·무정보. check와 digest 양쪽에서 제외.
+#   NOISE_CHECK_ONLY : 부처가 주체가 아닌 기사(기업·대학·지자체가 주체이고
+#                      부처는 발주자·수여자로만 등장). check에서만 제외하고
+#                      digest에는 그대로 남긴다.
+#
+# 오탐을 막기 위해 두 개의 보호장치(guard)를 둔다. 실데이터로 검증하며 추가한
+# 것이고, 없으면 실제 기사가 함께 죽는다:
+#   "부처주체"  — 제목 첫 덩어리에 출입처명이 있으면 부처가 주체인 기사이므로
+#                 적용하지 않는다. (없을 때 '중기부, 소셜벤처 리그 2차 발표평가
+#                 통과자 40명 선발'이 '기업 선정·수혜'로 오탐됐다)
+#   "강한어휘"  — 소관 강한 어휘가 제목에 있으면 적용하지 않는다.
+#                 (없을 때 '서울시의회-민주당 "오세훈, TBS 정상화 시간표
+#                 내놔야"'가 지자체 기사로 오탐됐다 — TBS는 방미통위 사안)
+#
+# 주의: '시장'은 지자체 필터에 넣지 않았다. '방송 시장', '자본시장'에 걸려
+# 오탐이 대량 발생한다(실측 확인). 도지사·군수·구청장·지방의회만 쓴다.
+
+# --- 인사·동정·부고·일정 코너물 (양쪽 제외, 사용자 결정 09/18) ---
+# 대괄호 코너물 **형식**만 잡는다. '이상중 KISA 원장 해임 건의 과기정통부로',
+# '방미통위 야당 몫 상임위원에 이인호 교수 내정' 같은 실제 인사 뉴스는 살려야
+# 하므로 '임명·내정·위촉' 같은 낱말로는 절대 거르지 않는다.
+# (검증: 최근 7일 인사 관련 실제 뉴스 11건 전부 보존, 오탐 0건)
+ROSTER_TITLE_PATTERNS = [
+    r"^\s*[\[〈<【(]\s*(인사|동정|부고|약력|승진|전보|신임)\s*[\]〉>】)]",
+    r"^\s*[\[〈<【(][^\]〉>】)]{0,10}(인사|부고|동정)\s*[\]〉>】)]",
+    r"오늘의?\s*주요\s*일정",
+    r"^\s*[\[〈<【(]\s*일정\s*[\]〉>】)]",
+    r"주요\s*일정\s*[\]〉>】)]",
+    r"오늘의\s*부고",
+    r"별세",
+    r"(부친|모친|빙부|빙모|장인|장모|배우자)상(\s|$|\)|\])",
+]
+
+# --- 우정사업본부·우체국: [단독]/[속보]만 통과 (양쪽, 사용자 결정 09/18) ---
+# 과기정통부 소속기관이라 과기정통부 섹션에 올라오는데, 추석 택배 물량·우체국
+# 쇼핑·우체국보험 상품 개편처럼 정책 취재와 무관한 기사가 주 20여 건 들어온다.
+# 전면 차단하지 않고 등급 게이트만 둔 이유: '보복대행 유출 우체국 압수수색'
+# [단독]처럼 실제 사안이 우정 쪽에서 터질 수 있기 때문.
+# (실측: 최근 7일 digest 23건 → 4건만 남음. 남는 것이 전부 단독·속보)
+POSTAL_PATTERNS = [
+    r"우체국", r"우정사업본부", r"우정노조", r"집배원", r"집배차", r"우편물", r"우체통",
+]
+
+NOISE_BOTH = {
+    # 칼럼·사설·기고 등 오피니언물 (사용자 결정 2026-09-18: check·digest 양쪽 제외).
+    # '조간브리핑'을 명시 요청했고, 같은 성격의 묶음 브리핑물도 함께 넣었다.
+    # **대괄호 태그 형식만** 잡는다 — '[현장]', '[인터뷰]', '[단독]', '[2027 예산안]'
+    # 같은 취재물 태그는 건드리지 않는다(실측 확인). '[종합]'도 제외 대상이 아니다:
+    # 그건 오피니언이 아니라 같은 사안을 묶어 쓴 정식 기사다.
+    # (실측: 21일간 127건, 전수 육안 확인 결과 전부 오피니언물 — 오탐 0)
+    "칼럼사설": ([
+        r"^\s*[\[〈<【(]\s*(사설|칼럼|시론|시평|논단|오피니언|기고|투고|발언대|독자마당"
+        r"|기자수첩|취재수첩|기자의\s*눈|기자메모|데스크칼럼|데스크\s*칼럼|데스크\s*시각"
+        r"|편집국에서|아침을\s*열며|세상읽기|현장에서|광화문|만물상|횡설수설|아침햇살)",
+        # '[이정훈 칼럼]', '[윤정호의 앵커칼럼]', '[법률칼럼]', '[특파원 칼럼]'(뒤에 붙는 형태)
+        r"[\[〈<【(][^\]〉>】)]{0,12}(칼럼|시론|기자수첩|취재수첩|데스크칼럼|기고)\s*[\]〉>】)]",
+        # 조간브리핑·퇴근길·출근길 등 묶음 브리핑물
+        r"^\s*[\[〈<【(]\s*(조간|석간)\s*브리핑",
+        r"[\[〈<【(][^\]〉>】)]{0,8}(퇴근길|출근길)[^\]〉>】)]{0,8}[\]〉>】)]",
+    ], None),
+    # 외국 부처명이 국내 부처 약칭에 오매칭. '하나은행, 우즈벡 투자산업통상부와
+    # 업무협약'이 산업부 섹션에 주 20여 건 반복됐다.
+    "외국부처": ([
+        r"(우즈벡|우즈베키스탄|카자흐|카자흐스탄|투르크멘|투르크메니스탄|키르기스|키르기스스탄"
+        r"|타지키스탄|베트남|인도네시아|몽골|파라과이|인도|미국|일본|중국|대만|태국|필리핀"
+        r"|말레이시아|싱가포르|사우디|UAE|아랍에미리트|이집트|튀르키예|터키|브라질|멕시코|칠레"
+        r"|페루|폴란드|체코|헝가리|독일|프랑스|영국|이탈리아|스페인|네덜란드|호주|캐나다)"
+        r"\s*[가-힣]{0,8}(산업통상부|산업부|국토부|국토교통부|농식품부|중기부|과기부|과기정통부)",
+    ], None),
+    # 코너·게시판·단신 묶음. 개별 기사가 아니라 여러 건을 '外'로 묶은 공지물.
+    "코너물": ([
+        r"^\s*[\[〈<【(]\s*(게시판|사이언스게시판|과학스냅|우정\s*이야기|알림|공지|안내)",
+        r"\[게시판\]",
+        r"^\s*[\[〈<【(][가-힣]{2,6}(소식|브리핑|브리프|단신|시황)\s*[\]〉>】)]",
+    ], None),
+    # 증시·종목물. 사안 자체는 일반 기사로 따로 들어오므로 종목 앵글만 버린다.
+    "증시종목": ([
+        r"^\s*\[?(특징주|종목|핫종목|ET특징주|모닝\s*리포트)",
+        r"\[종목[^\]]*\]",
+        r"목표가\s*[\d,]*\s*(상향|하향)",
+    ], None),
+    # 시상·표창. 부처가 '상을 주는 쪽'으로만 등장하는 수상 홍보 기사.
+    "시상표창": ([
+        r"(장관|위원장|총리|부총리|대통령)\s*(상|표창)",
+        r"유공자\s*(포상|표창)",
+        r"공로상",
+        r"(대상|최우수상|우수상)\s*수상",
+    ], "부처주체"),
+}
+
+NOISE_CHECK_ONLY = {
+    # 대학·연구팀이 주체인 연구성과·모집·입시 기사.
+    "대학연구": ([
+        r"^(?:[가-힣]{2,5}대(?:학교)?|KAIST|GIST|UNIST|POSTECH|DGIST|한국과학기술원)\s*[,·]",
+        r"(교수팀|연구팀|연구진)",
+        r"논문\s*(게재|채택|선정)",
+        r"국제학(술지|회)\s*(게재|채택|표지)",
+        r"수시\s*경쟁률",
+    ], "부처주체"),
+    # 기업·기관이 주체이고 부처는 발주자로만 등장하는 선정·수혜 기사.
+    "기업수혜": ([
+        r"^[^,]{2,20},\s*[^,]{0,45}(선정|수주|획득|합류|낙점|선발|확인|인정)\s*$",
+        r"^[^,]{2,20},\s*.{0,35}(컨소시엄|주관기관|주관대학|총괄\s*주관|사업자)에?\s*(참여|선정|합류)",
+        r"(주관대학|주관기관|총괄\s*주관)\s*['\"‘’“”]?\s*선정",
+    ], "부처주체"),
+    # 지자체·지방의회가 주체인 행정 기사.
+    "지자체": ([
+        r"(도지사|군수|구청장|시의회|도의회|구의회|시의원|도의원|구의원)",
+        r"^[가-힣]{2,4}(시|군|구|도)\s*[,·]",
+        # 지역 기관만. '산업진흥원'을 단독으로 두면 데이터산업진흥원·로봇산업진흥원
+        # 같은 국가기관이 걸린다(실측: 'NIA, 데이터산업진흥원 통합' 오탐).
+        r"(테크노파크|창조경제혁신센터|지역경제진흥원|신용보증재단)",
+    ], "강한어휘"),
+}
+
+def _ministry_is_subject(title):
+    """제목 첫 덩어리(쉼표·가운뎃점 앞)에 출입처명이 있으면 부처가 주체."""
+    head = re.split(r"[,·]", clean(title or ""), 1)[0][:22]
+    return any(k in head for k in KEYWORDS)
+
+def _has_strong_scope(title):
+    """어느 그룹이든 소관 '강한' 어휘가 제목에 있는지."""
+    t = clean(title or "").rsplit(" - ", 1)[0]
+    for spec in GROUP_SCOPE.values():
+        for w in spec.get("strong", []):
+            if w in t:
+                return True
+    return False
+
+def noise_reason(title, strict=False):
+    """노이즈 필터 판정. 걸리면 사유 문자열, 통과하면 None.
+
+    strict=True(digest)  → ROSTER + 우정등급 + NOISE_BOTH 까지만 적용
+    strict=False(check)  → 위에 더해 NOISE_CHECK_ONLY 까지 적용
+
+    is_junk_title·is_photo_article과 같은 비대칭 분리 원칙을 따른다.
+    사유를 문자열로 돌려주는 이유는 excluded_log·Actions 로그에 남겨
+    과필터를 눈으로 감시하기 위한 것이다(숫자만으로는 검증이 불가능하다)."""
+    t = clean(title or "").rsplit(" - ", 1)[0].strip()
+    if not t:
+        return None
+
+    for pat in ROSTER_TITLE_PATTERNS:
+        if re.search(pat, t):
+            return "인사동정"
+
+    # 우정 관련은 [단독]/[속보]가 붙었을 때만 통과 (원 제목으로 태그를 본다)
+    if any(re.search(p, t) for p in POSTAL_PATTERNS) and not priority_mark(title):
+        return "우정일반"
+
+    groups = dict(NOISE_BOTH) if strict else {**NOISE_BOTH, **NOISE_CHECK_ONLY}
+    for name, (pats, guard) in groups.items():
+        if not any(re.search(p, t) for p in pats):
+            continue
+        if guard == "부처주체" and _ministry_is_subject(title):
+            continue
+        if guard == "강한어휘" and _has_strong_scope(title):
+            continue
+        return name
+    return None
 
 # ==================== [인사] 명단 기사 묶기 (check 전용) ====================
 # '[인사] 산업통상부' 같은 인사 명단은 매체마다 따로 들어오는데 내용은 같다.
@@ -1292,6 +1555,25 @@ def matched_keywords(title):
         out.append(k)
     return out
 
+# ==================== 그룹별 관문 강도 (2026-09-18, 사용자 결정) ====================
+# 출입처마다 "얼마나 보고 싶은가"가 다르다. 사용자 요청:
+#   "방미통위와 관련한 기사들은 필터를 조금 더 느슨하게 해줘. 기사 조금 더 많이 봐도
+#    되겠어. 반대로 과기정통부와 관련한 기사는 좀 더 엄격하게 해줘."
+#
+#   "loose"  — 약한 어휘 하나만 있어도 통과(정책 신호어 불필요).
+#   "normal" — 기본. 강한 어휘 통과, 약한 어휘는 정책 신호어와 함께일 때만 통과.
+#   "strict" — 강한 어휘만 통과. 약한 어휘+신호어 조합은 인정하지 않는다.
+#
+# **check 전용이다** — scope_gate가 check에서만 호출되므로 digest에는 영향이 없다.
+# 즉 과기정통부를 strict로 둬도 digest에서는 그대로 다 보인다.
+#
+# 여기 없는 그룹은 전부 "normal"이다. 강도를 바꿀 땐 GROUP_SCOPE 어휘를 먼저
+# 점검할 것 — strict는 강한 어휘 목록의 완성도에 그대로 의존한다.
+GROUP_GATE_MODE = {
+    "방미통위":   "loose",
+    "과기정통부": "strict",
+}
+
 def scope_gate(title, kws):
     """폴백 기사(제목에 출입처 키워드가 없는 기사)의 소관 관문. **check 전용.**
 
@@ -1300,6 +1582,7 @@ def scope_gate(title, kws):
     excluded_log·억제 목록 때와 같은 이유로, 숫자만 남기면 뭘 삼켰는지 알 수 없다.
 
     제목에 출입처 키워드가 있으면 관문을 적용하지 않는다(폴백이 아니므로).
+    그룹별 강도는 GROUP_GATE_MODE로 조절한다.
     """
     if matched_keywords(title):
         return True, "제목매칭"
@@ -1308,12 +1591,18 @@ def scope_gate(title, kws):
     spec = GROUP_SCOPE.get(g)
     if not spec:
         return True, "관문없음"      # 어휘 미정의 그룹은 통과 (보수적)
+    mode = GROUP_GATE_MODE.get(g, "normal")
     t = clean(title or "").rsplit(" - ", 1)[0].strip()
     for w in spec["strong"]:
         if w in t:
             return True, f"강:{w.strip()}"
     weak = [w for w in spec["weak"] if w in t]
     if weak:
+        if mode == "strict":
+            # 강한 어휘가 없으면 끝. 약한 어휘는 아무리 신호어가 붙어도 안 된다.
+            return False, f"{g}|엄격:약어휘만({weak[0]})"
+        if mode == "loose":
+            return True, f"약(느슨):{weak[0]}"
         for s in POLICY_SIGNALS:
             if s in t:
                 return True, f"약:{weak[0]}+{s}"
@@ -1556,6 +1845,7 @@ def run_check():
     new_rows = []
     off_scope = []      # 소관 관문에서 걸러낸 폴백 기사 (감시용)
     reassigned = []     # 그룹 재배정된 폴백 기사 (감시용, check+digest 공용)
+    noised = []         # 노이즈 필터로 걸러낸 기사 (감시용)
     if cbs_candidates:
         st = cbs_stage
         print(f"[CBS] 검색 {cbs_candidates}건 → 제목에CBS없음 {st.get('no_cbs',0)} / "
@@ -1587,10 +1877,17 @@ def run_check():
             # digest는 DB를 읽으므로 여기서 걸러도 digest에는 그대로 나온다.
             # (ok/why는 위 reassign_fallback_group()이 이미 계산해 둔 것을 그대로 씀 —
             # 재배정으로 통과했으면 ok=True, 재배정 후보가 없었으면 원래 scope_gate 결과.)
-            if ok:
-                new_rows.append(it)
-            else:
+            if not ok:
                 off_scope.append((it["title"], why))
+                continue
+            # 노이즈 필터 — check 전용 층까지 적용(strict=False).
+            # DB 저장은 위에서 이미 끝났고 digest는 DB를 읽으므로, 여기서 걸러도
+            # digest에는 자기 기준(strict=True)대로 그대로 나온다.
+            nr = noise_reason(it["title"], strict=False)
+            if nr:
+                noised.append((it["title"], nr))
+                continue
+            new_rows.append(it)
     conn.commit()
 
     if reassigned:
@@ -1608,6 +1905,19 @@ def run_check():
             print(f"  · [{why}] {t[:70]}")
         if len(off_scope) > 30:
             print(f"  … 외 {len(off_scope) - 30}건")
+
+    if noised:
+        # 사유별 건수 + 제목 목록. 과필터 감시용 — 필터가 실제 기사를 삼키기
+        # 시작하면 여기서 먼저 드러난다.
+        tally = {}
+        for _, why in noised:
+            tally[why] = tally.get(why, 0) + 1
+        summary = ", ".join(f"{k} {v}" for k, v in sorted(tally.items(), key=lambda x: -x[1]))
+        print(f"[노이즈필터] {len(noised)}건 제외 ({summary}):")
+        for t, why in noised[:30]:
+            print(f"  · [{why}] {t[:70]}")
+        if len(noised) > 30:
+            print(f"  … 외 {len(noised) - 30}건")
 
     # ===== check 선별: 핵심 매체 / 단독·속보 / 전재 확산(2곳 이상) 중 하나라도 해당해야 알림 =====
     skipped = []
@@ -1775,6 +2085,8 @@ def run_check():
                 notes.append(f"선별 제외 {len(skipped)}건은 다이제스트에서 확인")
             if off_scope:
                 notes.append(f"소관 밖 {len(off_scope)}건 제외")
+            if noised:
+                notes.append(f"노이즈 {len(noised)}건 제외")
             if suppressed:
                 notes.append(f"기알림 {len(suppressed)}건 억제")
             if notes:
@@ -1805,6 +2117,11 @@ def run_check():
                 for t, why in off_scope:
                     f.write(f"  · [{why}] {t}\n")
                 f.write("\n")
+            if noised:
+                f.write("[노이즈 필터로 제외된 기사]\n")
+                for t, why in noised:
+                    f.write(f"  · [{why}] {t}\n")
+                f.write("\n")
             if reassigned:
                 f.write("[그룹 재배정된 폴백 기사]\n")
                 for t, why in reassigned:
@@ -1818,6 +2135,8 @@ def run_check():
             parts.append(f"선별 제외 {len(skipped)}건")
         if off_scope:
             parts.append(f"소관 밖 {len(off_scope)}건")
+        if noised:
+            parts.append(f"노이즈 {len(noised)}건")
         if suppressed:
             parts.append(f"기알림 억제 {len(suppressed)}건")
         tail = f" ({', '.join(parts)}은 다이제스트로)" if parts else ""
@@ -1887,10 +2206,20 @@ def run_digest():
     # strict=True — digest는 기존 고신뢰 패턴만 적용한다(check 전용 묶음기사 패턴 제외).
     junk_rows = [r for r in rows if is_junk_title(r[0], strict=True)]
     rows = [r for r in rows if r not in junk_rows]
+    # 노이즈 필터 — digest는 strict=True로 '순수 오탐·무정보' 층만 적용한다
+    # (사용자 결정 09/18). 기업·대학·지자체 주체 기사는 check에서만 빠지고
+    # digest에는 그대로 남는다 — digest의 목적은 누락방지이기 때문.
+    noise_rows = [(r, noise_reason(r[0], strict=True)) for r in rows]
+    noise_rows = [(r, w) for r, w in noise_rows if w]
+    _noise_set = {id(r) for r, _ in noise_rows}
+    rows = [r for r in rows if id(r) not in _noise_set]
     photo_excluded, junk_excluded = len(photo_rows), len(junk_rows)
+    noise_excluded = len(noise_rows)
 
-    if photo_rows or junk_rows:
-        for r, reason in [(r, "photo") for r in photo_rows] + [(r, "junk") for r in junk_rows]:
+    if photo_rows or junk_rows or noise_rows:
+        for r, reason in ([(r, "photo") for r in photo_rows]
+                          + [(r, "junk") for r in junk_rows]
+                          + [(r, "noise:" + w) for r, w in noise_rows]):
             title, link, source = r[0], r[1], r[2]
             aid = article_id(link, title)
             conn.execute("""INSERT OR REPLACE INTO excluded_log VALUES(?,?,?,?,?,?)""",
@@ -1987,15 +2316,23 @@ def run_digest():
         # 목록을 여기 바로 싣는 이유: excluded 모드는 DB가 git으로 다음 실행까지
         # 전달돼야 동작하는데, push가 조용히 실패하면 목록이 사라진다(실제로 겪음).
         # digest 시점엔 이미 데이터가 손에 있으므로 왕복 없이 바로 붙인다.
-        if photo_rows or junk_rows:
+        if photo_rows or junk_rows or noise_rows:
             parts = []
             if photo_excluded:
                 parts.append(f"사진 {photo_excluded}건")
             if junk_excluded:
                 parts.append(f"무의미제목 {junk_excluded}건")
+            if noise_excluded:
+                tally = {}
+                for _, w in noise_rows:
+                    tally[w] = tally.get(w, 0) + 1
+                inner = ", ".join(f"{k} {v}" for k, v in sorted(tally.items(), key=lambda x: -x[1]))
+                parts.append(f"노이즈 {noise_excluded}건({inner})")
             txt = "제외: " + ", ".join(parts)
             lines.append(f"\n<i>{esc(txt)}</i>" if as_html else f"\n({txt})")
-            for r, tag in [(r, "사진") for r in photo_rows] + [(r, "무의미") for r in junk_rows]:
+            for r, tag in ([(r, "사진") for r in photo_rows]
+                           + [(r, "무의미") for r in junk_rows]
+                           + [(r, w) for r, w in noise_rows]):
                 ttl = clean_title_display(r[0])
                 src = short_media_name(media_name(r[2]))
                 if as_html:
@@ -2049,7 +2386,10 @@ def run_excluded(days=1):
         print(f"제외 기사 없음{diag}")
         return
 
+    # noise:* 사유는 그대로 노출된다('noise:인사동정' → '노이즈/인사동정')
     reason_label = {"photo": "사진", "junk": "무의미제목"}
+    reason_label.update({f"noise:{k}": f"노이즈/{k}" for k in
+                         ["인사동정", "우정일반", *NOISE_BOTH, *NOISE_CHECK_ONLY]})
     lines = [f"🔍 최근 {days}일 제외 기사 {len(rows)}건 (사진/무의미제목 strict 필터)", "=" * 30]
     for title, link, source, reason, run_dt in rows:
         lines.append(f"[{reason_label.get(reason, reason)}] {title} ({media_name(source)})")
