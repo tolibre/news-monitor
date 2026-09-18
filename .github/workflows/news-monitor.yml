@@ -14,6 +14,11 @@ on:
         required: false
         default: ''
         type: string
+      limit:
+        description: 'retitle 전용: 최근 수집분부터 N건만 처리(시험용). 비우면 대상 전체(수천 건, 오래 걸림 — check/digest가 대기열에 쌓임).'
+        required: false
+        default: ''
+        type: string
       duty:
         description: '당직 출입처 강제 (1=8개 전체 / "산업부,중기부" 형태로 일부만). 비우면 DUTY_DATES 날짜 기준.'
         required: false
@@ -76,6 +81,7 @@ jobs:
           # retitle 전용. 비우면 드라이런(기본값) — news_monitor.py에는 없는 스위치이므로
           # 다른 모드에선 그냥 무시된다.
           APPLY: ${{ github.event.inputs.apply }}
+          LIMIT: ${{ github.event.inputs.limit }}
         run: |
           MODE="${{ steps.mode.outputs.mode }}"
           if [ "$MODE" = "backfill" ]; then
