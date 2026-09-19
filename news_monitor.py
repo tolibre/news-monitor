@@ -701,6 +701,20 @@ TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_DIGEST_BOT_TOKEN = os.environ.get("TELEGRAM_DIGEST_BOT_TOKEN", "") or TELEGRAM_BOT_TOKEN
 TELEGRAM_DIGEST_CHAT_ID   = os.environ.get("TELEGRAM_DIGEST_CHAT_ID", "") or TELEGRAM_CHAT_ID
 
+# HTML 다이제스트 페이지 전환 스위치 (D 세션, 2026-09-19. 상세: claude/HTML전환_세션계획.md)
+#   off     : 지금 그대로 텔레그램 전문만 보낸다. 페이지 생성 안 함(기존 동작과 완전히 동일).
+#   both    : 텔레그램 전문 + 페이지 생성을 같이 한다(전환 시작값 — 며칠 병행 검증용).
+#   summary : 텔레그램은 요약 카드 1개(기관별 건수 + 단독·속보 + 페이지 링크) + 페이지 생성.
+# 워크플로 입력값 하나(PAGE_MODE 환경변수)로 세 값을 오간다. off가 기본값이라
+# 이 환경변수를 아예 안 주면(예: retitle/backfill 모드, 또는 이 변경 이전 워크플로) 기존과
+# 동일하게 동작한다 — 롤백은 이 값을 off로 되돌리는 것만으로 충분하다(2항 참조).
+PAGE_MODE = os.environ.get("PAGE_MODE", "off").strip().lower()
+if PAGE_MODE not in ("off", "both", "summary"):
+    PAGE_MODE = "off"
+# 페이지가 실제로 올라갈 GitHub Pages 절대 URL. 워크플로/시크릿으로 안 주면 상대경로만
+# 알 수 있어 summary 카드의 링크를 완성할 수 없다 — 비어 있으면 링크 없이 카드만 보낸다.
+PAGE_BASE_URL = os.environ.get("PAGE_BASE_URL", "").rstrip("/")
+
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DB_PATH    = os.path.join(BASE_DIR, "news_monitor.db")
 DIGEST_DIR = os.path.join(BASE_DIR, "digests")
@@ -2347,6 +2361,12 @@ def run_digest():
         g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
         by_group.setdefault(g, []).append(r)
 
+    # PAGE_MODE(off/both/summary)용 — html/plain 두 번의 render_digest() 호출 중
+    # 첫 번째(as_html=True) 호출에서만 채워 넣는다. 페이지가 digest 본문과 다른
+    # 클러스터링 결과를 낼 위험을 없애기 위해, 여기 계산되는 clusters를 render_page.py에
+    # 그대로 넘긴다(재계산하지 않음).
+    page_sections = []
+
     # HTML/평문 공통 렌더러
     def render_digest(as_html):
         esc = tg_escape if as_html else (lambda s: s)
@@ -2378,6 +2398,11 @@ def run_digest():
                 # 점수 동률이면 먼저 보도된 것 우선
                 return (-sc, min(gs[0][3] for gs in clu))
             clusters.sort(key=clu_rank)
+            if as_html and PAGE_MODE != "off":
+                # 클러스터 내부 정렬까지 마친 뒤(article_rank) 페이지용으로 캡처한다.
+                for clu in clusters:
+                    clu.sort(key=lambda gs: article_rank(gs[0][0], gs[0][2], gs[0][3]))
+                page_sections.append((g, [list(clu) for clu in clusters]))
             sec_pos = len(lines)      # 섹션 헤더 자리를 잡아두고, 건수는 렌더 후 채운다
             lines.append(None)
             sec_count = 0
@@ -2464,9 +2489,38 @@ def run_digest():
     with open(fname, "w", encoding="utf-8") as f:
         f.write(plain_text)
 
+    # ---------------- PAGE_MODE (D 세션, 2026-09-19) ----------------
+    # off  : 여기 전혀 들어오지 않음(page_sections가 비어 있고 아래 if도 안 탐) —
+    #        이 블록이 있기 전과 완전히 동일하게 동작.
+    # both/summary : render_page.py로 페이지를 만들어 저장소(docs/index.html)에 커밋.
+    #        실제 git add/commit/push는 이 함수가 아니라 워크플로 단계(news-monitor.yml)가
+    #        한다(기존 news_monitor.db 커밋과 같은 자리) — Claude 작업환경엔 push 권한이
+    #        없어 여기서 커밋을 시도해도 반영되지 않기 때문(3항 제약).
+    page_saved_path = None
+    if PAGE_MODE != "off" and page_sections:
+        import render_page
+        groups_data = render_page.build_groups_data(page_sections)
+        page_html = render_page.render_html(
+            label, start.strftime("%m/%d %H:%M"), end.strftime("%m/%d %H:%M"),
+            len(rows), groups_data,
+        )
+        page_saved_path = render_page.save_page(page_html)
+        print(f"[PAGE_MODE={PAGE_MODE}] 페이지 저장: {page_saved_path}")
+
     # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
     # (본문 자체가 '제목(매체)' 보고양식이므로 별도 보고양식 메시지는 보내지 않음)
-    notify(html_text, target="digest")
+    if PAGE_MODE == "summary" and page_sections:
+        page_url = f"{PAGE_BASE_URL}/" if PAGE_BASE_URL else ""
+        summary_text = render_page.summary_card_text(
+            label, start.strftime("%m/%d %H:%M"), end.strftime("%m/%d %H:%M"),
+            groups_data, page_url=page_url,
+        )
+        notify(summary_text, target="digest")
+    else:
+        # off, both, 또는 표시할 기사가 없어 page_sections가 비었을 때 —
+        # 지금까지와 동일하게 전문을 보낸다(both는 전문+페이지 병행이 목적이므로 당연히
+        # 전문도 보낸다. summary인데 기사가 없었던 경우도 안전하게 전문 경로로 폴백).
+        notify(html_text, target="digest")
     print(f"저장: {fname}")
     conn.close()
 
