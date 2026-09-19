@@ -1,0 +1,459 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>오전 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+.masthead{padding-block:14px 10px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.window{font-size:12.5px; color:var(--muted); letter-spacing:.02em}
+.tallies{display:flex; flex-wrap:wrap; gap:6px 16px; margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.tallies b{font-weight:600; font-size:14px}
+.t-scoop b{color:var(--scoop)} .t-flash b{color:var(--flash)}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 10px; scrollbar-width:thin}
+.beat{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:6px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:999px; padding:5px 11px; font-size:13px; font-weight:500;
+  cursor:pointer; white-space:nowrap;
+}
+.beat:hover{border-color:var(--accent); color:var(--ink)}
+.beat .c{font-size:11.5px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.beat[aria-pressed="true"] .c{color:rgba(255,255,255,.8)}
+
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 12px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{
+  border:0; background:var(--surface); color:var(--ink-2);
+  font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{
+  flex:1 1 180px; min-width:0; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:6px 10px;
+}
+#q::placeholder{color:var(--muted)}
+#q:focus,.seg button:focus-visible,.beat:focus-visible,.more:focus-visible,
+.bar button:focus-visible,.panel button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:0 96px}
+section{margin-top:26px; scroll-margin-top:170px}
+.sec-head{
+  display:flex; align-items:baseline; gap:9px;
+  padding-bottom:7px; border-bottom:2px solid var(--ink); margin-bottom:2px;
+}
+.sec-head h2{margin:0; font-size:15.5px; font-weight:700; letter-spacing:-.005em}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{
+  background:var(--surface); border-bottom:1px solid var(--line-soft);
+  padding:9px 12px 9px 11px;
+}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{
+  flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer;
+  accent-color:var(--pick); transform:translateY(2px);
+}
+.tag{
+  flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:1.5px 6px; border-radius:4px; transform:translateY(-1px);
+}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{
+  color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45;
+  text-underline-offset:3px;
+}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{
+  flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline;
+  font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.more{
+  margin-top:5px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--accent); font-weight:500;
+}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:5px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes[hidden]{display:none}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:40px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- selection bar ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:var(--shadow);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13.5px; font-weight:600}
+.bar .count b{color:var(--pick); font-size:16px}
+.bar .spacer{margin-left:auto}
+.btn{
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  font:inherit; font-size:13px; font-weight:500; padding:7px 14px; border-radius:7px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08); color:#fff}
+
+/* ---------- report panel ---------- */
+.veil{
+  position:fixed; inset:0; z-index:40; background:var(--veil);
+  display:flex; align-items:flex-end; justify-content:center; padding:16px;
+}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{
+  background:var(--surface); border-radius:12px; width:100%; max-width:660px;
+  max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  border:1px solid var(--line);
+}
+.panel-head{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{
+  flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px;
+  border:1px solid var(--line); border-radius:8px; resize:vertical;
+  background:var(--surface-2); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8;
+}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+
+@media (max-width:560px){
+  .tallies{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+  section{scroll-margin-top:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="masthead">
+      <h1 id="label">오전 다이제스트</h1>
+      <span class="window mono" id="window"></span>
+      <div class="tallies">
+        <span>표시 <b class="mono" id="n-shown">0</b>건</span>
+        <span>주제 <b class="mono" id="n-topic">0</b>개</span>
+        <span class="t-scoop">단독 <b class="mono" id="n-scoop">0</b></span>
+        <span class="t-flash">속보 <b class="mono" id="n-flash">0</b></span>
+        <span>원문 <b class="mono" id="n-raw">0</b>건</span>
+      </div>
+    </div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색 (예: 담합, 연합뉴스)" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <span class="count"><b class="mono" id="n-pick">0</b>건 선택</span>
+    <span class="hint">체크한 기사만 보고 양식으로 묶습니다</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="clear">선택 해제</button>
+    <button class="btn primary" type="button" id="make">보고 양식 만들기</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="selectall">전체 선택</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"label": "오전 다이제스트", "start": "09/19 06:00", "end": "09/19 08:30", "raw": 89, "groups": [{"name": "공정위", "clusters": [[{"t": "\"수사권 박탈?\" 검찰 밖 '파견검사' 어디로...범죄자만 웃고 있다", "s": "머니투데이", "l": "https://www.mt.co.kr/society/2026/09/19/2026091817212128823", "m": "", "p": "06:00", "n": 1}], [{"t": "\"파견검사 떠나면 어쩌나\"...변호사 앉히면 된다? 전문성·연봉은", "s": "머니투데이", "l": "https://www.mt.co.kr/society/2026/09/19/2026091817250651802", "m": "", "p": "07:00", "n": 1}]], "n": 2}, {"name": "방미통위", "clusters": [[{"t": "트럼프, CNN 등 출입 금지 강수…선거앞 언론 갈등 격화(종합)", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20260919006051071?input=1195m", "m": "", "p": "06:30", "n": 1}]], "n": 1}, {"name": "과기정통부", "clusters": [[{"t": "과기정통부, 대학 산학협력단장과 국가 R&D 제도개선 방안 논의", "s": "전자", "l": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxOdEV5X01zcXlmOU8tanRKcDg2QnN4Z09HNmlhYUhRT1lFTUE4bzgwMEVqdmhfUTNMQno4NlhUY09GZ080Z2l6ZHpEUnU0cjRaeDR4ZnpIa2QxRFlmX0EzcGZaNWV1N2Y1X0ZYNlR5TVYyQUVwQzlVNHRxNlAzZDRsbGN5RDc5QlF5UFljdlFUR2h4TzI3VG9MQXVURlBxcGQtMFg1R1pmVGdsWm1RWjZrQVpkRTJpNnJOSnFDakFpQmE4ZVdfcHAydHpmWmdjTmtFQjZSaW9lYw?oc=5", "m": "", "p": "11:07", "n": 1}], [{"t": "[AI세계속으로]\"함께 늦추자면서 누가 먼저 멈추나\"…속도조절론에도 달리는 AI 경쟁", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026091816520247228", "m": "", "p": "06:20", "n": 1}]], "n": 2}, {"name": "우주항공청", "clusters": [[{"t": "한화시스템, AI 우주상황인식체계 개발 착수…우주 안전 지킨다", "s": "세계", "l": "https://www.segye.com/newsView/20260918503258?OutUrl=naver", "m": "", "p": "06:01", "n": 1}]], "n": 1}, {"name": "산업부", "clusters": [[{"t": "[인천] 산업통상부 관료 출신 김종철, 인천경제청장 취임", "s": "YTN", "l": "https://news.google.com/rss/articles/CBMiXkFVX3lxTFBnWmQ0ejZwX2hTOXBXT0RBWkotd0s5WkxiaUJuVENjOXE5Z19vUGwtMExfUGVPOXhkQTY3WXYzMWZwek1BbjN2N09QMlh0cWN1NVdGMmgzaWZvbnJyRUE?oc=5", "m": "", "p": "15:19", "n": 1}], [{"t": "산업부 \"11월 원유 도입 물량 70% 확보…9~10월은 90%\"", "s": "파이낸셜뉴스", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5rLUhSTzBLeHNpdkZ2OEsxZzdfQ2dWU2Y3QlNDM1dmZkc0YW1PTldoUDlTNEI1UmtEYzcyTDVscE9MdVBXY0FhbTdsZExLNThxc2xOQ3ExQ3U4QQ?oc=5", "m": "", "p": "18:00", "n": 1}], [{"t": "[정책 인사이트] 5조7000억 들어가는 석유 최고가격제, “소비價 인하 효과 확인 어렵다”는데…", "s": "조선비즈", "l": "https://biz.chosun.com/policy/policy_sub/2026/09/19/RLNRFGTNJBEE7OYOO5G6WIYGHI/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "06:01", "n": 1}], [{"t": "“해외 로열티 족쇄 푼다”…경남도, 거제 ‘조선해양플랜트 소부장 특화단지’ 최종 선정", "s": "세계", "l": "https://www.segye.com/newsView/20260918504000?OutUrl=naver", "m": "", "p": "06:08", "n": 1}], [{"t": "인증 6개월→1개월로 단축…경북, 전국 1호 ‘식품로봇 센터’ 준공", "s": "세계", "l": "https://www.segye.com/newsView/20260918504149?OutUrl=naver", "m": "", "p": "06:08", "n": 1}], [{"t": "국제 유가 치솟는데…석유 최고가격 동결 언제까지?", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8667724&ref=A", "m": "", "p": "06:19", "n": 1}], [{"t": "추석 고속道 기름값 100원 이하…일반 주유소 “문 닫으란 거냐”", "s": "중앙", "l": "https://www.joongang.co.kr/article/25463238", "m": "", "p": "07:00", "n": 1}], [{"t": "AI 덕에 한국 대박 났는데…\"이미 위험한 단계\" 섬뜩한 경고 [김주완의 글로벌머니 X파일]", "s": "한국경제", "l": "https://www.hankyung.com/article/202609184079i", "m": "", "p": "07:01", "n": 1}], [{"t": "'석유 최고가' 그대로‥고속도로 주유소 '할인'", "s": "MBC", "l": "https://imnews.imbc.com/replay/2026/nwtoday/article/6852940_37012.html", "m": "", "p": "07:13", "n": 1}]], "n": 9}, {"name": "중기부", "clusters": [[{"t": "중기부, 2차 '모두의 창업'에 3만명 늘어난 9만 2천여 명 지원", "s": "SBS", "l": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQNTZOd0RPZFhWbHhCS0lncHJPSUROZzhQT0xESmVXVzRETnNfd3k1RWZuZkN6MGFjRmQzX28wNV9JQTN6M3pZNnEydWVRZFNDckJvY19BOEZKejlKZkRjZmRrbzBNbl9EZ2I4OWhtZWZ5aXB5a1R4N2g2azE5X0NiZDJtYTJyUDVPVTRrb21ibw?oc=5", "m": "", "p": "10:48", "n": 1}], [{"t": "김승원 임명 기류에 여야 대치 고조…野, 장외투쟁도 검토", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20260918_0003796155", "m": "", "p": "06:00", "n": 1}], [{"t": "\"국민께 송구\"로 회견 시작…\"경청\" vs \"남 탓만\"", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008761093&plink=ORI&cooper=NAVER", "m": "", "p": "07:06", "n": 1}], [{"t": "원재호 앵커노드 대표 \"급변하는 게임 개발 파이프라인, AI 적용 가능성은 '무궁무진'\"", "s": "동아", "l": "https://game.donga.com/124372/", "m": "", "p": "07:54", "n": 1}], [{"t": "다음주 금융당국 일정", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=01610486645581760&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "06:02", "n": 1}]], "n": 5}, {"name": "대미투자", "clusters": [[{"t": "[속보] 李대통령, 대미투자에 \"한미 양국 도움되도록 치열하게 협의중\"", "s": "연합뉴스", "l": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE5MV2JjeEJTdUpVRGhuZHZPQVZpTTFqY0k4X2lwR1pyd1prODUwdFpBQWlmelRNN3BncEVjMW8xWVJUN3VSdldRdkhCb25oQ2xIYXNQYUdGN3UwQnNYT1daetIBYEFVX3lxTE5MV2JjeEJTdUpVRGhuZHZPQVZpTTFqY0k4X2lwR1pyd1prODUwdFpBQWlmelRNN3BncEVjMW8xWVJUN3VSdldRdkhCb25oQ2xIYXNQYUdGN3UwQnNYT1daeg?oc=5", "m": "⚡", "p": "12:09", "n": 1}, {"t": "[속보] 한미 외교장관 \"대미 전략투자 협의, 좋은 결실 맺도록 노력\"", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20260919008600071?input=1195m", "m": "⚡", "p": "05:50", "n": 3}, {"t": "[속보] 한미 외교장관 \"대미 전략투자, 좋은 결실 맺도록 노력\"", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/AKR20260919055544Sie", "m": "⚡", "p": "05:56", "n": 1}, {"t": "[속보] 한미 외교장관 \"대미 전략투자 협의, 좋은 결실 맺을 수 있게 노력\"", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2627446", "m": "⚡", "p": "05:58", "n": 1}, {"t": "[속보] 韓외교장관, 美에 “호르무즈 자유로운 통항회복 기여 의지”", "s": "서울경제", "l": "https://www.sedaily.com/article/20092875?ref=naver", "m": "⚡", "p": "06:02", "n": 4}, {"t": "[속보] 루비오 “美, 중동 평화 노력”…조현 “호르무즈 실질적 기여 의지”", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12084795?ref=naver", "m": "⚡", "p": "06:15", "n": 1}, {"t": "한미 외교장관 회담 시작…'호르무즈 파병·대미 투자' 주목", "s": "연합뉴스", "l": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFA3WWtLeHZDT3F6blFYeW1IUS1memNlZkhXS2FqSVAxOU04blJpYmJiakNkQnJHekR0akRPdzN4X0YzQ3Nod21fLWphU1VSd3U0NVNGOGtSd2RXU2_SAWBBVV95cUxQTkJJRlJiaGUxUWFyR3BmVUN5UDI4Zmx5cHVUU0hkNUdCZTYzcnJpSTFFSlV1dTZLdXFncE5sb0ZwbzJucWIxQThWck5OUGs3UG5nMjRSUUxETEd6bDVXWlI?oc=5", "m": "", "p": "22:30", "n": 2}, {"t": "한미 외교장관 \"대미투자 결실 노력\"…韓 \"호르무즈 기여 계속 소통\"", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20260919009500071?input=1195m", "m": "", "p": "06:21", "n": 2}, {"t": "한미 외교장관 \"대미투자 결실 노력\"…韓 \"호르무즈 기여 계속 소통\"(종합) | 연합뉴스", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20260919009551071?input=1195m", "m": "", "p": "06:59", "n": 1}, {"t": "한미 \"정상합의 이행 소통…한반도 비핵화 노력 지속\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20260919_0003796418", "m": "", "p": "05:57", "n": 1}, {"t": "한미 외교장관 회담 시작…대미투자·호르무즈 논의 주목", "s": "노컷뉴스", "l": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBacGhXNVVHTXBMTFNiaGIxNVd4a1l2aWl5bnJ4TnZtTDhEdWppNXhBbHBTdXV4STgwYVNMMzVQSUdrZVRmbmpDWjBMc29zRVhNREE?oc=5", "m": "", "p": "01:18", "n": 1}, {"t": "한미 외교장관 \"대미투자 결실 노력\"‥조현 \"호르무즈 기여 계속 소통\"", "s": "MBC", "l": "https://imnews.imbc.com/news/2026/world/article/6852932_36925.html", "m": "", "p": "05:53", "n": 2}, {"t": "워싱턴에서 한미 외교 장관회담 종료...대미 투자 발표 나올까", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0104_202609190605162880", "m": "", "p": "06:05", "n": 2}, {"t": "조현 외교장관, 루비오 국무장관에 “한국, 호르무즈 자유 통항 회복에 실질 기여”", "s": "아시아투데이", "l": "https://www.asiatoday.co.kr/kn/view.php?key=20260919010007245", "m": "", "p": "06:06", "n": 1}, {"t": "조현, 美국무장관과 회담 \"호르무즈 해협 실질적 기여 의지\"", "s": "조선", "l": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPeVhEcS1adWlHTUhYY3plbUxLcUZsSHUwRGpZSDVSdmVqNGxwYm90MDctVzFJcUt0Z3ZMZ1RJd0xfd3Z0cTdKZExPRlNaelFON01rWm5Rdi1JZERpU0R5UlFNNTFKZmhsY3U5VmNNdU9obEQzbTRGWS0zaXZCeXF2VFlXeEZkYURraEhKSEdoamp2dw?oc=5", "m": "", "p": "06:16", "n": 1}, {"t": "조현 “호르무즈 해협 자유 통항 회복 위한 기여 의지 설명”", "s": "조선", "l": "https://www.chosun.com/politics/diplomacy-defense/2026/09/19/RXLDNRL3DNFKZMICDPZ3XB45QU/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news", "m": "", "p": "06:18", "n": 1}, {"t": "한미 외교장관 회담…'호르무즈 파병·대미 투자' 주목", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008761085&plink=ORI&cooper=NAVER", "m": "", "p": "06:25", "n": 1}, {"t": "조현 \"호르무즈 회복에 실질적 기여 의지\"…한미, 계속 소통", "s": "아주경제", "l": "https://www.ajunews.com/view/20260919062618632", "m": "", "p": "06:34", "n": 1}, {"t": "조현, 루비오 미 국무장관에 “호르무즈 통항 회복에 실질적 기여 의지 설명”", "s": "경향", "l": "https://www.khan.co.kr/article/202609190641001", "m": "", "p": "06:41", "n": 1}, {"t": "조현-루비오 회담...\"韓 대미 투자 좋은 결실 맺도록 노력\"", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20260919000020", "m": "", "p": "06:41", "n": 2}, {"t": "조현, 루비오 美 국무와 회담…“호르무즈 실질 기여 설명”", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10878986?ref=naver", "m": "", "p": "06:44", "n": 1}, {"t": "한미 외교장관 7개월 만 회담…\"대미투자 결실 노력\"", "s": "연합뉴스TV", "l": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBfbE0weFBZc2pwdVE1Sy1IY3ByZXMzWklSOFFFeF9hMFdtaGpTWFVueUQ2ZGNGSlVJRGZmSDJBMk9Zdmo1MkxudVFSUWdWVm5rTUE0VmtoNF9KdS1SeVFxMkVNRnV5ZDg?oc=5", "m": "", "p": "06:49", "n": 2}, {"t": "한미 외교장관 \"대미투자 결실 노력\"…한국 \"호르무즈 기여 계속 소통\"", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008761137&plink=ORI&cooper=NAVER", "m": "", "p": "07:00", "n": 1}, {"t": "한미 외교장관, 대미 투자 논의⋯호르무즈 통항 회복 기여 뜻 전달도 [상보]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2627453", "m": "", "p": "07:06", "n": 1}, {"t": "한미 외교장관 회담… 조현 “호르무즈 통항 실질적 기여 의지 설명”", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=01751526645581760&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "07:10", "n": 1}, {"t": "루비오 만난 조현 \"호르무즈 기여 계속 소통\"", "s": "MBC", "l": "https://imnews.imbc.com/replay/2026/nwtoday/article/6852939_37012.html", "m": "", "p": "07:11", "n": 1}, {"t": "한미외교장관 \"대미투자 결실 노력할 것\"...정부, 호르무즈 기여 의지 밝혀 [현장영상+]", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0104_202609190716074297", "m": "", "p": "07:16", "n": 1}, {"t": "한미 외교장관 \"팩트시트 등 합의 이행 위해 계속 소통할 것\"", "s": "한국경제", "l": "https://www.hankyung.com/article/2026091948907", "m": "", "p": "07:23", "n": 1}, {"t": "한·미 외교장관 “대미 투자 결실, 호르무즈 해협 기여 위해 소통”", "s": "국민", "l": "https://www.kmib.co.kr/article/view.asp?arcid=9000013555&cp=nv", "m": "", "p": "07:27", "n": 2}, {"t": "한미 외교장관, 대미 투자·정상 합의 이행 공조… 호르무즈 문제도 논의", "s": "대전", "l": "https://www.daejonilbo.com/news/articleView.html?idxno=2302172", "m": "", "p": "07:30", "n": 1}, {"t": "韓 “호르무즈 기여 의지” 美 “투자약속 신속 이행을”(종합)", "s": "서울경제", "l": "https://www.sedaily.com/article/20092883?ref=naver", "m": "", "p": "07:40", "n": 1}, {"t": "조현 \"호르무즈 통항 회복 기여 의지 설명...한미, 대미 투자 결실 노력\"", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0104_202609190753160893", "m": "", "p": "07:53", "n": 1}], [{"t": "[속보]이 대통령, 대미 투자 합의 “동의 어려운 부분 있어 또 얘기중”[이 대통령 기자회견]", "s": "경향", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTFBFYnJWdTJmeWRxMng4XzVGZGJ5a280dXRRZkd3dGxyNmtEMU5qS1l2c2c3SU4weUVkYmZYMmRPNDl4bjJDQW5ibl96cjJybi01am5yOEtFTHpWd9IBX0FVX3lxTFAzX3dETkxhdTNhR2YtSnNCWjNFVm51MU1QRXJrYnBoWGx1S1pYSUo1OGRNVVB5Y2J4OUdXUXRkSFZTZHdmVDk1SGxLUk56a1FZNjhOZmxoU0Z6LTVxUmhR?oc=5", "m": "⚡", "p": "12:10", "n": 1}, {"t": "대미 투자 MOU 막판 진통…李 대통령 \"동의 어려운 부분 있어\"", "s": "아시아경제", "l": "https://news.google.com/rss/articles/CBMiYEFVX3lxTFAwYURVRWtxaHMxU2pjcWFVQkNxZ1lQT1NYN1lmbXU1WnVGeVJfSnM2YTljVkdTaUpTS19ndVVqaXNpTkttMEQ5OERuNlVsRG5BbkgtOGZaYnc3aWk4VU1HVw?oc=5", "m": "", "p": "12:53", "n": 1}, {"t": "李 \"대미투자, 동의 쉽지 않은 부분 있다\"…선집행·수익성 걸림돌?", "s": "머니투데이", "l": "https://news.google.com/rss/articles/CBMia0FVX3lxTE1ZTTlYei1ycnBiRHhrcjllRXMtZEZwa1FPUE1MRWVLZkxaMU5WSXBMclFrSVprV1VzT2JudFRmQ1VlTVNsWm82NWNObE9DWldheC1zczVlX21xU2EzQzhhYUZuNWR1YWdEeDJZ0gFwQVVfeXFMT0cwOU9BeHZzT0hBT1hVdFczTFlnLXhJX21qd3RXdklWdFRXODFvWDBUeEx3TG9jRmtyMU5GUHRjTXc4ajJTSGNtQ28xQjdJQ1FuS21GcVA1dlB2SWRzYjNLVGhfVUd2eXJ4X184TEZFNQ?oc=5", "m": "", "p": "14:33", "n": 1}, {"t": "이 대통령 \"대미투자, 동의 어려운 부분 있어...양측 득 되도록 협의\"", "s": "YTN", "l": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE01TXBMaENEU3R0VmQ2aV9LSXlBMTVnR0lQYUE4Z3h3YXZ4aHdjbHFSdDBWRDBzX0E0ZUNvWHN2M0FrSWtydjQ2aTNnazFiYmJjMDJnVlNmNUNJWUNUUHc?oc=5", "m": "", "p": "16:00", "n": 1}, {"t": "李, 한미 외교담판 직전 \"전쟁 파병 없다…대미투자는 국익 우선\"", "s": "더팩트", "l": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE5lNXZabDdZaGhQZlZlRGlzMElHbEkzMkNEbVhmVDdQeXh6VXhzSVR0cy1aWlJ5d3NqQklmd2FnTk5NMkhOS3oyUWlXZE1hcWlBeV95QXJZY0HSAVNBVV95cUxOY3JMSnlNSDIxczJYWjVUbGQ0X1pyUjhZUTdMX2lYNExfdFB0UGY0alV6R2laT1RkQ0hkNlRoMVg2b2JUcmdGZlFwMEFVY09EWDJWQQ?oc=5", "m": "", "p": "18:04", "n": 1}, {"t": "이대통령 \"대미투자, 동의 어려운 부분 있어…치열한 협상\"", "s": "연합뉴스TV", "l": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE9ySWUxTkFrZ3pLLUU5LUpYaC1EVl9JR1U5LXV6WFc3c0YtRk9IXzJrQTBURnRDQU51UlFTc3NfVERDNXozSUtJVTRXS0dBc24tSU41OF9pdW9VY3RpYWRxaEJSaWEyTkU?oc=5", "m": "", "p": "20:04", "n": 1}, {"t": "이 대통령 \"대미투자, 동의 어려운 부분 있어...재협의\"", "s": "YTN", "l": "https://news.google.com/rss/articles/CBMiXkFVX3lxTFBPYjNVZ01KQXlZZFpRMngzYTFaSnJ1SG8zcG5senE3bDFaTjloUkhObDR4X3pGVWIyZWpjejBKVVBTVTd1dHRLMHBPckdmNTY1dkY3UFB3R1doTVpZRXc?oc=5", "m": "", "p": "22:55", "n": 1}, {"t": "\"호르무즈, 최소한의 활동은 해야… 대미투자, 동의 쉽잖은 부분 논의 중\"", "s": "조선", "l": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPTV9fZi1kcTR6Nks0cXJzWS1MeEp2SUdEMVoxanhjZy1tUzdsYkdieE91Q2F2V3dpcndOUnhGd0pEa3owcUhiNkxSaXdNeDNhYnRlSVNzdFVoUVA1S2l6SFRtUU5QY2VPY1VRZHROdjJETVR2RWROb2NZaFdmTHc2eV90eVhEb19McGJpZHJnVXVjZw?oc=5", "m": "", "p": "00:37", "n": 1}, {"t": "“전쟁 파병 없다, 국민보호 최소 활동만…북미대화 ‘패싱’ 우려 안해도”", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8667718&ref=A", "m": "", "p": "06:09", "n": 1}, {"t": "\"전쟁 파병 없다…대미투자, 동의 어려운 부분 있어\"", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008761071&plink=ORI&cooper=NAVER", "m": "", "p": "06:18", "n": 1}, {"t": "한미 외교장관 회담... '전쟁 파병은 없다'는 입장 전달", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026091907350001851?did=NA", "m": "", "p": "07:58", "n": 1}], [{"t": "조현·루비오, 北비핵화 공감…\"북미대화 진전은 아직\"(종합)", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20260919_0003796426", "m": "", "p": "07:54", "n": 1}, {"t": "한미 외교장관회담…\"한미동맹 강화·북미 대화 재개 지원\"", "s": "뉴스1", "l": "https://www.news1.kr/world/usa-canada/6295941", "m": "", "p": "06:04", "n": 1}, {"t": "한미 외교장관회담 개최…파병 논의 등 주목", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8667726&ref=A", "m": "", "p": "06:24", "n": 1}, {"t": "한미 외교장관, 북미대화 재개 논의…“아직 구체적 진전 없어”", "s": "한겨레", "l": "https://www.hani.co.kr/arti/international/america/1278575.html", "m": "", "p": "07:36", "n": 1}], [{"t": "FOMC부터 AI 속도조절론까지…빅위크 중 상승한 종목은?[김근희의 증시랩업]", "s": "머니투데이", "l": "https://www.mt.co.kr/stock/2026/09/19/2026091817595497664", "m": "", "p": "05:30", "n": 1}], [{"t": "[모닝와이드] 오늘의 주요뉴스", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008761080&plink=ORI&cooper=NAVER", "m": "", "p": "06:12", "n": 1}], [{"t": "美국무장관 “한국 내 미국 기업 위한 공정한 사업 환경 필요”", "s": "조선", "l": "https://www.chosun.com/international/us/2026/09/19/5BHMX4Y4JZCT3JP2HHGO76CE3U/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news", "m": "", "p": "06:59", "n": 1}], [{"t": "반토막 난 '텐배거' 두산에너빌리티⋯대미투자에 다시 쏠린 눈", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE55WXAxMkdaUUxQNHNZSklLMDlXdDhza0FueGRKTEQ4UFR6NHA4bkhiQVdHMUt2akFZdjFPc0pvemdUNU9FN25IR3dsaw?oc=5", "m": "", "p": "15:16", "n": 1}], [{"t": "웃음기 사라진 100분…李대통령 선 채로 “제 부족탓”", "s": "서울경제", "l": "https://www.sedaily.com/article/20092786?ref=naver", "m": "", "p": "06:01", "n": 1}], [{"t": "“국민은 옳다”…이재명, 바꿀 것과 지킬 것", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=01741686645581760&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "07:03", "n": 1}]], "n": 53}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var main = document.getElementById('main');
+  var state = {beat:null, filter:'all', q:''};
+  var picked = new Set();
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+
+  // stable ids + flat index
+  var ALL = {};
+  D.groups.forEach(function(g, gi){
+    g.clusters.forEach(function(c, ci){
+      c.forEach(function(it, ii){
+        it.id = gi+'-'+ci+'-'+ii;
+        it.g = g.name;
+        it.ord = gi*100000 + ci*100 + ii;
+        ALL[it.id] = it;
+      });
+    });
+  });
+
+  document.getElementById('label').textContent = D.label;
+  document.getElementById('window').textContent = D.start + ' — ' + D.end;
+  document.getElementById('n-raw').textContent = D.raw.toLocaleString();
+
+  var scoop=0, flash=0, topics=0;
+  D.groups.forEach(function(g){
+    g.clusters.forEach(function(c){
+      topics++;
+      c.forEach(function(it){ if(it.m===SCOOP) scoop++; else if(it.m===FLASH) flash++; });
+    });
+  });
+  document.getElementById('n-topic').textContent = topics;
+  document.getElementById('n-scoop').textContent = scoop;
+  document.getElementById('n-flash').textContent = flash;
+
+  var beats = document.getElementById('beats');
+  D.groups.forEach(function(g){
+    var b = document.createElement('button');
+    b.className='beat'; b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span>'+g.name+'</span><span class="c mono">'+g.n+'</span>';
+    b.addEventListener('click', function(){
+      state.beat = (state.beat===g.name) ? null : g.name;
+      [].forEach.call(beats.children, function(el,i){
+        el.setAttribute('aria-pressed', String(D.groups[i].name===state.beat));
+      });
+      render();
+    });
+    beats.appendChild(b);
+  });
+
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){
+        b.setAttribute('aria-pressed', String(b===btn));
+      });
+      render();
+    });
+  });
+
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ state.q = q.value.trim().toLowerCase(); render(); }, 120);
+  });
+
+  function keep(it){
+    if(state.filter==='mark' && !it.m) return false;
+    if(state.filter==='spread' && it.n < 2) return false;
+    if(state.filter==='picked' && !picked.has(it.id)) return false;
+    if(state.q && (it.t+' '+it.s).toLowerCase().indexOf(state.q) === -1) return false;
+    return true;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function itemRow(it){
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>'
+            : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(picked.has(it.id)?' on':'')+'" data-id="'+it.id+'">' +
+      '<input class="pick" type="checkbox" id="p'+it.id+'" '+(picked.has(it.id)?'checked':'')+
+      ' aria-label="보고에 포함">' + tag +
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>' +
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>' +
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '') + '</span></div>';
+  }
+
+  // 큰 묶음(30건 이상)은 접어도 몇 건인지 보이게 하고 기본 펼침으로 둔다.
+  // (C 세션(0-14) 결과 — 접기 자체는 안전하나 53건짜리 묶음이 여전히 나오므로
+  //  대표 1건 뒤에 대량이 숨는 화면을 피하기 위한 D 세션 자체 판단)
+  var AUTO_EXPAND = 30;
+
+  function render(){
+    var html = '', shown = 0;
+    D.groups.forEach(function(g){
+      if(state.beat && g.name !== state.beat) return;
+      var blocks = '', gcount = 0;
+      g.clusters.forEach(function(c, ci){
+        var items = c.filter(keep);
+        if(!items.length) return;
+        gcount += items.length; shown += items.length;
+        var lead = items[0], rest = items.slice(1);
+        var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+        var body = itemRow(lead);
+        if(rest.length){
+          var id = 'c'+g.name.replace(/\s/g,'')+ci;
+          var bigCluster = items.length >= AUTO_EXPAND;
+          body += '<button class="more" type="button" aria-expanded="'+(bigCluster?'true':'false')+'" aria-controls="'+id+'">'+
+                  (bigCluster ? '접기 (' : '+') + rest.length + '건 같은 사안' + (bigCluster ? ')' : '') + '</button>'+
+                  '<div class="dupes" id="'+id+'"'+(bigCluster?'':' hidden')+'>'+rest.map(itemRow).join('')+'</div>';
+        }
+        blocks += '<div class="'+cls+'">'+body+'</div>';
+      });
+      if(!gcount) return;
+      html += '<section id="sec-'+g.name+'"><div class="sec-head"><h2>'+g.name+'</h2>'+
+              '<span class="n mono">'+gcount+'건</span></div>'+blocks+'</section>';
+    });
+    main.innerHTML = html || '<p class="empty">조건에 맞는 기사가 없습니다.</p>';
+    document.getElementById('n-shown').textContent = shown;
+
+    [].forEach.call(main.querySelectorAll('.more'), function(btn){
+      btn.addEventListener('click', function(){
+        var box = document.getElementById(btn.getAttribute('aria-controls'));
+        var open = box.hidden;
+        box.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+      });
+    });
+  }
+
+  // one delegated handler for checkboxes
+  main.addEventListener('change', function(e){
+    var cb = e.target;
+    if(!cb.classList || !cb.classList.contains('pick')) return;
+    var row = cb.closest('.row'), id = row.getAttribute('data-id');
+    if(cb.checked){ picked.add(id); row.classList.add('on'); }
+    else { picked.delete(id); row.classList.remove('on'); }
+    syncBar();
+  });
+
+  function syncBar(){
+    var n = picked.size;
+    document.getElementById('n-pick').textContent = n;
+    document.getElementById('bar').hidden = (n === 0);
+  }
+
+  function buildReport(){
+    // 속보도 고를 수 있게 둔다 — 판정이 제목 말머리 기반이라 보고감이 섞인다.
+    // 쓸지 말지는 고르는 단계에서 정한다.
+    var items = [];
+    picked.forEach(function(id){ if(ALL[id]) items.push(ALL[id]); });
+    var rank = function(name){
+      var i = REPORT_ORDER.indexOf(name);
+      return i === -1 ? REPORT_ORDER.length : i;
+    };
+    items.sort(function(a,b){
+      // 1) 단독 먼저  2) 출입처순  3) 중요도순
+      var sa = (a.m === SCOOP) ? 0 : 1, sb = (b.m === SCOOP) ? 0 : 1;
+      if(sa !== sb) return sa - sb;
+      var ra = rank(a.g), rb = rank(b.g);
+      if(ra !== rb) return ra - rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil');
+  var report = document.getElementById('report');
+  var hint = document.getElementById('copyhint');
+  var hintDefault = hint.textContent;
+
+  function openPanel(){
+    var r = buildReport();
+    report.value = r.text;
+    document.getElementById('psub').textContent = r.n + '건 · 단독 상단 · 출입처순';
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false;
+    report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  document.getElementById('make').addEventListener('click', openPanel);
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+
+  document.getElementById('clear').addEventListener('click', function(){
+    picked.clear(); syncBar(); render();
+  });
+  document.getElementById('selectall').addEventListener('click', function(){
+    report.focus(); report.select();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){
+      report.focus(); report.select();
+      hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 ⌘C로 복사하세요.';
+      hint.classList.remove('ok');
+    };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report.value).then(done, fail);
+      } else { fail(); }
+    }catch(err){ fail(); }
+  });
+
+  render(); syncBar();
+})();
+</script>
+
+</body></html>
