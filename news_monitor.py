@@ -2310,12 +2310,18 @@ def run_digest():
         end   = datetime.datetime.combine(today, datetime.time(22, 0), KST)
         label = "밤 다이제스트"
 
-    if is_saturday:
+    # FORCE_SEND=1이면 토요일 스킵을 무시하고 강제 발송한다. 정기 실행(cron-job.org)
+    # 은 이 값을 절대 안 주므로 평소 토요일 스킵 동작은 그대로다 — PAGE_MODE 등을 수동
+    # 테스트할 때 토요일이라 발송 자체가 안 되는 상황을 우회하기 위한 수동 실행 전용 스위치.
+    force_send = os.environ.get("FORCE_SEND", "").strip() == "1"
+    if is_saturday and not force_send:
         # 토요일은 다이제스트를 발송하지 않음. DB 정리(위 prune_old)는 이미 실행됐으므로
         # 그대로 두고 발송/저장 단계만 건너뛴다. 재수집(re-query)조차 하지 않아 API 호출도 없음.
         print(f"[{now.strftime('%m/%d %H:%M')}] 토요일 — {label} 발송 생략")
         conn.close()
         return
+    if is_saturday and force_send:
+        print(f"[{now.strftime('%m/%d %H:%M')}] 토요일이지만 FORCE_SEND=1 — {label} 강제 발송(테스트용)")
 
     rows = conn.execute("""SELECT title,link,source,pub_dt,keywords FROM articles
                            WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
