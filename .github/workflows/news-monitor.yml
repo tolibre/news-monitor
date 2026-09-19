@@ -39,6 +39,12 @@ on:
         required: false
         default: ''
         type: string
+      page_mode:
+        description: 'digest 전용: off(전문만, 페이지 없음) / both(전문+페이지, 전환 시작값) / summary(요약 카드+페이지). 비우면 off.'
+        required: false
+        default: 'off'
+        type: choice
+        options: [off, both, summary]
 
 concurrency:
   group: news-monitor
@@ -82,6 +88,12 @@ jobs:
           # 다른 모드에선 그냥 무시된다.
           APPLY: ${{ github.event.inputs.apply }}
           LIMIT: ${{ github.event.inputs.limit }}
+          # digest 전용 HTML 페이지 전환 스위치(D 세션, claude/HTML전환_세션계획.md 참조).
+          # digest가 아닌 모드에서는 news_monitor.py가 아예 읽지 않으므로 무해하다.
+          PAGE_MODE: ${{ github.event.inputs.page_mode }}
+          # GitHub Pages 공개 URL. Settings → Pages에서 "Deploy from a branch:
+          # main / docs"로 한 번 켜면 이 주소가 된다(레포명이 news-monitor이므로 고정값).
+          PAGE_BASE_URL: https://tolibre.github.io/news-monitor
         run: |
           MODE="${{ steps.mode.outputs.mode }}"
           if [ "$MODE" = "backfill" ]; then
@@ -102,16 +114,19 @@ jobs:
             python news_monitor.py "$MODE"
           fi
 
-      - name: DB 변경사항 커밋 (다음 실행에서 중복 방지용)
+      - name: DB·페이지 변경사항 커밋 (다음 실행에서 중복 방지용 + GitHub Pages 갱신)
         # backfill은 DB를 건드리지 않으므로 커밋 단계를 통째로 건너뛴다.
         # (불필요한 git 왕복은 동시 실행 시 push 경합 위험만 늘린다)
+        # docs/index.html은 PAGE_MODE=off(기본값)나 digest가 아닌 모드에서는 애초에
+        # 생성되지 않으므로, add -f 없이도 파일이 없으면 git add가 조용히 무시한다.
         if: steps.mode.outputs.mode != 'backfill'
         run: |
           git config user.name "news-monitor-bot"
           git config user.email "actions@users.noreply.github.com"
           git add news_monitor.db
+          [ -f docs/index.html ] && git add docs/index.html
           git diff --cached --quiet && exit 0
-          git commit -m "update db [skip ci]"
+          git commit -m "update db/page [skip ci]"
           # 재시도 루프의 종료코드는 마지막 sleep의 것(=0)이라, 5번 다 실패해도
           # 워크플로가 초록불로 성공 표시됐다. DB가 저장소에 안 올라가도 아무도 모르는
           # 침묵 실패. pushed 플래그로 실제 성공 여부를 추적해 실패 시 빨간불을 낸다.
