@@ -45,6 +45,11 @@ on:
         default: 'off'
         type: choice
         options: [off, both, summary]
+      force_send:
+        description: 'digest 전용, 수동 테스트용: 1이면 토요일 발송 스킵을 무시하고 강제 발송(PAGE_MODE 등 확인용). 비우면 평소처럼 토요일 스킵.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: news-monitor
@@ -94,6 +99,9 @@ jobs:
           # GitHub Pages 공개 URL. Settings → Pages에서 "Deploy from a branch:
           # main / docs"로 한 번 켜면 이 주소가 된다(레포명이 news-monitor이므로 고정값).
           PAGE_BASE_URL: https://tolibre.github.io/news-monitor
+          # 토요일 발송 스킵을 수동으로 우회하는 테스트 전용 스위치. cron-job.org
+          # body에는 이 값이 없어 항상 빈 문자열이므로 정기 실행의 토요일 스킵은 그대로다.
+          FORCE_SEND: ${{ github.event.inputs.force_send }}
         run: |
           MODE="${{ steps.mode.outputs.mode }}"
           if [ "$MODE" = "backfill" ]; then
