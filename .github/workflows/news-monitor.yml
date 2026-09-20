@@ -135,22 +135,45 @@ jobs:
           # 0-17: index.html 한 장이 아니라 docs/ 전체를 담는다. -A라야 아카이브
           # 추가분뿐 아니라 prune_archive()가 지운 오래된 보존본의 '삭제'까지
           # 스테이징된다(git add <경로>만으로는 삭제가 반영되지 않는다).
-          [ -d docs ] && git add -A docs
-          git diff --cached --quiet && exit 0
+          if [ -d docs ]; then git add -A docs; fi
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
           git commit -m "update db/page [skip ci]"
-          # 재시도 루프의 종료코드는 마지막 sleep의 것(=0)이라, 5번 다 실패해도
-          # 워크플로가 초록불로 성공 표시됐다. DB가 저장소에 안 올라가도 아무도 모르는
-          # 침묵 실패. pushed 플래그로 실제 성공 여부를 추적해 실패 시 빨간불을 낸다.
+
+          # ---------------- push (0-18, 2026-09-20) ----------------
+          # 예전에는 push가 거절되면 `git pull --rebase`로 따라잡았다. 그런데
+          # news_monitor.db는 43MB 바이너리라 git이 병합하지 못하고 반드시
+          #     warning: Cannot merge binary files: news_monitor.db
+          #     CONFLICT (content): Merge conflict in news_monitor.db
+          # 로 끝난다. 재시도해도 결정론적으로 같은 충돌이라 5회 전부 실패하고,
+          # 그 실행이 만든 다이제스트 페이지가 통째로 유실된다
+          # (2026-09-20 22:00 실측 — 인수인계 5항 8번이 현실화한 사고).
+          #
+          # 그래서 rebase를 쓰지 않는다. 원격 상태로 되돌린 뒤 우리 산출물을 다시
+          # 얹고, DB는 merge_db.py로 '행 단위 합집합'을 만든다 — check가 모은
+          # 기사와 digest가 남긴 제외기록이 모두 살아남는다.
           pushed=0
           for i in 1 2 3 4 5; do
-            if git pull --rebase origin main && git push; then
-              pushed=1
-              break
+            if git push; then pushed=1; break; fi
+            echo "push 거절(원격이 앞섬) — 원격과 합칩니다 ($i/5)"
+            KEEP="${RUNNER_TEMP:-/tmp}/nm-keep"
+            rm -rf "$KEEP"; mkdir -p "$KEEP"
+            cp news_monitor.db "$KEEP/ours.db"
+            if [ -d docs ]; then cp -r docs "$KEEP/docs"; fi
+            if ! git fetch origin main; then sleep 5; continue; fi
+            # 원격을 그대로 바탕으로 깐다(우리 커밋은 버린다 — 내용은 위에 보관됨)
+            git reset --hard origin/main
+            # 우리가 만든 페이지·아카이브를 그 위에 다시 얹는다.
+            # 덮어쓰기라 원격이 새로 올린 아카이브 파일도 함께 남는다.
+            if [ -d "$KEEP/docs" ]; then mkdir -p docs && cp -r "$KEEP/docs/." docs/; fi
+            python merge_db.py "$KEEP/ours.db" news_monitor.db
+            git add news_monitor.db
+            if [ -d docs ]; then git add -A docs; fi
+            if git diff --cached --quiet; then
+              echo "합친 결과가 원격과 동일 — 올릴 것이 없습니다."
+              pushed=1; break
             fi
-            # rebase가 중단된 상태로 남으면 다음 시도가 무조건 실패하므로 정리
-            git rebase --abort 2>/dev/null || true
-            echo "push 실패, 재시도 ($i/5)..."
-            sleep $((RANDOM % 10 + 5))
+            git commit -m "update db/page [skip ci]"
+            sleep $((RANDOM % 5 + 2))
           done
           if [ "$pushed" -ne 1 ]; then
             echo "::error::DB push 5회 모두 실패 — news_monitor.db가 저장소에 반영되지 않았습니다."
