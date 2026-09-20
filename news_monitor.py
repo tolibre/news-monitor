@@ -2506,12 +2506,15 @@ def run_digest():
     if PAGE_MODE != "off" and page_sections:
         import render_page
         groups_data = render_page.build_groups_data(page_sections)
-        page_html = render_page.render_html(
-            label, start.strftime("%m/%d %H:%M"), end.strftime("%m/%d %H:%M"),
-            len(rows), groups_data,
+        # 0-17: publish()가 최신 페이지(docs/index.html) + 보존본
+        # (docs/archive/<stamp>.html) + 목록(docs/archive/index.html)을 한 번에 쓰고
+        # 오래된 보존본을 정리한다. 반환값은 예전 save_page()와 같은 docs/index.html
+        # 경로이므로, 아래 both 모드 링크 판정은 그대로 둔다.
+        page_saved_path = render_page.publish(
+            label, start, end, len(rows), groups_data,
         )
-        page_saved_path = render_page.save_page(page_html)
-        print(f"[PAGE_MODE={PAGE_MODE}] 페이지 저장: {page_saved_path}")
+        print(f"[PAGE_MODE={PAGE_MODE}] 페이지 저장: {page_saved_path} "
+              f"(보관 {len(render_page.scan_archive())}개)")
 
     # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
     # (본문 자체가 '제목(매체)' 보고양식이므로 별도 보고양식 메시지는 보내지 않음)
