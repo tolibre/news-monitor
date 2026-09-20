@@ -2526,7 +2526,15 @@ def run_digest():
         # off, both, 또는 표시할 기사가 없어 page_sections가 비었을 때 —
         # 지금까지와 동일하게 전문을 보낸다(both는 전문+페이지 병행이 목적이므로 당연히
         # 전문도 보낸다. summary인데 기사가 없었던 경우도 안전하게 전문 경로로 폴백).
-        notify(html_text, target="digest")
+        # both 모드에서 실제로 페이지가 생성된 경우에만, 전문 텍스트 맨 끝에 페이지
+        # 링크를 붙인다. notify()는 이 문자열을 통째로 받아 내부에서 줄 단위로
+        # 청크를 나누므로, 여기서 끝에 붙이면 자동으로 '마지막 메시지의 최하단'이 된다
+        # (2026-09-20, 사용자 요청).
+        send_text = html_text
+        if PAGE_MODE == "both" and page_sections and PAGE_BASE_URL:
+            page_url = f"{PAGE_BASE_URL}/"
+            send_text = html_text + f'\n\n<a href="{tg_escape(page_url)}">🔗 전체 보기</a>'
+        notify(send_text, target="digest")
     print(f"저장: {fname}")
     conn.close()
 
