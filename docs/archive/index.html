@@ -1,0 +1,80 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>지난 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --flash:#a81f1f;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --flash:#ef7070;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding:0 16px}
+.navline{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-block:10px 0}
+.navline a{
+  font-size:12px; font-weight:500; text-decoration:none;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid transparent; border-radius:999px; padding:4px 11px;
+}
+.navline a:hover{border-color:var(--accent)}
+.masthead{padding-block:12px 14px; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.note{font-size:12.5px; color:var(--muted)}
+main{padding-block:16px 40px}
+section{margin-bottom:22px}
+h2{
+  margin:0 0 8px; font-size:12.5px; font-weight:600; color:var(--muted);
+  letter-spacing:.04em; padding-bottom:6px; border-bottom:1px solid var(--line-soft);
+}
+.card{
+  display:block; text-decoration:none; color:inherit;
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:12px 14px; margin-bottom:8px;
+}
+.card:hover{border-color:var(--accent); box-shadow:var(--shadow)}
+.ttl{font-size:15px; font-weight:600; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px}
+.win{font-size:12px; font-weight:400; color:var(--muted); letter-spacing:.02em}
+.sub{margin-top:3px; font-size:12.5px; color:var(--ink-2); display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline}
+.sub b{font-size:15px; font-weight:600; margin-right:1px}
+.sub .dim{color:var(--muted)}
+.t-scoop{color:var(--scoop); font-weight:600}
+.t-flash{color:var(--flash); font-weight:600}
+.beats{margin-top:5px; font-size:12px; color:var(--muted)}
+.empty{padding:48px 0; text-align:center; color:var(--muted); font-size:13.5px}
+</style></head><body>
+
+<header><div class="wrap">
+  <div class="navline"><a href="../">&#8634; 최신 다이제스트</a></div>
+  <div class="masthead">
+    <h1>지난 다이제스트</h1>
+    <span class="note">2개 보관 &middot; 최근 30일치</span>
+  </div>
+</div></header>
+
+<main class="wrap">
+<section><h2>09/21 (월)</h2><a class="card" href="20260921_0600.html"><div class="ttl">야간 다이제스트 <span class="win mono">09/20 22:00 ~ 09/21 06:00</span></div><div class="sub"><b class="mono">41</b>건<span><span class="t-scoop">단독 1</span></span><span class="dim">원문 52</span></div><div class="beats">공정위 2 · 방미통위 1 · 과기정통부 9 · 우주항공청 1 · 대미투자 21 · 국토부 3 · 농식품부 2 · 중기부 1 · 기획예산처 1</div></a></section><section><h2>09/20 (일)</h2><a class="card" href="20260920_1730.html"><div class="ttl">저녁 다이제스트 <span class="win mono">09/20 13:30 ~ 09/20 17:30</span></div><div class="sub"><b class="mono">161</b>건<span><span class="t-scoop">단독 3</span></span><span><span class="t-flash">속보 1</span></span><span class="dim">원문 178</span></div><div class="beats">공정위 2 · 방미통위 6 · 과기정통부 31 · 재경부 6 · 국가데이터처 4 · 기획예산처 5 · 국토부 44 · 산업부 13 · 중기부 15 · 개인정보위 3 · 농식품부 8 · 대미투자 24</div></a></section>
+</main>
+
+</body></html>
