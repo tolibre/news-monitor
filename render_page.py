@@ -1215,6 +1215,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   var SCOOP = '🔥', FLASH = '⚡';
   var WD = '일월화수목금토';
   var STORE = 'nm-live-picks-v1';
+  var TABSTORE = 'nm-live-tab-v1';   // 마지막으로 본 탭(새로고침해도 그 탭으로)
+  var TAB_KEEP_MS = 3*3600e3;        // 3시간 넘게 지난 기억은 무시(다음 날 아침엔 새 구간으로)
   var AUTO_EXPAND = 30;
 
   var D = null;               // data.json
@@ -1270,10 +1272,21 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       if(ui.rep !== cur.id){ ui.rep = cur.id; tabManual = false; }
     }
     var tabs = tabList();
+    if(!tabManual){
+      // 새로고침·재방문: 최근(3시간 이내)에 직접 고른 탭이 이 보고에 있으면 그대로 연다
+      try{
+        var sv = JSON.parse(localStorage.getItem(TABSTORE) || 'null');
+        if(sv && sv.rep === ui.rep && now - sv.at < TAB_KEEP_MS && tabs.some(function(t){ return t.key === sv.tab; })){
+          ui.tab = sv.tab; tabManual = true;
+        }
+      }catch(e){}
+    }
     if(!tabManual || !tabs.some(function(t){ return t.key === ui.tab; })){
       // 기본 탭: 본 보고 구간 중 '진행 중'인 것, 없으면 마지막으로 끝난 것
       var own = tabs.filter(function(t){ return !t.over && t.seg; });
-      var live = own.filter(function(t){ return segState(t.seg, now) === 'live'; })[0];
+      // 진행 중 구간이라도 아직 기사가 하나도 없으면(예: 17:30~18:00 수집 전) 건너뛰고
+      // 방금 마감된 구간을 연다 — 빈 화면이 떠서 체크가 사라진 것처럼 보이는 걸 막는다.
+      var live = own.filter(function(t){ return segState(t.seg, now) === 'live' && (t.seg.n + (t.seg.dup||0)) > 0; })[0];
       var done = own.filter(function(t){ return segState(t.seg, now) === 'done'; });
       // '넘어감' 탭은 기본으로 고르지 않는다 — 보고 직전·직후(13:30~15:00)엔 아직
       // 본 보고를 쓰는 중이므로 본 보고 구간이 떠야 한다.
@@ -1506,7 +1519,9 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   });
   document.getElementById('tabs').addEventListener('click', function(e){
     var b = e.target.closest('button[data-t]'); if(!b) return;
-    ui.tab = b.getAttribute('data-t'); tabManual = true; draw(); window.scrollTo(0, 0);
+    ui.tab = b.getAttribute('data-t'); tabManual = true;
+    try{ localStorage.setItem(TABSTORE, JSON.stringify({rep: ui.rep, tab: ui.tab, at: Date.now()})); }catch(e){}
+    draw(); window.scrollTo(0, 0);
   });
   document.getElementById('beats').addEventListener('click', function(e){
     var b = e.target.closest('button[data-b]'); if(!b) return;
