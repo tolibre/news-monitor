@@ -964,3 +964,610 @@ if __name__ == "__main__":
     out = render_html("테스트 다이제스트", "09/17 13:30", "09/17 17:30", 0, demo)
     path = save_page(out)
     print(f"페이지 저장: {path}")
+
+
+# ==================== 라이브 보고 페이지 (0-20, 2026-09-21) ====================
+# docs/live/index.html은 '껍데기'(고정 HTML)이고 데이터는 docs/live/data.json을
+# 열 때마다 no-store로 받아온다. 그래서 북마크 한 번이면 언제 열어도 최신 수집분이
+# 보이고, 껍데기는 내용이 안 바뀌어 git에도 변경으로 잡히지 않는다(data.json만 커밋).
+# 어느 보고를 보여줄지는 브라우저가 '연 시각'으로 고른다(news_monitor.report_timeline
+# 이 [이전, 현재, 다음] 보고를 다 넣어 주므로 야간에 수집이 멈춰 있어도 맞게 뜬다).
+LIVE_DIR = os.path.join(PAGE_DIR, "live")
+
+
+def publish_live(data):
+    """data: news_monitor.build_live_data()의 반환값. 반환: data.json 경로."""
+    os.makedirs(LIVE_DIR, exist_ok=True)
+    data_path = os.path.join(LIVE_DIR, "data.json")
+    with open(data_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    shell_path = os.path.join(LIVE_DIR, "index.html")
+    # 껍데기는 내용이 같으면 다시 쓰지 않는다(mtime만 바뀌는 불필요한 쓰기 방지 —
+    # git은 내용 기준이라 어차피 변경으로 안 잡히지만 명시적으로).
+    old = None
+    if os.path.exists(shell_path):
+        with open(shell_path, encoding="utf-8") as f:
+            old = f.read()
+    if old != _LIVE_TEMPLATE:
+        with open(shell_path, "w", encoding="utf-8") as f:
+            f.write(_LIVE_TEMPLATE)
+    return data_path
+
+
+_LIVE_TEMPLATE = r"""<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>모니터 보고 준비</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --warn:#8a5a00; --warn-soft:#fdf1d8;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --warn:#f0c060; --warn-soft:#3a2e12;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --warn:#f0c060; --warn-soft:#3a2e12;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+
+header{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top,0px)}
+.top{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding-block:12px 8px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.fresh{font-size:12.5px; color:var(--muted); display:flex; align-items:center; gap:8px}
+.fresh button{border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2); font:inherit; font-size:12px; border-radius:999px; padding:2px 10px; cursor:pointer}
+.fresh button:hover{border-color:var(--accent); color:var(--ink)}
+.reports{margin-left:auto; display:flex; gap:4px}
+.reports button{border:1px solid var(--line); background:var(--surface); color:var(--muted); font:inherit; font-size:12px; border-radius:6px; padding:3px 9px; cursor:pointer}
+.reports button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); border-color:var(--accent); font-weight:600}
+.warn{margin:0 0 8px; padding:7px 10px; border-radius:7px; background:var(--warn-soft); color:var(--warn); font-size:12.5px}
+
+.tabs{display:flex; gap:6px; overflow-x:auto; padding-block:2px 10px; scrollbar-width:thin}
+.tab{
+  flex:0 0 auto; text-align:left; cursor:pointer;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:9px; padding:6px 11px 5px; font:inherit; line-height:1.3;
+}
+.tab .l{display:block; font-size:13px; font-weight:600; white-space:nowrap}
+.tab .s{display:flex; gap:7px; font-size:11px; color:var(--muted); white-space:nowrap}
+.tab .st-live{color:var(--pick); font-weight:600}
+.tab .st-future{color:var(--muted)}
+.tab .pk{color:var(--pick); font-weight:600}
+.tab:hover{border-color:var(--accent)}
+.tab[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.tab[aria-pressed="true"] .s, .tab[aria-pressed="true"] .st-live, .tab[aria-pressed="true"] .pk{color:rgba(255,255,255,.88)}
+.tab.future{opacity:.55}
+.tab.over{border-style:dashed; opacity:.8}
+.tab.over[aria-pressed="true"]{opacity:1}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 8px; scrollbar-width:thin}
+.beat{flex:0 0 auto; display:flex; align-items:baseline; gap:6px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2); border-radius:999px; padding:4px 10px; font:inherit; font-size:12.5px; font-weight:500; cursor:pointer; white-space:nowrap}
+.beat .c{font-size:11px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--ink-2); border-color:var(--ink-2); color:var(--surface)}
+.beat[aria-pressed="true"] .c{color:var(--surface)}
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 10px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{border:0; background:var(--surface); color:var(--ink-2); font:inherit; font-size:12.5px; padding:5px 11px; cursor:pointer; border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{flex:1 1 160px; min-width:0; border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:5px 10px}
+#q::placeholder{color:var(--muted)}
+button:focus-visible,#q:focus,.pick:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:4px 110px}
+.note{margin:14px 0 0; font-size:12.5px; color:var(--muted)}
+.note.over{padding:8px 10px; border:1px dashed var(--line); border-radius:7px; background:var(--surface)}
+.seghead{margin:30px 0 0; display:flex; align-items:baseline; gap:10px; font-size:13px; color:var(--muted)}
+.seghead b{font-size:14.5px; color:var(--ink)}
+.seghead:first-child{margin-top:14px}
+section{margin-top:18px}
+.sec-head{display:flex; align-items:baseline; gap:9px; padding-bottom:6px; border-bottom:2px solid var(--ink); margin-bottom:2px}
+.sec-head h2{margin:0; font-size:15px; font-weight:700}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{background:var(--surface); border-bottom:1px solid var(--line-soft); padding:8px 12px 8px 11px}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer; accent-color:var(--pick); transform:translateY(2px)}
+.tag{flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em; padding:1.5px 6px; border-radius:4px; transform:translateY(-1px)}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45; text-underline-offset:3px}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline; font-size:11.5px; color:var(--muted); white-space:nowrap}
+.more{margin-top:4px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer; font:inherit; font-size:11.5px; color:var(--accent); font-weight:500}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:4px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:36px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+.bar{position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--surface); border-top:1px solid var(--line); box-shadow:var(--shadow); padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:8px 10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13px; color:var(--ink-2)}
+.bar .count b{color:var(--pick); font-size:15px}
+.bar .spacer{margin-left:auto}
+.btn{border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2); font:inherit; font-size:13px; font-weight:500; padding:7px 13px; border-radius:7px; cursor:pointer}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45; cursor:default}
+
+.veil{position:fixed; inset:0; z-index:40; background:var(--veil); display:flex; align-items:flex-end; justify-content:center; padding:16px}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{background:var(--surface); border-radius:12px; width:100%; max-width:660px; max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow); border:1px solid var(--line)}
+.panel-head{display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px; border-bottom:1px solid var(--line-soft)}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px; border:1px solid var(--line); border-radius:8px; resize:vertical; background:var(--surface-2); color:var(--ink); font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+.foot{margin-top:40px; font-size:12px; color:var(--muted)}
+.foot a{color:var(--accent)}
+
+.sm{display:none}
+@media (max-width:560px){
+  .lg{display:none} .sm{display:inline}
+  .bar-in{flex-wrap:nowrap; gap:8px}
+  .bar .count{font-size:12.5px; white-space:nowrap}
+  .btn{padding:7px 10px; font-size:12.5px; white-space:nowrap}
+  .reports{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+}
+</style>
+</head><body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1 id="title">모니터 보고 준비</h1>
+      <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload">새로고침</button></span>
+      <div class="reports" id="reports"></div>
+    </div>
+    <p class="warn" id="warn" hidden></p>
+    <div class="tabs" id="tabs"></div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"><p class="empty">불러오는 중…</p></main>
+
+<div class="bar" id="bar">
+  <div class="bar-in">
+    <span class="count">선택 <span class="lg">이 구간 </span><span class="sm">구간 </span><b class="mono" id="n-seg">0</b> · <span class="lg">보고 </span>전체 <b class="mono" id="n-all">0</b></span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="make-seg"><span class="lg">이 </span>구간 양식</button>
+    <button class="btn primary" type="button" id="make-all"><span id="all-pre" class="lg">보고 </span>전체 양식</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="unpick" hidden>이 구간 선택 해제</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+  var WD = '일월화수목금토';
+  var STORE = 'nm-live-picks-v1';
+  var AUTO_EXPAND = 30;
+
+  var D = null;               // data.json
+  var ui = {rep:null, tab:null, beat:null, filter:'all', q:''};
+  var repManual = false;      // 사용자가 보고를 직접 골랐으면 자동 전환하지 않는다
+  var tabManual = false;
+  var lastFetch = 0;
+  var ITEMS = {};             // uid -> item (현재 보고 + 넘어감 구간)
+
+  // ---------- 선택 저장 (이 브라우저에만) ----------
+  var picks = {};             // {reportId: {segId: {key:1}}}
+  try{ picks = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; }catch(e){ picks = {}; }
+  function savePicks(){
+    try{
+      // 14일 지난 보고의 선택 기록은 버린다(id 앞 8자리 = 보고일).
+      var cut = new Date(Date.now() - 14*864e5), c = ymd(cut);
+      Object.keys(picks).forEach(function(k){ if(k.slice(0,8) < c) delete picks[k]; });
+      localStorage.setItem(STORE, JSON.stringify(picks));
+    }catch(e){}
+  }
+  function pset(rid, sid){ picks[rid] = picks[rid] || {}; picks[rid][sid] = picks[rid][sid] || {}; return picks[rid][sid]; }
+  function isPicked(rid, sid, key){ return !!(picks[rid] && picks[rid][sid] && picks[rid][sid][key]); }
+
+  function ymd(d){ return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2); }
+  function hm(d){ return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function T(s){ return new Date(s).getTime(); }
+
+  // ---------- 데이터 ----------
+  function load(force){
+    if(!force && Date.now() - lastFetch < 60e3) return;
+    lastFetch = Date.now();
+    fetch('data.json?t=' + Date.now(), {cache:'no-store'}).then(function(r){
+      if(!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function(d){ var y = D ? window.scrollY : 0; D = d; pickDefaults(); draw(); window.scrollTo(0, y); })
+      .catch(function(e){
+        if(!D){ document.getElementById('main').innerHTML = '<p class="empty">데이터를 불러오지 못했습니다 ('+esc(e.message)+'). 새로고침을 눌러 주세요.</p>'; }
+        document.getElementById('fresh').textContent = '불러오기 실패';
+      });
+  }
+
+  function segState(s, now){ return now < T(s.start) ? 'future' : (now < T(s.end) ? 'live' : 'done'); }
+
+  function pickDefaults(){
+    var now = Date.now(), reps = D.reports;
+    if(!repManual || !reps.some(function(r){ return r.id === ui.rep; })){
+      var cur = reps.filter(function(r){ return T(r.display_from) <= now && now < T(r.display_until); })[0];
+      if(!cur){ // 데이터가 오래돼 지금 시각에 맞는 보고가 없으면, 이미 시작된 것 중 마지막
+        var started = reps.filter(function(r){ return T(r.display_from) <= now; });
+        cur = started.length ? started[started.length-1] : reps[1] || reps[0];
+      }
+      if(ui.rep !== cur.id){ ui.rep = cur.id; tabManual = false; }
+    }
+    var tabs = tabList();
+    if(!tabManual || !tabs.some(function(t){ return t.key === ui.tab; })){
+      // 기본 탭: 본 보고 구간 중 '진행 중'인 것, 없으면 마지막으로 끝난 것
+      var own = tabs.filter(function(t){ return !t.over && t.seg; });
+      var live = own.filter(function(t){ return segState(t.seg, now) === 'live'; })[0];
+      var done = own.filter(function(t){ return segState(t.seg, now) === 'done'; });
+      // '넘어감' 탭은 기본으로 고르지 않는다 — 보고 직전·직후(13:30~15:00)엔 아직
+      // 본 보고를 쓰는 중이므로 본 보고 구간이 떠야 한다.
+      var dflt = live || done[done.length-1] || own[0];
+      ui.tab = dflt.key;
+    }
+  }
+
+  function curRep(){ return D.reports.filter(function(r){ return r.id === ui.rep; })[0]; }
+  function nextRep(){ var i = D.reports.indexOf(curRep()); return D.reports[i+1] || null; }
+
+  // 탭 = 본 보고의 구간들 + '전체' + (시작됐으면) 다음 보고 첫 구간('넘어감')
+  function tabList(){
+    var r = curRep(), n = nextRep(), now = Date.now(), out = [];
+    var circ = '①②③④⑤⑥⑦⑧⑨⑩';
+    r.segments.forEach(function(s, i){ out.push({key:r.id+'/'+s.id, rep:r, seg:s, no:circ[i]||String(i+1)}); });
+    out.push({key:r.id+'/all', rep:r, all:true});
+    if(n && n.segments.length && segState(n.segments[0], now) !== 'future'){
+      out.push({key:n.id+'/'+n.segments[0].id, rep:n, seg:n.segments[0], over:true});
+    }
+    return out;
+  }
+  function curTab(){ return tabList().filter(function(t){ return t.key === ui.tab; })[0]; }
+
+  function segPickCount(rep, seg){ var o = picks[rep.id] && picks[rep.id][seg.id]; return o ? Object.keys(o).length : 0; }
+
+  // ---------- 그리기 ----------
+  function draw(){
+    drawHeader(); drawTabs(); drawBody();
+    // 가로로 넘치는 탭 줄에서 선택된 탭이 보이게(모바일)
+    var on = document.querySelector('.tab[aria-pressed="true"]'), bar = document.getElementById('tabs');
+    if(on && (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth)){
+      bar.scrollLeft = on.offsetLeft - 16;
+    }
+  }
+
+  function drawHeader(){
+    var now = Date.now(), r = curRep();
+    document.title = r.title + ' 준비';
+    document.getElementById('title').textContent = r.title;
+
+    // 신선도
+    var ls = D.last_seen ? new Date(D.last_seen) : null;
+    var mins = ls ? Math.round((now - ls.getTime())/60e3) : null;
+    document.getElementById('fresh').textContent = ls ?
+      ('마지막 수집 ' + (ymd(ls) === ymd(new Date()) ? '' : (ls.getMonth()+1)+'/'+ls.getDate()+' ') + hm(ls) + (mins >= 0 && mins < 120 ? ' · '+mins+'분 전' : '')) : '수집 기록 없음';
+    var h = new Date().getHours(), warn = document.getElementById('warn');
+    // 수집(check)은 05~22시에만 돈다. 그 사이에 90분 넘게 새 수집이 없으면 경고.
+    if(ls && h >= 6 && h <= 23 && mins > 90){
+      warn.textContent = '마지막 수집이 ' + Math.floor(mins/60) + '시간 ' + (mins%60) + '분 전입니다. 수집(check) 실행이 멈췄을 수 있습니다.';
+      warn.hidden = false;
+    } else warn.hidden = true;
+
+    // 보고 선택 (이전·현재·다음)
+    var rb = document.getElementById('reports');
+    rb.innerHTML = D.reports.map(function(x){
+      var cur = T(x.display_from) <= now && now < T(x.display_until);
+      return '<button type="button" data-r="'+x.id+'" aria-pressed="'+(x.id===ui.rep)+'">'+esc(x.title.replace(' 보고',''))+(cur?' ●':'')+'</button>';
+    }).join('');
+
+  }
+
+  function drawTabs(){
+    var now = Date.now();
+    var tabs = tabList();
+    document.getElementById('tabs').innerHTML = tabs.map(function(t){
+      if(t.all){
+        var tot = t.rep.segments.reduce(function(a,s){ return a + s.n; }, 0);
+        var pk = t.rep.segments.reduce(function(a,s){ return a + segPickCount(t.rep, s); }, 0);
+        return '<button class="tab" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'"><span class="l">전체</span>'+
+               '<span class="s"><span class="mono">'+tot+'건</span>'+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
+      }
+      var st = segState(t.seg, now), pk = segPickCount(t.rep, t.seg);
+      var stl = st === 'live' ? '<span class="st-live">진행 중</span>' : st === 'future' ? '<span class="st-future">대기</span>' : '<span>마감</span>';
+      var lab = t.over ? '→ 다음 보고 ' + esc(t.seg.label) : t.no + ' ' + esc(t.seg.label);
+      var cnt = st === 'future' ? '' : '<span class="mono">'+t.seg.n+'건</span>';
+      return '<button class="tab'+(st==='future'?' future':'')+(t.over?' over':'')+'" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'">'+
+             '<span class="l">'+lab+'</span><span class="s">'+stl+cnt+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
+    }).join('');
+
+    syncBar();
+  }
+
+  function drawBody(){
+    var now = Date.now();
+    ITEMS = {};
+    // 보여줄 구간들
+    var t = curTab(), segs = t.all ? t.rep.segments.map(function(s){ return {rep:t.rep, seg:s}; }) : [{rep:t.rep, seg:t.seg}];
+    // 출입처 칩: 보여줄 구간들의 그룹 합계
+    var gcount = {}, gorder = [];
+    segs.forEach(function(x){ x.seg.groups.forEach(function(g){ if(!(g.name in gcount)){ gcount[g.name]=0; gorder.push(g.name); } gcount[g.name]+=g.n; }); });
+    if(ui.beat && !(ui.beat in gcount)) ui.beat = null;
+    document.getElementById('beats').innerHTML = gorder.map(function(g){
+      return '<button class="beat" type="button" data-b="'+esc(g)+'" aria-pressed="'+(g===ui.beat)+'"><span>'+esc(g)+'</span><span class="c mono">'+gcount[g]+'</span></button>';
+    }).join('');
+
+    var html = '', shown = 0;
+    if(t.over){
+      html += '<p class="note over">이 기사들은 <b>'+esc(t.rep.title)+'</b>의 첫 구간입니다. 여기서 체크한 것은 다음 보고에 담깁니다.</p>';
+    }
+    segs.forEach(function(x, si){
+      var s = x.seg, st = segState(s, now), part = '';
+      if(t.all){
+        html += '<div class="seghead"><b>'+'①②③④⑤⑥⑦⑧⑨⑩'.charAt(si)+' '+esc(s.label)+'</b><span>'+
+                (st==='future'?'대기':st==='live'?'진행 중':'마감')+(st==='future'?'':' · '+s.n+'건')+'</span></div>';
+      }
+      if(st === 'future'){ if(!t.all) html += '<p class="empty">아직 시작되지 않은 구간입니다.</p>'; return; }
+      s.groups.forEach(function(g, gi){
+        if(ui.beat && g.name !== ui.beat) return;
+        var blocks = '', gc = 0;
+        g.clusters.forEach(function(c, ci){
+          c.forEach(function(it, ii){
+            it.uid = x.rep.id+'|'+s.id+'|'+gi+'-'+ci+'-'+ii; it.g = g.name; it.rid = x.rep.id; it.sid = s.id;
+            it.key = it.l || it.t; it.ord = si*1e7 + gi*1e5 + ci*100 + ii; ITEMS[it.uid] = it;
+          });
+          var items = c.filter(keep);
+          if(!items.length) return;
+          gc += items.length; shown += items.length;
+          var lead = items[0], rest = items.slice(1);
+          var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+          var body = row(lead);
+          if(rest.length){
+            var id = 'c'+s.id+'-'+gi+'-'+ci, big = items.length >= AUTO_EXPAND;
+            body += '<button class="more" type="button" aria-expanded="'+big+'" aria-controls="'+id+'">'+
+                    (big ? '접기 ('+rest.length+'건 같은 사안)' : '+'+rest.length+'건 같은 사안')+'</button>'+
+                    '<div class="dupes" id="'+id+'"'+(big?'':' hidden')+'>'+rest.map(row).join('')+'</div>';
+          }
+          blocks += '<div class="'+cls+'">'+body+'</div>';
+        });
+        if(gc) part += '<section><div class="sec-head"><h2>'+esc(g.name)+'</h2><span class="n mono">'+gc+'건</span></div>'+blocks+'</section>';
+      });
+      if(!part) part = '<p class="empty">'+(s.raw ? '조건에 맞는 기사가 없습니다.' : (st==='live' ? '이 구간에 수집된 기사가 아직 없습니다.' : '이 구간에 수집된 기사가 없습니다.'))+'</p>';
+      else if(st === 'live' && D.generated){
+        part = '<p class="note">진행 중인 구간 — '+hm(new Date(D.last_seen || D.generated))+' 수집분까지. 다음 수집 때 이어서 늘어납니다.</p>' + part;
+      }
+      html += part;
+    });
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    document.getElementById('main').innerHTML = html;
+    syncBar();
+  }
+
+  function keep(it){
+    if(ui.filter==='mark' && !it.m) return false;
+    if(ui.filter==='spread' && it.n < 2) return false;
+    if(ui.filter==='picked' && !isPicked(it.rid, it.sid, it.key)) return false;
+    if(ui.q && (it.t+' '+it.s).toLowerCase().indexOf(ui.q) === -1) return false;
+    return true;
+  }
+  function row(it){
+    var on = isPicked(it.rid, it.sid, it.key);
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>' : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(on?' on':'')+'" data-u="'+esc(it.uid)+'">'+
+      '<input class="pick" type="checkbox" '+(on?'checked':'')+' aria-label="보고에 포함">'+tag+
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>'+
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>'+
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '')+'</span></div>';
+  }
+
+  function syncBar(){
+    var t = curTab(), r = curRep(), nseg = 0, nall = 0;
+    if(t.seg) nseg = segPickCount(t.rep, t.seg);
+    else nseg = r.segments.reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
+    nall = r.segments.reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
+    document.getElementById('n-seg').textContent = nseg;
+    document.getElementById('n-all').textContent = nall;
+    document.getElementById('make-seg').disabled = !nseg || !!t.all;
+    document.getElementById('make-all').disabled = !nall;
+    document.getElementById('all-pre').textContent = t.over ? '현재 보고 ' : '보고 ';
+  }
+
+  // ---------- 보고 양식 ----------
+  function findItem(rep, seg, key){
+    for(var gi=0; gi<seg.groups.length; gi++){
+      var g = seg.groups[gi];
+      for(var ci=0; ci<g.clusters.length; ci++){
+        var c = g.clusters[ci];
+        for(var ii=0; ii<c.length; ii++){
+          var it = c[ii];
+          if((it.l || it.t) === key) return {t:it.t, s:it.s, m:it.m, g:g.name, ord:gi*1e5+ci*100+ii};
+        }
+      }
+    }
+    return null;
+  }
+  function buildReport(rep, segs){
+    var items = [], seen = {};
+    segs.forEach(function(seg, si){
+      var o = picks[rep.id] && picks[rep.id][seg.id]; if(!o) return;
+      Object.keys(o).forEach(function(k){
+        var it = findItem(rep, seg, k); if(!it) return;
+        var dk = it.t + '|' + it.s; if(seen[dk]) return; seen[dk] = 1;
+        it.ord += si * 1e7; items.push(it);
+      });
+    });
+    var rank = function(n){ var i = REPORT_ORDER.indexOf(n); return i === -1 ? REPORT_ORDER.length : i; };
+    items.sort(function(a,b){
+      var sa = a.m===SCOOP?0:1, sb = b.m===SCOOP?0:1; if(sa!==sb) return sa-sb;
+      var ra = rank(a.g), rb = rank(b.g); if(ra!==rb) return ra-rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil'), report = document.getElementById('report');
+  var hint = document.getElementById('copyhint'), hintDefault = hint.textContent, panelSeg = null;
+  function openPanel(scope){
+    var t = curTab(), r = curRep(), res, sub;
+    if(scope === 'seg' && t.seg){
+      res = buildReport(t.rep, [t.seg]); sub = (t.over ? '다음 보고 ' : '') + t.seg.label; panelSeg = t;
+    } else {
+      res = buildReport(r, r.segments); sub = r.title + ' 전체'; panelSeg = null;
+    }
+    report.value = res.text;
+    document.getElementById('psub').textContent = sub + ' · ' + res.n + '건';
+    document.getElementById('unpick').hidden = !panelSeg;
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false; report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  // ---------- 이벤트 ----------
+  document.getElementById('reports').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-r]'); if(!b) return;
+    ui.rep = b.getAttribute('data-r'); repManual = true; tabManual = false; pickDefaults(); draw();
+  });
+  document.getElementById('tabs').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-t]'); if(!b) return;
+    ui.tab = b.getAttribute('data-t'); tabManual = true; draw(); window.scrollTo(0, 0);
+  });
+  document.getElementById('beats').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-b]'); if(!b) return;
+    var g = b.getAttribute('data-b'); ui.beat = (ui.beat === g) ? null : g; draw();
+  });
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      ui.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){ b.setAttribute('aria-pressed', String(b===btn)); });
+      draw();
+    });
+  });
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){ clearTimeout(timer); timer = setTimeout(function(){ ui.q = q.value.trim().toLowerCase(); draw(); }, 120); });
+
+  var main = document.getElementById('main');
+  main.addEventListener('change', function(e){
+    var cb = e.target; if(!cb.classList || !cb.classList.contains('pick')) return;
+    var rowEl = cb.closest('.row'), it = ITEMS[rowEl.getAttribute('data-u')]; if(!it) return;
+    var o = pset(it.rid, it.sid);
+    if(cb.checked){ o[it.key] = 1; rowEl.classList.add('on'); } else { delete o[it.key]; rowEl.classList.remove('on'); }
+    savePicks();
+    // 탭의 ✓ 숫자와 하단 바만 갱신한다(본문을 다시 그리면 스크롤·펼침이 초기화된다)
+    var tabsEl = document.getElementById('tabs'), sx = tabsEl.scrollLeft;
+    drawTabs(); tabsEl.scrollLeft = sx;
+  });
+  main.addEventListener('click', function(e){
+    var btn = e.target.closest('.more'); if(!btn) return;
+    var box = document.getElementById(btn.getAttribute('aria-controls')), open = box.hidden;
+    box.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+  });
+
+  document.getElementById('make-seg').addEventListener('click', function(){ openPanel('seg'); });
+  document.getElementById('make-all').addEventListener('click', function(){ openPanel('all'); });
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+  document.getElementById('unpick').addEventListener('click', function(){
+    if(!panelSeg) return;
+    if(picks[panelSeg.rep.id]) delete picks[panelSeg.rep.id][panelSeg.seg.id];
+    savePicks(); closePanel(); draw();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){ report.focus(); report.select(); hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 직접 복사하세요.'; hint.classList.remove('ok'); };
+    try{ if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(report.value).then(done, fail); else fail(); }catch(err){ fail(); }
+  });
+  document.getElementById('reload').addEventListener('click', function(){ load(true); });
+
+  // 탭으로 돌아오거나 창에 포커스가 오면 새로 받아온다(1분에 한 번까지). 켜 둔 채로도 5분마다.
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) load(false); });
+  window.addEventListener('focus', function(){ load(false); });
+  setInterval(function(){ if(!document.hidden) load(true); }, 5*60e3);
+  // 1분마다 시각만 다시 보고(보고 전환·'n분 전'), 데이터는 그대로
+  setInterval(function(){
+    if(!D || document.hidden) return;
+    var before = ui.rep + '#' + ui.tab + '#' + tabList().map(function(t){ return t.key + (t.seg ? segState(t.seg, Date.now()) : ''); }).join();
+    pickDefaults();
+    var after = ui.rep + '#' + ui.tab + '#' + tabList().map(function(t){ return t.key + (t.seg ? segState(t.seg, Date.now()) : ''); }).join();
+    drawHeader();
+    if(before !== after && veil.hidden) draw();
+  }, 60e3);
+
+  load(true);
+})();
+</script>
+</body></html>
+"""
