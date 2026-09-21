@@ -111,6 +111,9 @@ section{margin-top:18px}
 .topic.pinned.flash{border-left-color:var(--flash)}
 .row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
 .row.on{background:var(--pick-soft)}
+.row.rep a.title{color:var(--muted)}
+.row.rep .tag{opacity:.6}
+.rp{font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 5px; white-space:nowrap}
 .pick{flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer; accent-color:var(--pick); transform:translateY(2px)}
 .tag{flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em; padding:1.5px 6px; border-radius:4px; transform:translateY(-1px)}
 .tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
@@ -216,6 +219,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   var SCOOP = '🔥', FLASH = '⚡';
   var WD = '일월화수목금토';
   var STORE = 'nm-live-picks-v1';
+  var TABSTORE = 'nm-live-tab-v1';   // 마지막으로 본 탭(새로고침해도 그 탭으로)
+  var TAB_KEEP_MS = 3*3600e3;        // 3시간 넘게 지난 기억은 무시(다음 날 아침엔 새 구간으로)
   var AUTO_EXPAND = 30;
 
   var D = null;               // data.json
@@ -271,10 +276,21 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       if(ui.rep !== cur.id){ ui.rep = cur.id; tabManual = false; }
     }
     var tabs = tabList();
+    if(!tabManual){
+      // 새로고침·재방문: 최근(3시간 이내)에 직접 고른 탭이 이 보고에 있으면 그대로 연다
+      try{
+        var sv = JSON.parse(localStorage.getItem(TABSTORE) || 'null');
+        if(sv && sv.rep === ui.rep && now - sv.at < TAB_KEEP_MS && tabs.some(function(t){ return t.key === sv.tab; })){
+          ui.tab = sv.tab; tabManual = true;
+        }
+      }catch(e){}
+    }
     if(!tabManual || !tabs.some(function(t){ return t.key === ui.tab; })){
       // 기본 탭: 본 보고 구간 중 '진행 중'인 것, 없으면 마지막으로 끝난 것
       var own = tabs.filter(function(t){ return !t.over && t.seg; });
-      var live = own.filter(function(t){ return segState(t.seg, now) === 'live'; })[0];
+      // 진행 중 구간이라도 아직 기사가 하나도 없으면(예: 17:30~18:00 수집 전) 건너뛰고
+      // 방금 마감된 구간을 연다 — 빈 화면이 떠서 체크가 사라진 것처럼 보이는 걸 막는다.
+      var live = own.filter(function(t){ return segState(t.seg, now) === 'live' && (t.seg.n + (t.seg.dup||0)) > 0; })[0];
       var done = own.filter(function(t){ return segState(t.seg, now) === 'done'; });
       // '넘어감' 탭은 기본으로 고르지 않는다 — 보고 직전·직후(13:30~15:00)엔 아직
       // 본 보고를 쓰는 중이므로 본 보고 구간이 떠야 한다.
@@ -350,7 +366,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       var st = segState(t.seg, now), pk = segPickCount(t.rep, t.seg);
       var stl = st === 'live' ? '<span class="st-live">진행 중</span>' : st === 'future' ? '<span class="st-future">대기</span>' : '<span>마감</span>';
       var lab = t.over ? '→ 다음 보고 ' + esc(t.seg.label) : t.no + ' ' + esc(t.seg.label);
-      var cnt = st === 'future' ? '' : '<span class="mono">'+t.seg.n+'건</span>';
+      var cnt = st === 'future' ? '' : '<span class="mono">'+t.seg.n+'건</span>'+(t.seg.dup ? '<span class="mono">+중복 '+t.seg.dup+'</span>' : '');
       return '<button class="tab'+(st==='future'?' future':'')+(t.over?' over':'')+'" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'">'+
              '<span class="l">'+lab+'</span><span class="s">'+stl+cnt+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
     }).join('');
@@ -384,7 +400,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       if(st === 'future'){ if(!t.all) html += '<p class="empty">아직 시작되지 않은 구간입니다.</p>'; return; }
       s.groups.forEach(function(g, gi){
         if(ui.beat && g.name !== ui.beat) return;
-        var blocks = '', gc = 0;
+        var blocks = '', gc = 0, gdup = 0;
         g.clusters.forEach(function(c, ci){
           c.forEach(function(it, ii){
             it.uid = x.rep.id+'|'+s.id+'|'+gi+'-'+ci+'-'+ii; it.g = g.name; it.rid = x.rep.id; it.sid = s.id;
@@ -392,7 +408,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
           });
           var items = c.filter(keep);
           if(!items.length) return;
-          gc += items.length; shown += items.length;
+          var fresh = items.filter(function(x){ return !x.d; }).length;
+          gc += fresh; gdup += items.length - fresh; shown += items.length;
           var lead = items[0], rest = items.slice(1);
           var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
           var body = row(lead);
@@ -404,7 +421,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
           }
           blocks += '<div class="'+cls+'">'+body+'</div>';
         });
-        if(gc) part += '<section><div class="sec-head"><h2>'+esc(g.name)+'</h2><span class="n mono">'+gc+'건</span></div>'+blocks+'</section>';
+        if(gc || gdup) part += '<section><div class="sec-head"><h2>'+esc(g.name)+'</h2><span class="n mono">'+gc+'건'+(gdup?' · 이미 나옴 '+gdup:'')+'</span></div>'+blocks+'</section>';
       });
       if(!part) part = '<p class="empty">'+(s.raw ? '조건에 맞는 기사가 없습니다.' : (st==='live' ? '이 구간에 수집된 기사가 아직 없습니다.' : '이 구간에 수집된 기사가 없습니다.'))+'</p>';
       else if(st === 'live' && D.generated){
@@ -412,7 +429,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       }
       html += part;
     });
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 흐리게 “이미 나옴”으로 표시하고 건수에서 뺍니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
     document.getElementById('main').innerHTML = html;
     syncBar();
   }
@@ -427,10 +444,11 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   function row(it){
     var on = isPicked(it.rid, it.sid, it.key);
     var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>' : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
-    return '<div class="row'+(on?' on':'')+'" data-u="'+esc(it.uid)+'">'+
+    return '<div class="row'+(on?' on':'')+(it.d?' rep':'')+'" data-u="'+esc(it.uid)+'"'+(it.d?' title="직전 구간에서 이미 수집된 같은 제목('+esc(it.d)+')"':'')+'>'+
       '<input class="pick" type="checkbox" '+(on?'checked':'')+' aria-label="보고에 포함">'+tag+
       '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>'+
-      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>'+
+      '<span class="meta">'+(it.d ? '<span class="rp">이미 나옴 '+esc(it.d)+'</span>' : '')+
+      '<span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>'+
       (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '')+'</span></div>';
   }
 
@@ -505,7 +523,9 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   });
   document.getElementById('tabs').addEventListener('click', function(e){
     var b = e.target.closest('button[data-t]'); if(!b) return;
-    ui.tab = b.getAttribute('data-t'); tabManual = true; draw(); window.scrollTo(0, 0);
+    ui.tab = b.getAttribute('data-t'); tabManual = true;
+    try{ localStorage.setItem(TABSTORE, JSON.stringify({rep: ui.rep, tab: ui.tab, at: Date.now()})); }catch(e){}
+    draw(); window.scrollTo(0, 0);
   });
   document.getElementById('beats').addEventListener('click', function(e){
     var b = e.target.closest('button[data-b]'); if(!b) return;
