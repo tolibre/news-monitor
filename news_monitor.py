@@ -2712,6 +2712,50 @@ def report_timeline(now):
     return [report_spec(*prev), report_spec(*cur), report_spec(*nxt)]
 
 
+LIVE_REPEAT_LOOKBACK_HOURS = 24
+
+
+def _mark_live_repeats(conn, start, groups):
+    """구간 시작 전 24시간 안에 '같은 제목'(group_key)이 이미 수집된 기사에 표시를 단다.
+    (0-20 보강, 2026-09-21 사용자 결정: 라이브 페이지 전용, 흐리게 표시)
+
+    같은 기사가 수집 경로만 바꿔 다시 들어오는 경우가 있다 — 예: 연합 '담합 10년간…'
+    이 네이버(www.yna.co.kr)·구글(연합뉴스)로 11:00에 들어와 14:00 보고에 실렸는데,
+    구글이 매체명을 'yna.co.kr'로 바꿔 붙인 사본이 14:00에 새 id로 또 수집돼 다음
+    보고 ① 구간에 다시 떴다. 실측 구간당 3~8%.
+
+    빼지 않고 표시만 한다(digest 원칙: 빠뜨리지 않기). 항목에 d='최초 수집 시각'을
+    달고, 그룹·구간 건수(n)에서는 뺀다(dup으로 따로 센다). digest 출력은 무관.
+    반환: 표시한 건수."""
+    since = (start - datetime.timedelta(hours=LIVE_REPEAT_LOOKBACK_HOURS)).isoformat()
+    first = {}
+    for title, seen in conn.execute(
+            "SELECT title, seen_dt FROM articles WHERE seen_dt>=? AND seen_dt<?",
+            (since, start.isoformat())):
+        for t in (title, clean_title_display(title)):
+            k = group_key(t)
+            if k and (k not in first or seen < first[k]):
+                first[k] = seen
+    total = 0
+    for g in groups:
+        nd = 0
+        for clu in g["clusters"]:
+            for it in clu:
+                seen = first.get(group_key(it["t"]))
+                if seen:
+                    t = datetime.datetime.fromisoformat(seen).astimezone(KST)
+                    it["d"] = (t.strftime("%H:%M") if t.date() == start.date()
+                               else f"{t.month}/{t.day} {t:%H:%M}")
+                    nd += 1
+            # 묶음 안에서는 새 기사를 앞으로(안정 정렬 — 원래 순서 유지). 흐린 기사가
+            # 대표 줄로 올라와 그 아래 새 후속보도가 접혀 숨는 일을 막는다.
+            clu.sort(key=lambda it: 1 if it.get("d") else 0)
+        g["dup"] = nd
+        g["n"] -= nd
+        total += nd
+    return total
+
+
 def build_live_data(conn, now):
     """페이지용 JSON(dict). 구간마다 digest와 같은 선별·클러스터링을 돌린다."""
     import render_page
@@ -2725,7 +2769,7 @@ def build_live_data(conn, now):
                 "start": start.isoformat(),
                 "end": end.isoformat(),
                 "state": ("future" if now < start else "live" if now < end else "done"),
-                "raw": 0, "n": 0, "x": 0, "groups": [],
+                "raw": 0, "n": 0, "dup": 0, "x": 0, "groups": [],
             }
             if now >= start:
                 # 신선도 기준 = 구간 끝(이미 끝난 구간) 또는 지금(진행 중 구간) —
@@ -2734,7 +2778,8 @@ def build_live_data(conn, now):
                 rows, photo, junk, noise = digest_select(conn, start, end, ref)
                 groups = render_page.build_groups_data(
                     digest_page_sections(digest_by_group(rows)))
-                seg.update(raw=len(rows), n=sum(g["n"] for g in groups),
+                dup = _mark_live_repeats(conn, start, groups)
+                seg.update(raw=len(rows), n=sum(g["n"] for g in groups), dup=dup,
                            x=len(photo) + len(junk) + len(noise), groups=groups)
             segs_out.append(seg)
         reports.append({
