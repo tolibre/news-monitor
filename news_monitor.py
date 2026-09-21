@@ -2270,6 +2270,92 @@ def run_check():
     conn.close()
 
 # ==================== digest 모드 ====================
+# ==================== digest 공용 계산 (0-20, 2026-09-21) ====================
+# run_digest()와 run_live()(라이브 보고 페이지)가 같이 쓴다. 예전엔 run_digest() 안에
+# 인라인으로 있던 코드를 그대로 옮긴 것 — 동작 변경 없음(0-20 검증: 8개 슬롯에서
+# 텔레그램 본문·페이지 JSON 모두 diff 0). 두 화면이 서로 다른 판정을 내릴 여지를
+# 없애려고 복사 대신 추출했다.
+
+def digest_select(conn, start, end, now):
+    """seen_dt ∈ [start, end) 기사를 digest 기준으로 거른다. DB에 쓰지 않는다(순수).
+    반환: (rows, photo_rows, junk_rows, noise_rows)
+      noise_rows는 [(row, 사유), ...].
+
+    발행 24시간 신선도 기준은 호출자가 넘긴 now다. run_digest()는 실행 시각(≈구간 끝)을
+    넘기고, run_live()는 min(now, end)를 넘겨 '그 구간 digest가 제때 돌았다면'과 같은
+    결과를 재현한다(주말 구간을 월요일에 계산해도 금요일 기사가 잘리지 않게)."""
+    rows = conn.execute("""SELECT title,link,source,pub_dt,keywords FROM articles
+                           WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
+                        (start.isoformat(), end.isoformat())).fetchall()
+    rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
+    fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
+    rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
+    # digest는 "빠뜨리지 않는 것"이 목표 → strict=True (확신할 때만 제외)
+    # 제외된 기사는 호출자(run_digest)가 excluded_log 테이블에 남긴다. "(제외: N건)"
+    # 숫자만으로는 뭘 걸렀는지 알 수 없어 필터가 실제로 맞는 판단을 했는지 검증할
+    # 방법이 없기 때문.
+    photo_rows = [r for r in rows if is_photo_article(r[0], r[1], strict=True)]
+    rows = [r for r in rows if r not in photo_rows]
+    # strict=True — digest는 기존 고신뢰 패턴만 적용한다(check 전용 묶음기사 패턴 제외).
+    junk_rows = [r for r in rows if is_junk_title(r[0], strict=True)]
+    rows = [r for r in rows if r not in junk_rows]
+    # 노이즈 필터 — digest는 strict=True로 '순수 오탐·무정보' 층만 적용한다
+    # (사용자 결정 09/18). 기업·대학·지자체 주체 기사는 check에서만 빠지고
+    # digest에는 그대로 남는다 — digest의 목적은 누락방지이기 때문.
+    noise_rows = [(r, noise_reason(r[0], strict=True)) for r in rows]
+    noise_rows = [(r, w) for r, w in noise_rows if w]
+    _noise_set = {id(r) for r, _ in noise_rows}
+    rows = [r for r in rows if id(r) not in _noise_set]
+    return rows, photo_rows, junk_rows, noise_rows
+
+
+def digest_by_group(rows):
+    """기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)."""
+    by_group = {g: [] for g in GROUP_ORDER}
+    for r in rows:
+        kws = r[4].split(",") if r[4] else []
+        # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로
+        rep_kw = next((k for k in KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
+        g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
+        by_group.setdefault(g, []).append(r)
+    return by_group
+
+
+def digest_cluster_rank(clu):
+    """섹션 안 클러스터 정렬 키: 중요도 순 (단독·속보 > 전재 확산 > 핵심매체)."""
+    titles = [gs[0][0] for gs in clu]
+    srcs = set()
+    for rep, sources in clu:
+        srcs |= set(sources)
+    sc = importance_score(titles, n_sources=len(srcs), sources=srcs)
+    # 점수 동률이면 먼저 보도된 것 우선
+    return (-sc, min(gs[0][3] for gs in clu))
+
+
+def digest_page_sections(by_group):
+    """render_page.build_groups_data()에 넘길 [(그룹, 정렬된 clusters), ...].
+    render_digest()의 섹션 루프와 같은 순서·같은 규칙(그룹 간 group_key 중복 제거,
+    전재 묶기, 주제 클러스터링, 클러스터 정렬, 클러스터 내부 article_rank 정렬)."""
+    sections = []
+    seen = set()
+    for g in effective_group_order(by_group.keys()):
+        arts = by_group.get(g, [])
+        if not arts:
+            continue
+        grouped = dedup_group(arts)
+        grouped = [(rep, srcs) for (rep, srcs) in grouped if group_key(rep[0]) not in seen]
+        for rep, srcs in grouped:
+            seen.add(group_key(rep[0]))
+        if not grouped:
+            continue
+        clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
+        clusters.sort(key=digest_cluster_rank)
+        for clu in clusters:
+            clu.sort(key=lambda gs: article_rank(gs[0][0], gs[0][2], gs[0][3]))
+        sections.append((g, [list(clu) for clu in clusters]))
+    return sections
+
+
 def run_digest():
     conn = db()
     now = datetime.datetime.now(KST)
@@ -2323,28 +2409,7 @@ def run_digest():
     if is_saturday and force_send:
         print(f"[{now.strftime('%m/%d %H:%M')}] 토요일이지만 FORCE_SEND=1 — {label} 강제 발송(테스트용)")
 
-    rows = conn.execute("""SELECT title,link,source,pub_dt,keywords FROM articles
-                           WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
-                        (start.isoformat(), end.isoformat())).fetchall()
-    rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
-    fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
-    rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
-    # digest는 "빠뜨리지 않는 것"이 목표 → strict=True (확신할 때만 제외)
-    # 제외된 기사는 실체를 excluded_log 테이블에 남긴다. "(제외: N건)" 숫자만으로는
-    # 뭘 걸렀는지 알 수 없어 필터가 실제로 맞는 판단을 했는지 검증할 방법이 없기 때문.
-    # news_monitor.db 자체가 매 실행 git 커밋되므로 이 로그도 자동으로 저장소에 남는다.
-    photo_rows = [r for r in rows if is_photo_article(r[0], r[1], strict=True)]
-    rows = [r for r in rows if r not in photo_rows]
-    # strict=True — digest는 기존 고신뢰 패턴만 적용한다(check 전용 묶음기사 패턴 제외).
-    junk_rows = [r for r in rows if is_junk_title(r[0], strict=True)]
-    rows = [r for r in rows if r not in junk_rows]
-    # 노이즈 필터 — digest는 strict=True로 '순수 오탐·무정보' 층만 적용한다
-    # (사용자 결정 09/18). 기업·대학·지자체 주체 기사는 check에서만 빠지고
-    # digest에는 그대로 남는다 — digest의 목적은 누락방지이기 때문.
-    noise_rows = [(r, noise_reason(r[0], strict=True)) for r in rows]
-    noise_rows = [(r, w) for r, w in noise_rows if w]
-    _noise_set = {id(r) for r, _ in noise_rows}
-    rows = [r for r in rows if id(r) not in _noise_set]
+    rows, photo_rows, junk_rows, noise_rows = digest_select(conn, start, end, now)
     photo_excluded, junk_excluded = len(photo_rows), len(junk_rows)
     noise_excluded = len(noise_rows)
 
@@ -2359,19 +2424,14 @@ def run_digest():
         conn.commit()
 
     # 기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)
-    by_group = {g: [] for g in GROUP_ORDER}
-    for r in rows:
-        kws = r[4].split(",") if r[4] else []
-        # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로
-        rep_kw = next((k for k in KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
-        g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
-        by_group.setdefault(g, []).append(r)
+    by_group = digest_by_group(rows)
 
-    # PAGE_MODE(off/both/summary)용 — html/plain 두 번의 render_digest() 호출 중
-    # 첫 번째(as_html=True) 호출에서만 채워 넣는다. 페이지가 digest 본문과 다른
-    # 클러스터링 결과를 낼 위험을 없애기 위해, 여기 계산되는 clusters를 render_page.py에
-    # 그대로 넘긴다(재계산하지 않음).
-    page_sections = []
+    # PAGE_MODE(off/both/summary)용 페이지 섹션. 0-20부터 digest_page_sections()가
+    # 계산한다 — 라이브 페이지(run_live)와 같은 함수를 써서 두 화면이 절대 어긋나지
+    # 않게 하기 위함. render_digest()와 같은 입력(by_group)·같은 순서의 결정론적
+    # 계산이므로 예전 '렌더 중 캡처'와 결과가 동일하다(0-20 검증: 8개 슬롯 diff 0).
+    # off면 계산 자체를 하지 않아 예전과 같은 경로다.
+    page_sections = digest_page_sections(by_group) if PAGE_MODE != "off" else []
 
     # HTML/평문 공통 렌더러
     def render_digest(as_html):
@@ -2395,20 +2455,7 @@ def run_digest():
             # 주제 클러스터링: grouped 항목들을 대표 제목 기준으로 묶음
             clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
             # 클러스터 정렬: 섹션 안에서 중요도 순 (단독·속보 > 전재 확산 > 핵심매체)
-            def clu_rank(clu):
-                titles = [gs[0][0] for gs in clu]
-                srcs = set()
-                for rep, sources in clu:
-                    srcs |= set(sources)
-                sc = importance_score(titles, n_sources=len(srcs), sources=srcs)
-                # 점수 동률이면 먼저 보도된 것 우선
-                return (-sc, min(gs[0][3] for gs in clu))
-            clusters.sort(key=clu_rank)
-            if as_html and PAGE_MODE != "off":
-                # 클러스터 내부 정렬까지 마친 뒤(article_rank) 페이지용으로 캡처한다.
-                for clu in clusters:
-                    clu.sort(key=lambda gs: article_rank(gs[0][0], gs[0][2], gs[0][3]))
-                page_sections.append((g, [list(clu) for clu in clusters]))
+            clusters.sort(key=digest_cluster_rank)
             sec_pos = len(lines)      # 섹션 헤더 자리를 잡아두고, 건수는 렌더 후 채운다
             lines.append(None)
             sec_count = 0
@@ -2541,6 +2588,184 @@ def run_digest():
     print(f"저장: {fname}")
     conn.close()
 
+
+# ==================== live 모드 (라이브 보고 페이지, 0-20, 2026-09-21) ====================
+# 사용자는 업무일 09:00·14:00 두 번 사내 모니터 보고를 한다. 정해진 시각에 digest를
+# 굽는 대신, check가 돌 때마다 '지금 준비 중인 보고'의 구간별 기사를 docs/live/data.json
+# 으로 내보내고, 페이지(docs/live/index.html)가 연 시각에 맞는 보고를 골라 보여준다.
+#
+#   14:00 보고  — 당일 08:30~13:30.                        화면 표시: 당일 10:00~15:00
+#   09:00 보고  — 직전 업무일 13:30~당일 08:30, 구간 분할:   화면 표시: 직전 업무일 15:00~당일 10:00
+#       ① 13:30~17:30 ② 17:30~22:00 (직전 업무일)
+#       (사이에 낀 휴일은 하루씩: 전일 22:00~당일 22:00)
+#       ③ 전일 22:00~06:00 ④ 06:00~08:30 (보고 당일)
+#
+# 구간은 발행시각이 아니라 seen_dt(최초 수집 시각) 기준이다 — 이미 정리를 끝낸 구간에
+# 늦게 수집된 기사가 끼어들지 않게 하기 위함(사용자 요구: "이미 정리한 거랑 섞이지
+# 않게"). 선별·클러스터링은 digest와 같은 함수(digest_select/digest_page_sections).
+# DB에 아무것도 쓰지 않는다(excluded_log도 안 남김 — 그건 digest의 몫).
+
+# 공휴일(평일에 낀 것만 의미 있음). 토·일은 코드가 알아서 휴일로 본다.
+# ⚠ 2027년분은 연말에 추가할 것 — 없으면 2027년 공휴일 다음 날 09:00 보고가
+#   '전날 13:30부터'가 아니라 공휴일 당일 13:30부터로 잘못 잡힌다.
+REPORT_HOLIDAYS = {
+    "2026-09-24", "2026-09-25", "2026-09-26",   # 추석 연휴(26일은 토)
+    "2026-10-05",                               # 개천절 대체공휴일
+    "2026-10-09",                               # 한글날
+    "2026-12-25",                               # 성탄절
+}
+_T = datetime.time
+REPORT_PM_START, REPORT_PM_CUTOFF = _T(8, 30), _T(13, 30)   # 14:00 보고 수집 구간
+REPORT_AM_SWITCH = _T(10, 0)    # 이 시각부터 화면이 14:00 보고로 넘어간다
+REPORT_PM_SWITCH = _T(15, 0)    # 이 시각부터 화면이 다음 09:00 보고로 넘어간다
+REPORT_AM_EVENING = [(_T(13, 30), _T(17, 30)), (_T(17, 30), _T(22, 0))]  # 직전 업무일
+REPORT_AM_NIGHT = _T(22, 0)     # 휴일 하루 구간의 경계 겸 ③의 시작
+REPORT_AM_MORNING = [(_T(6, 0), _T(8, 30))]                              # 보고 당일
+LIVE_DIRNAME = "live"
+_WD = "월화수목금토일"
+
+
+def is_report_workday(d):
+    return d.weekday() < 5 and d.isoformat() not in REPORT_HOLIDAYS
+
+
+def _prev_workday(d):
+    d -= datetime.timedelta(days=1)
+    while not is_report_workday(d):
+        d -= datetime.timedelta(days=1)
+    return d
+
+
+def _next_workday(d):
+    d += datetime.timedelta(days=1)
+    while not is_report_workday(d):
+        d += datetime.timedelta(days=1)
+    return d
+
+
+def _at(d, t):
+    return datetime.datetime.combine(d, t, KST)
+
+
+def _seg_label(a, b):
+    """'월 13:30~17:30' / '월 22:00~화 06:00' — 날짜가 바뀌면 끝쪽에도 요일."""
+    left = f"{_WD[a.weekday()]} {a:%H:%M}"
+    if a.date() == b.date():
+        return f"{left}~{b:%H:%M}"
+    return f"{left}~{_WD[b.weekday()]} {b:%H:%M}"
+
+
+def report_spec(kind, d):
+    """kind='am'(09:00 보고) 또는 'pm'(14:00 보고), d=보고일(업무일).
+    반환: dict(id, kind, date, title, display_from, display_until, segments=[(start,end)])"""
+    if kind == "pm":
+        segs = [(_at(d, REPORT_PM_START), _at(d, REPORT_PM_CUTOFF))]
+        dfrom, duntil = _at(d, REPORT_AM_SWITCH), _at(d, REPORT_PM_SWITCH)
+        hhmm = "14:00"
+    else:
+        p = _prev_workday(d)
+        segs = [(_at(p, a), _at(p, b)) for a, b in REPORT_AM_EVENING]
+        x = p + datetime.timedelta(days=1)
+        while x < d:   # 사이에 낀 휴일: 하루씩(전일 22:00~당일 22:00)
+            segs.append((_at(x - datetime.timedelta(days=1), REPORT_AM_NIGHT),
+                         _at(x, REPORT_AM_NIGHT)))
+            x += datetime.timedelta(days=1)
+        segs.append((_at(d - datetime.timedelta(days=1), REPORT_AM_NIGHT),
+                     _at(d, REPORT_AM_MORNING[0][0])))
+        segs += [(_at(d, a), _at(d, b)) for a, b in REPORT_AM_MORNING]
+        dfrom, duntil = _at(p, REPORT_PM_SWITCH), _at(d, REPORT_AM_SWITCH)
+        hhmm = "09:00"
+    return {
+        "id": f"{d:%Y%m%d}-{kind}",
+        "kind": kind,
+        "date": d,
+        "title": f"{d.month}/{d.day}({_WD[d.weekday()]}) {hhmm} 보고",
+        "display_from": dfrom,
+        "display_until": duntil,
+        "segments": segs,
+    }
+
+
+def report_at(now):
+    """now 시각에 화면에 떠야 할 보고의 (kind, 보고일)."""
+    d = now.date()
+    if is_report_workday(d):
+        if now < _at(d, REPORT_AM_SWITCH):
+            return ("am", d)
+        if now < _at(d, REPORT_PM_SWITCH):
+            return ("pm", d)
+    return ("am", _next_workday(d))
+
+
+def _report_neighbors(kind, d):
+    """(이전 보고, 다음 보고) 의 (kind, 날짜)."""
+    if kind == "am":
+        return ("pm", _prev_workday(d)), ("pm", d)
+    return ("am", d), ("am", _next_workday(d))
+
+
+def report_timeline(now):
+    """now 기준 [이전, 현재, 다음] 보고 spec 3개. 페이지는 연 시각으로 이 중 하나를
+    고르므로, 다음 수집까지 시간이 비어도(야간 22:00~05:00) 올바른 보고가 뜬다."""
+    cur = report_at(now)
+    prev, nxt = _report_neighbors(*cur)
+    return [report_spec(*prev), report_spec(*cur), report_spec(*nxt)]
+
+
+def build_live_data(conn, now):
+    """페이지용 JSON(dict). 구간마다 digest와 같은 선별·클러스터링을 돌린다."""
+    import render_page
+    reports = []
+    for spec in report_timeline(now):
+        segs_out = []
+        for start, end in spec["segments"]:
+            seg = {
+                "id": f"{start:%Y%m%d%H%M}",
+                "label": _seg_label(start, end),
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "state": ("future" if now < start else "live" if now < end else "done"),
+                "raw": 0, "n": 0, "x": 0, "groups": [],
+            }
+            if now >= start:
+                # 신선도 기준 = 구간 끝(이미 끝난 구간) 또는 지금(진행 중 구간) —
+                # 그 구간 digest가 제때 돌았을 때와 같은 결과.
+                ref = min(now, end)
+                rows, photo, junk, noise = digest_select(conn, start, end, ref)
+                groups = render_page.build_groups_data(
+                    digest_page_sections(digest_by_group(rows)))
+                seg.update(raw=len(rows), n=sum(g["n"] for g in groups),
+                           x=len(photo) + len(junk) + len(noise), groups=groups)
+            segs_out.append(seg)
+        reports.append({
+            "id": spec["id"], "kind": spec["kind"], "title": spec["title"],
+            "display_from": spec["display_from"].isoformat(),
+            "display_until": spec["display_until"].isoformat(),
+            "segments": segs_out,
+        })
+    last_seen = conn.execute("SELECT MAX(seen_dt) FROM articles").fetchone()[0]
+    return {
+        "generated": now.isoformat(),
+        "last_seen": last_seen or "",
+        "reports": reports,
+    }
+
+
+def run_live():
+    """check 직후 워크플로가 부른다(실패해도 check는 이미 끝난 뒤라 영향 없음)."""
+    import render_page
+    now = datetime.datetime.now(KST)
+    conn = db()
+    try:
+        data = build_live_data(conn, now)
+    finally:
+        conn.close()
+    path = render_page.publish_live(data)
+    cur = data["reports"][1]   # report_timeline()이 [이전, 현재, 다음] 순서로 준다
+    print(f"[live] {cur['title']} — " + ", ".join(
+        f"{s['label']} {s['n']}건" for s in cur["segments"] if s["state"] != "future")
+        + f" → {path}")
+
 # ==================== excluded 모드 (제외 기사 조회) ====================
 def run_excluded(days=1):
     """최근 N일간 digest strict 필터(사진/무의미제목)로 제외된 기사 목록을 텔레그램(digest 봇)으로 전송.
@@ -2588,8 +2813,10 @@ if __name__ == "__main__":
         run_check()
     elif mode == "digest":
         run_digest()
+    elif mode == "live":
+        run_live()
     elif mode == "excluded":
         days = int(sys.argv[2]) if len(sys.argv) > 2 else 1
         run_excluded(days)
     else:
-        print("usage: python news_monitor.py [check|digest|excluded [days]]")
+        print("usage: python news_monitor.py [check|digest|live|excluded [days]]")
