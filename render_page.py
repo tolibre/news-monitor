@@ -1107,6 +1107,9 @@ section{margin-top:18px}
 .topic.pinned.flash{border-left-color:var(--flash)}
 .row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
 .row.on{background:var(--pick-soft)}
+.row.rep a.title{color:var(--muted)}
+.row.rep .tag{opacity:.6}
+.rp{font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 5px; white-space:nowrap}
 .pick{flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer; accent-color:var(--pick); transform:translateY(2px)}
 .tag{flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em; padding:1.5px 6px; border-radius:4px; transform:translateY(-1px)}
 .tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
@@ -1346,7 +1349,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       var st = segState(t.seg, now), pk = segPickCount(t.rep, t.seg);
       var stl = st === 'live' ? '<span class="st-live">진행 중</span>' : st === 'future' ? '<span class="st-future">대기</span>' : '<span>마감</span>';
       var lab = t.over ? '→ 다음 보고 ' + esc(t.seg.label) : t.no + ' ' + esc(t.seg.label);
-      var cnt = st === 'future' ? '' : '<span class="mono">'+t.seg.n+'건</span>';
+      var cnt = st === 'future' ? '' : '<span class="mono">'+t.seg.n+'건</span>'+(t.seg.dup ? '<span class="mono">+중복 '+t.seg.dup+'</span>' : '');
       return '<button class="tab'+(st==='future'?' future':'')+(t.over?' over':'')+'" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'">'+
              '<span class="l">'+lab+'</span><span class="s">'+stl+cnt+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
     }).join('');
@@ -1380,7 +1383,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       if(st === 'future'){ if(!t.all) html += '<p class="empty">아직 시작되지 않은 구간입니다.</p>'; return; }
       s.groups.forEach(function(g, gi){
         if(ui.beat && g.name !== ui.beat) return;
-        var blocks = '', gc = 0;
+        var blocks = '', gc = 0, gdup = 0;
         g.clusters.forEach(function(c, ci){
           c.forEach(function(it, ii){
             it.uid = x.rep.id+'|'+s.id+'|'+gi+'-'+ci+'-'+ii; it.g = g.name; it.rid = x.rep.id; it.sid = s.id;
@@ -1388,7 +1391,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
           });
           var items = c.filter(keep);
           if(!items.length) return;
-          gc += items.length; shown += items.length;
+          var fresh = items.filter(function(x){ return !x.d; }).length;
+          gc += fresh; gdup += items.length - fresh; shown += items.length;
           var lead = items[0], rest = items.slice(1);
           var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
           var body = row(lead);
@@ -1400,7 +1404,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
           }
           blocks += '<div class="'+cls+'">'+body+'</div>';
         });
-        if(gc) part += '<section><div class="sec-head"><h2>'+esc(g.name)+'</h2><span class="n mono">'+gc+'건</span></div>'+blocks+'</section>';
+        if(gc || gdup) part += '<section><div class="sec-head"><h2>'+esc(g.name)+'</h2><span class="n mono">'+gc+'건'+(gdup?' · 이미 나옴 '+gdup:'')+'</span></div>'+blocks+'</section>';
       });
       if(!part) part = '<p class="empty">'+(s.raw ? '조건에 맞는 기사가 없습니다.' : (st==='live' ? '이 구간에 수집된 기사가 아직 없습니다.' : '이 구간에 수집된 기사가 없습니다.'))+'</p>';
       else if(st === 'live' && D.generated){
@@ -1408,7 +1412,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       }
       html += part;
     });
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 흐리게 “이미 나옴”으로 표시하고 건수에서 뺍니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
     document.getElementById('main').innerHTML = html;
     syncBar();
   }
@@ -1423,10 +1427,11 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   function row(it){
     var on = isPicked(it.rid, it.sid, it.key);
     var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>' : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
-    return '<div class="row'+(on?' on':'')+'" data-u="'+esc(it.uid)+'">'+
+    return '<div class="row'+(on?' on':'')+(it.d?' rep':'')+'" data-u="'+esc(it.uid)+'"'+(it.d?' title="직전 구간에서 이미 수집된 같은 제목('+esc(it.d)+')"':'')+'>'+
       '<input class="pick" type="checkbox" '+(on?'checked':'')+' aria-label="보고에 포함">'+tag+
       '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>'+
-      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>'+
+      '<span class="meta">'+(it.d ? '<span class="rp">이미 나옴 '+esc(it.d)+'</span>' : '')+
+      '<span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>'+
       (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '')+'</span></div>';
   }
 
