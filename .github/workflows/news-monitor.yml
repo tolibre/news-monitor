@@ -50,6 +50,11 @@ on:
         required: false
         default: ''
         type: string
+      digest_push:
+        description: 'digest 전용, 비상용: on이면 digest 전문을 텔레그램으로 보낸다(페이지 마비 대비). 비우면 페이지·보존본만 만들고 텔레그램은 안 보냄(정기 실행 기본).'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: news-monitor
@@ -103,6 +108,9 @@ jobs:
           # 토요일 발송 스킵을 수동으로 우회하는 테스트 전용 스위치. cron-job.org
           # body에는 이 값이 없어 항상 빈 문자열이므로 정기 실행의 토요일 스킵은 그대로다.
           FORCE_SEND: ${{ github.event.inputs.force_send }}
+          # digest 텔레그램 발송(0-21). cron-job.org body엔 이 값이 없어 정기 실행은 항상
+          # 발송 안 함. 비상 시 수동 실행에서만 on.
+          DIGEST_PUSH: ${{ github.event.inputs.digest_push }}
         run: |
           MODE="${{ steps.mode.outputs.mode }}"
           if [ "$MODE" = "backfill" ]; then
