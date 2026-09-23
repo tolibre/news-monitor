@@ -46,6 +46,7 @@ DUTY_DATES = {
     "2026-09-18": ["산업부", "중기부", "개인정보위"],
     "2026-09-19": ["산업부", "중기부", "개인정보위"],
     "2026-09-20": None,  # 경제정책팀 전체 출입처(8개 후보 전체) 커버
+    "2026-09-26": None,  # 추석 연휴 당직(09~18시 근무, 사용자 요청) — 8개 후보 전체
 }
 DUTY_KEYWORDS = [
     "재정경제부", "재경부",
@@ -714,6 +715,15 @@ if PAGE_MODE not in ("off", "both", "summary"):
 # 페이지가 실제로 올라갈 GitHub Pages 절대 URL. 워크플로/시크릿으로 안 주면 상대경로만
 # 알 수 있어 summary 카드의 링크를 완성할 수 없다 — 비어 있으면 링크 없이 카드만 보낸다.
 PAGE_BASE_URL = os.environ.get("PAGE_BASE_URL", "").rstrip("/")
+
+# digest 텔레그램 발송 스위치 (0-21, 2026-09-23 사용자 결정).
+# 보고 준비가 라이브 페이지(/live/)로 넘어가 digest 텔레그램은 쓰지 않게 됐다. 그래서
+# 기본값은 off — digest는 계속 정기 실행되어 페이지(docs/index.html)·보존본(archive/)·
+# 제외기록(excluded_log)·DB 정리(prune_old)를 그대로 하되, 텔레그램만 보내지 않는다.
+# on은 비상용: 페이지가 마비됐을 때 workflow_dispatch에서 digest_push=on으로 수동 실행하면
+# 예전과 똑같은 전문(+페이지 링크)이 digest 봇으로 간다(인수인계 0-21 '비상 절차').
+# check 실시간 알림(target='check')과 excluded 모드 조회는 이 스위치와 무관하다.
+DIGEST_PUSH = os.environ.get("DIGEST_PUSH", "").strip().lower() in ("1", "on", "true", "yes")
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DB_PATH    = os.path.join(BASE_DIR, "news_monitor.db")
@@ -2571,7 +2581,10 @@ def run_digest():
             label, start.strftime("%m/%d %H:%M"), end.strftime("%m/%d %H:%M"),
             groups_data, page_url=page_url,
         )
-        notify(summary_text, target="digest")
+        if DIGEST_PUSH:
+            notify(summary_text, target="digest")
+        else:
+            print(f"[digest] 텔레그램 발송 생략(DIGEST_PUSH=off) — {label}")
     else:
         # off, both, 또는 표시할 기사가 없어 page_sections가 비었을 때 —
         # 지금까지와 동일하게 전문을 보낸다(both는 전문+페이지 병행이 목적이므로 당연히
@@ -2584,7 +2597,10 @@ def run_digest():
         if PAGE_MODE == "both" and page_sections and PAGE_BASE_URL:
             page_url = f"{PAGE_BASE_URL}/"
             send_text = html_text + f'\n\n<a href="{tg_escape(page_url)}">🔗 전체 보기</a>'
-        notify(send_text, target="digest")
+        if DIGEST_PUSH:
+            notify(send_text, target="digest")
+        else:
+            print(f"[digest] 텔레그램 발송 생략(DIGEST_PUSH=off) — {label}")
     print(f"저장: {fname}")
     conn.close()
 
@@ -2756,6 +2772,50 @@ def _mark_live_repeats(conn, start, groups):
     return total
 
 
+# digest 정기 슬롯의 경계(06:00·08:30·13:30·17:30·22:00). live_select()가 긴 구간을
+# 이 경계로 쪼갠다.
+DIGEST_SLOT_TIMES = [_T(6, 0), _T(8, 30), _T(13, 30), _T(17, 30), _T(22, 0)]
+
+
+def live_select(conn, start, end, now):
+    """라이브 구간 선별 = '그 사이 digest가 슬롯마다 제때 돌았다면'의 합집합. (0-21)
+
+    digest_select()의 발행 24시간 신선도 기준은 호출 시각 하나다. 평일 구간(최대 8시간,
+    digest 슬롯 하나와 같은 창)은 기준을 구간 끝으로 줘도 문제가 없지만, 휴일 구간
+    (전일 22:00~당일 22:00, 24시간)은 기준이 구간 끝이면 컷오프가 구간 시작과 같아져
+    '구간 시작 전에 발행돼 구간 안에서 수집된' 기사가 전부 떨어졌다 — 야간 05:00 수집분
+    대부분이 여기 해당한다. 실측: 평범한 휴일 구간(9/18 22:00~9/19 22:00)에서 166건 중
+    27건 — 전날 21~22시 발행분이 22:00 수집에 들어온 것, 구글 지연분 등. 수동 백필·
+    배포 직후처럼 과거 기사가 몰려 들어온 날은 더 크다(9/12 439건 중 357건, 9/20 916건 중
+    202건). 진행 중에는 기준이 '지금'이라 보였다가 구간이 닫히면 사라지는 식이었다.
+
+    그래서 구간을 digest 슬롯 경계로 쪼개 각 조각을 min(now, 조각 끝) 기준으로 고른 뒤
+    합친다. 슬롯 하나와 같은 평일 구간은 조각이 하나라 예전과 결과가 완전히 같다.
+    반환 형식은 digest_select()와 같다."""
+    cuts = {start, end}
+    d = start.date()
+    while True:
+        for t in DIGEST_SLOT_TIMES:
+            c = datetime.datetime.combine(d, t, KST)
+            if start < c < end:
+                cuts.add(c)
+        if datetime.datetime.combine(d, datetime.time(0, 0), KST) >= end:
+            break
+        d += datetime.timedelta(days=1)
+    cuts = sorted(cuts)
+    out = ([], [], [], [])
+    for a, b in zip(cuts, cuts[1:]):
+        if now < a:
+            break
+        part = digest_select(conn, a, b, min(now, b))
+        for acc, got in zip(out, part):
+            acc.extend(got)
+    if len(cuts) > 2:
+        # digest_select()는 조각마다 ORDER BY pub_dt — 합친 뒤에도 같은 순서로 맞춘다.
+        out[0].sort(key=lambda r: r[3])
+    return out
+
+
 def build_live_data(conn, now):
     """페이지용 JSON(dict). 구간마다 digest와 같은 선별·클러스터링을 돌린다."""
     import render_page
@@ -2774,8 +2834,8 @@ def build_live_data(conn, now):
             if now >= start:
                 # 신선도 기준 = 구간 끝(이미 끝난 구간) 또는 지금(진행 중 구간) —
                 # 그 구간 digest가 제때 돌았을 때와 같은 결과.
-                ref = min(now, end)
-                rows, photo, junk, noise = digest_select(conn, start, end, ref)
+                # 휴일 구간(24시간)은 live_select()가 digest 슬롯 단위로 쪼개 고른다(0-21).
+                rows, photo, junk, noise = live_select(conn, start, end, now)
                 groups = render_page.build_groups_data(
                     digest_page_sections(digest_by_group(rows)))
                 dup = _mark_live_repeats(conn, start, groups)
