@@ -2889,71 +2889,120 @@ def live_merge_sections(seg_sections, seg_groups):
 # run_live()에서 한다(워크플로가 check 직후 live를 부르므로 주기는 check와 같다.
 # live 실패는 경고만이라 이 수집이 실패해도 check 커밋에는 영향이 없다).
 #
-# 수집: 네이버 API "김광일 기자"(최신 100건, 1페이지) + 구글 RSS "김광일 기자"(구문).
-#   검색은 본문까지 훑으므로 **노컷뉴스 기사만** 남긴다(네이버는 원문 도메인, 구글은
-#   매체명). 조선일보 김광일 논설위원 등 동명이인 기사는 매체에서 걸러진다.
-#   제목에 '김광일'이 들어간 기사는 뺀다 — 본인 바이라인 기사는 제목에 이름이 없고,
-#   제목에 있으면 그 이름을 다룬 기사다.
+# 수집 방식(0-23d로 교체): **이미 수집된 노컷뉴스 기사의 원문 페이지를 열어 바이라인을
+# 확인한다.** 처음(0-23)엔 네이버·구글에서 '김광일 기자'를 검색했는데, 첫 실전(9/30 00:19)
+# 에서 본인 기사 0건 — 9/28 '명륜진사갈비…'·'YTN 변경승인 취소 청문…'을 둘 다 놓치고,
+# 대신 한판승부 대담 녹취(진행자로 이름이 나온 것)·수년 전 기사·기감 기사를 잡았다.
+# 네이버 API는 제목·요약만 검색하고 바이라인은 본문 끝에 있어서다.
+#   - 노컷 기자 페이지(/reporter)는 robots.txt가 막아 쓰지 않는다. 기사 페이지(/news/)는 허용.
+#   - 한계: 출입처 키워드로 수집되지 않은 본인 기사는 못 잡는다.
+#   - 제목이 '[한판승부]' 등 프로그램 태그로 끝나는 대담 녹취는 본인 기사로 치지 않는다.
 # 창: 발행 시각 기준. 09:00 보고 = 보고일 00:00~, 14:00 보고 = 보고일 08:00~, 끝은
 #   지금(보고 화면이 넘어가면 그 시각에서 멈춘다).
 BYLINE_NAME = "김광일"
 BYLINE_SECTION = "김광일 기자"
-BYLINE_QUERY = "김광일 기자"
 BYLINE_DOMAINS = ("nocutnews.co.kr",)
-BYLINE_GOOGLE_SOURCES = ("노컷뉴스", "CBS노컷뉴스", "nocutnews.co.kr")
 BYLINE_FROM = {"am": _T(0, 0), "pm": _T(8, 0)}
 BYLINE_KEEP_DAYS = 14
-KEYWORD_MAX_PAGES[BYLINE_QUERY] = 1   # 노컷 외 결과는 저장 안 하니 조기중단이 안 걸린다
+BYLINE_LOOKBACK_HOURS = 36     # 이만큼 전까지 수집된 노컷 기사를 확인 대상으로
+BYLINE_MAX_FETCH = 40          # 한 번에 여는 원문 페이지 상한(첫 실행 몰림 대비)
+_BYLINE_RE = re.compile(r"(?<![가-힣])" + BYLINE_NAME + r"\s*(?:CBS\s*)?기자")
+# 제목 끝 [태그] 중 라디오·유튜브 프로그램만(노컷 연재 태그 '[이런일이]' 등은 해당 없음).
+BYLINE_PROGRAM_TAGS = ("한판승부", "뉴스쇼", "오늘아침", "지지율대책회의", "시사자키", "뉴스톡",
+                       "댓꿀쇼", "박지환의", "친절한 두 기자", "기자수첩K")
+_PROGRAM_TAIL_RE = re.compile(r"\[([^\[\]]{2,20})\]\s*$")
 
 
 def _byline_table(conn):
     conn.execute("""CREATE TABLE IF NOT EXISTS byline_articles(
         id TEXT PRIMARY KEY, title TEXT, link TEXT, source TEXT,
         pub_dt TEXT, seen_dt TEXT, origin TEXT)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS byline_checked(
+        id TEXT PRIMARY KEY, own INTEGER, note TEXT, checked_dt TEXT)""")
+    # 0-23의 검색 수집분은 오탐이라 버린다(검증된 것은 origin='page').
+    conn.execute("DELETE FROM byline_articles WHERE origin != 'page'")
 
 
-def byline_accept(it):
-    """수집 결과 한 건이 노컷뉴스 김광일 기자 기사로 볼 만한가. 반환: (ok, 사유)"""
-    if BYLINE_NAME in it["title"]:
-        return False, "제목에 이름"
-    if it["origin"] == "naver":
-        host = urllib.parse.urlparse(it["link"]).netloc.lower()
-        ok = any(host == d or host.endswith("." + d) for d in BYLINE_DOMAINS)
-    else:
-        ok = any(x in it["source"] for x in BYLINE_GOOGLE_SOURCES)
-    return ok, ("" if ok else "노컷 아님")
+def _is_nocut_link(link):
+    host = urllib.parse.urlparse(link or "").netloc.lower()
+    return any(host == d or host.endswith("." + d) for d in BYLINE_DOMAINS)
 
 
-def collect_byline(conn, now):
-    """네이버·구글에서 김광일 기자 기사를 모아 byline_articles에 넣는다. 반환: 새로 넣은 수."""
+def byline_in_html(raw):
+    """노컷 기사 HTML에서 본인 바이라인을 찾는다. 반환: (본인인가, 근거/추정 바이라인 문자열)
+    ① author 계열 메타 태그 ② 본문 텍스트의 '김광일 기자'(스크립트·스타일 제거 후).
+    본인이 아니면 페이지에서 찾은 바이라인 추정값을 돌려준다(로그로 판별 규칙 점검용)."""
+    txt = raw if isinstance(raw, str) else raw.decode("utf-8", "ignore")
+    metas = re.findall(r"<meta[^>]+>", txt, re.I)
+    authors = []
+    for m in metas:
+        key = re.search(r"(?:name|property)\s*=\s*[\"']([^\"']+)[\"']", m, re.I)
+        val = re.search(r"content\s*=\s*[\"']([^\"']*)[\"']", m, re.I)
+        if key and val and "author" in key.group(1).lower():
+            authors.append(html.unescape(val.group(1)).strip())
+    for a in authors:
+        if BYLINE_NAME in a:
+            return True, f"meta:{a[:30]}"
+    body = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", txt, flags=re.S | re.I)
+    body = html.unescape(re.sub(r"<[^>]+>", " ", body))
+    body = re.sub(r"\s+", " ", body)
+    m = _BYLINE_RE.search(body)
+    if m:
+        return True, "text:" + body[max(0, m.start() - 12):m.end() + 6].strip()
+    guess = authors[0] if authors else ""
+    if not guess:
+        g = re.findall(r"(?<![가-힣])([가-힣]{2,4})\s*기자", body)
+        guess = ",".join(dict.fromkeys(g[:3]))
+    return False, f"바이라인 추정:{guess[:30] or '못 찾음'}"
+
+
+def _fetch_page(url, timeout=12):
+    req = urllib.request.Request(url, headers={
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+def collect_byline(conn, now, fetch=None):
+    """최근 수집된 노컷 기사 원문을 열어 본인 기사를 byline_articles에 넣는다. 반환: 신규 수."""
+    fetch = fetch or _fetch_page
     _byline_table(conn)
-    have = {r[0] for r in conn.execute("SELECT id FROM byline_articles")}
-    keys = {group_key(clean_title_display(r[0]))
-            for r in conn.execute("SELECT title FROM byline_articles")}
-    got = fetch_naver(conn, BYLINE_QUERY, set()) + fetch_google(BYLINE_QUERY, set())
-    stat = {"naver": [0, 0], "google": [0, 0]}
-    new = []
-    for it in got:
-        stat[it["origin"]][0] += 1
-        ok, _ = byline_accept(it)
-        if not ok:
-            continue
-        stat[it["origin"]][1] += 1
-        k = group_key(clean_title_display(it["title"]))
-        if it["id"] in have or k in keys:   # 네이버·구글 같은 기사는 하나만
-            continue
-        have.add(it["id"]); keys.add(k)
-        conn.execute("INSERT OR IGNORE INTO byline_articles VALUES(?,?,?,?,?,?,?)",
-                     (it["id"], it["title"], it["link"], it["source"], it["pub_dt"],
-                      now.isoformat(), it["origin"]))
-        new.append(it)
+    since = (now - datetime.timedelta(hours=BYLINE_LOOKBACK_HOURS)).isoformat()
+    checked = {r[0] for r in conn.execute("SELECT id FROM byline_checked")}
+    rows = conn.execute("""SELECT id, title, link, source, pub_dt, seen_dt FROM articles
+                           WHERE seen_dt >= ? ORDER BY seen_dt""", (since,)).fetchall()
+    cands = [r for r in rows if _is_nocut_link(r[2]) and r[0] not in checked]
+    new, fail, notes = [], 0, []
+    for aid, title, link, source, pub, seen in cands[:BYLINE_MAX_FETCH]:
+        tail = _PROGRAM_TAIL_RE.search(clean_title_display(title))
+        if tail and any(k in tail.group(1) for k in BYLINE_PROGRAM_TAGS):
+            own, note = False, "라디오 대담 녹취(제목 [프로그램])"
+        else:
+            try:
+                own, note = byline_in_html(fetch(link))
+            except Exception as e:
+                fail += 1
+                print(f"  [byline!] 열기 실패 {clean_title_display(title)[:40]} — {e}")
+                continue   # 기록하지 않음 → 다음 실행에 다시 시도
+        conn.execute("INSERT OR REPLACE INTO byline_checked VALUES(?,?,?,?)",
+                     (aid, int(own), note, now.isoformat()))
+        if own:
+            conn.execute("INSERT OR IGNORE INTO byline_articles VALUES(?,?,?,?,?,?,?)",
+                         (aid, title, link, source, pub, seen, "page"))
+            new.append((pub, title, note))
+        else:
+            notes.append((title, note))
     cut = (now - datetime.timedelta(days=BYLINE_KEEP_DAYS)).isoformat()
     conn.execute("DELETE FROM byline_articles WHERE pub_dt < ?", (cut,))
+    conn.execute("DELETE FROM byline_checked WHERE checked_dt < ?", (cut,))
     conn.commit()
-    print(f"[byline] 네이버 {stat['naver'][0]}건 중 노컷 {stat['naver'][1]} / "
-          f"구글 {stat['google'][0]}건 중 노컷 {stat['google'][1]} → 신규 {len(new)}건")
-    for it in new:
-        print(f"  [byline+] {it['pub_dt'][5:16]} {clean_title_display(it['title'])[:60]}")
+    print(f"[byline] 노컷 기사 {len(cands)}건 확인(상한 {BYLINE_MAX_FETCH}) → 본인 {len(new)}건"
+          f" / 아님 {len(notes)}건 / 실패 {fail}건")
+    for pub, title, note in new:
+        print(f"  [byline+] {pub[5:16]} {clean_title_display(title)[:50]}  ({note})")
+    for title, note in notes:
+        print(f"  [byline-] {clean_title_display(title)[:40]}  ({note})")
     return len(new)
 
 
