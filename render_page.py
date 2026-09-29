@@ -1109,6 +1109,8 @@ section{margin-top:18px}
 .row.on{background:var(--pick-soft)}
 .row.rep a.title{color:var(--muted)}
 .row.rep .tag{opacity:.6}
+.sg{flex:0 0 auto; font-size:12px; color:var(--muted); line-height:1; transform:translateY(1px)}
+.sg.live{color:var(--pick); font-weight:600}
 .rp{font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 5px; white-space:nowrap}
 .pick{flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer; accent-color:var(--pick); transform:translateY(2px)}
 .tag{flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em; padding:1.5px 6px; border-radius:4px; transform:translateY(-1px)}
@@ -1204,7 +1206,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     <div class="panel-foot">
       <button class="btn primary" type="button" id="copy">복사</button>
       <button class="btn" type="button" id="unpick" hidden>이 구간 선택 해제</button>
-      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 본인 기사는 &lt;기처리&gt;로 따로 모읍니다. 직접 고쳐도 됩니다.</span>
     </div>
   </div>
 </div>
@@ -1225,6 +1227,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   var tabManual = false;
   var lastFetch = 0;
   var ITEMS = {};             // uid -> item (현재 보고 + 넘어감 구간)
+  var MERGED = false;         // '전체' 탭을 출입처·기사묶음으로 합쳐 그리는 중(0-22)
 
   // ---------- 선택 저장 (이 브라우저에만) ----------
   var picks = {};             // {reportId: {segId: {key:1}}}
@@ -1355,7 +1358,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     document.getElementById('tabs').innerHTML = tabs.map(function(t){
       if(t.all){
         var tot = t.rep.segments.reduce(function(a,s){ return a + s.n; }, 0);
-        var pk = t.rep.segments.reduce(function(a,s){ return a + segPickCount(t.rep, s); }, 0);
+        var pk = allSegs(t.rep).reduce(function(a,s){ return a + segPickCount(t.rep, s); }, 0);
         return '<button class="tab" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'"><span class="l">전체</span>'+
                '<span class="s"><span class="mono">'+tot+'건</span>'+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
       }
@@ -1370,27 +1373,66 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     syncBar();
   }
 
+  var CIRC = '①②③④⑤⑥⑦⑧⑨⑩';
+  function prep(rep, s, si, gi, ci, ii, it, gname){
+    it.uid = rep.id+'|'+s.id+'|'+gi+'-'+ci+'-'+ii; it.g = gname; it.rid = rep.id; it.sid = s.id;
+    it.key = it.l || it.t; it.ord = si*1e7 + gi*1e5 + ci*100 + ii; it.si = si; ITEMS[it.uid] = it;
+    return it;
+  }
+  // 묶음 하나(items: 이미 필터 통과한 기사들)를 그린다. 반환: {html, fresh, dup}
+  function topicBlock(items, id, merged){
+    var fresh = items.filter(function(x){ return !x.d; }).length;
+    var lead = items[0], rest = items.slice(1);
+    var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+    var body = row(lead);
+    if(rest.length){
+      var big = items.length >= AUTO_EXPAND;
+      // 합쳐 보기: 접힌 줄 안에 다른 구간 기사가 있으면 구간별 건수를 붙인다 —
+      // 이미 본 ① 묶음 밑에 ②의 새 후속보도가 접혀 숨는 걸 알아채게.
+      var mix = '';
+      if(merged){
+        var bySeg = {}, segs = [];
+        rest.forEach(function(x){ if(!(x.si in bySeg)){ bySeg[x.si] = 0; segs.push(x.si); } bySeg[x.si]++; });
+        if(segs.length > 1 || segs[0] !== lead.si){
+          segs.sort(function(a,b){ return a-b; });
+          mix = ' · ' + segs.map(function(k){ return CIRC.charAt(k) + bySeg[k]; }).join(' ');
+        }
+      }
+      body += '<button class="more" type="button" aria-expanded="'+big+'" aria-controls="'+id+'" data-mix="'+esc(mix)+'">'+
+              (big ? '접기 ('+rest.length+'건 같은 사안'+mix+')' : '+'+rest.length+'건 같은 사안'+mix)+'</button>'+
+              '<div class="dupes" id="'+id+'"'+(big?'':' hidden')+'>'+rest.map(row).join('')+'</div>';
+    }
+    return {html:'<div class="'+cls+'">'+body+'</div>', fresh:fresh, dup:items.length-fresh};
+  }
+  function section(name, blocks, gc, gdup){
+    return '<section><div class="sec-head"><h2>'+esc(name)+'</h2><span class="n mono">'+gc+'건'+(gdup?' · 이미 나옴 '+gdup:'')+'</span></div>'+blocks+'</section>';
+  }
+
   function drawBody(){
     var now = Date.now();
     ITEMS = {};
     // 보여줄 구간들
     var t = curTab(), segs = t.all ? t.rep.segments.map(function(s){ return {rep:t.rep, seg:s}; }) : [{rep:t.rep, seg:t.seg}];
+    MERGED = !!(t.all && t.rep.all);
     // 출입처 칩: 보여줄 구간들의 그룹 합계
     var gcount = {}, gorder = [];
+    if(MERGED) t.rep.all.forEach(function(mg){ gcount[mg.name] = 0; gorder.push(mg.name); });
     segs.forEach(function(x){ x.seg.groups.forEach(function(g){ if(!(g.name in gcount)){ gcount[g.name]=0; gorder.push(g.name); } gcount[g.name]+=g.n; }); });
+    if(t.all && t.rep.byline && segState(t.rep.byline, now) !== 'future'){ gcount[t.rep.byline.name] = t.rep.byline.n; gorder.push(t.rep.byline.name); }
     if(ui.beat && !(ui.beat in gcount)) ui.beat = null;
     document.getElementById('beats').innerHTML = gorder.map(function(g){
       return '<button class="beat" type="button" data-b="'+esc(g)+'" aria-pressed="'+(g===ui.beat)+'"><span>'+esc(g)+'</span><span class="c mono">'+gcount[g]+'</span></button>';
     }).join('');
 
-    var html = '', shown = 0;
+    var html = '';
     if(t.over){
       html += '<p class="note over">이 기사들은 <b>'+esc(t.rep.title)+'</b>의 첫 구간입니다. 여기서 체크한 것은 다음 보고에 담깁니다.</p>';
     }
-    segs.forEach(function(x, si){
+    if(MERGED){ html += drawMerged(t.rep, now); }
+    else segs.forEach(function(x, si){
       var s = x.seg, st = segState(s, now), part = '';
       if(t.all){
-        html += '<div class="seghead"><b>'+'①②③④⑤⑥⑦⑧⑨⑩'.charAt(si)+' '+esc(s.label)+'</b><span>'+
+        html += '<div class="seghead"><b>'+CIRC.charAt(si)+' '+esc(s.label)+'</b><span>'+
                 (st==='future'?'대기':st==='live'?'진행 중':'마감')+(st==='future'?'':' · '+s.n+'건')+'</span></div>';
       }
       if(st === 'future'){ if(!t.all) html += '<p class="empty">아직 시작되지 않은 구간입니다.</p>'; return; }
@@ -1398,26 +1440,13 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
         if(ui.beat && g.name !== ui.beat) return;
         var blocks = '', gc = 0, gdup = 0;
         g.clusters.forEach(function(c, ci){
-          c.forEach(function(it, ii){
-            it.uid = x.rep.id+'|'+s.id+'|'+gi+'-'+ci+'-'+ii; it.g = g.name; it.rid = x.rep.id; it.sid = s.id;
-            it.key = it.l || it.t; it.ord = si*1e7 + gi*1e5 + ci*100 + ii; ITEMS[it.uid] = it;
-          });
+          c.forEach(function(it, ii){ prep(x.rep, s, si, gi, ci, ii, it, g.name); });
           var items = c.filter(keep);
           if(!items.length) return;
-          var fresh = items.filter(function(x){ return !x.d; }).length;
-          gc += fresh; gdup += items.length - fresh; shown += items.length;
-          var lead = items[0], rest = items.slice(1);
-          var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
-          var body = row(lead);
-          if(rest.length){
-            var id = 'c'+s.id+'-'+gi+'-'+ci, big = items.length >= AUTO_EXPAND;
-            body += '<button class="more" type="button" aria-expanded="'+big+'" aria-controls="'+id+'">'+
-                    (big ? '접기 ('+rest.length+'건 같은 사안)' : '+'+rest.length+'건 같은 사안')+'</button>'+
-                    '<div class="dupes" id="'+id+'"'+(big?'':' hidden')+'>'+rest.map(row).join('')+'</div>';
-          }
-          blocks += '<div class="'+cls+'">'+body+'</div>';
+          var b = topicBlock(items, 'c'+s.id+'-'+gi+'-'+ci, false);
+          blocks += b.html; gc += b.fresh; gdup += b.dup;
         });
-        if(gc || gdup) part += '<section><div class="sec-head"><h2>'+esc(g.name)+'</h2><span class="n mono">'+gc+'건'+(gdup?' · 이미 나옴 '+gdup:'')+'</span></div>'+blocks+'</section>';
+        if(gc || gdup) part += section(g.name, blocks, gc, gdup);
       });
       if(!part) part = '<p class="empty">'+(s.raw ? '조건에 맞는 기사가 없습니다.' : (st==='live' ? '이 구간에 수집된 기사가 아직 없습니다.' : '이 구간에 수집된 기사가 없습니다.'))+'</p>';
       else if(st === 'live' && D.generated){
@@ -1425,9 +1454,72 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       }
       html += part;
     });
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 흐리게 “이미 나옴”으로 표시하고 건수에서 뺍니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    if(t.all && !MERGED) html += drawByline(t.rep, now).html;
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 흐리게 “이미 나옴”으로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
     document.getElementById('main').innerHTML = html;
     syncBar();
+  }
+
+  // 김광일 기자 섹션(0-23) — '전체' 탭 맨 끝. 구간처럼 다룬다(id 'byline', si=BYSI)라
+  // 체크 저장·보고 양식이 그대로 동작한다. 기사는 발행 시각순, 묶지 않는다.
+  var BYSI = 99;
+  function allSegs(r){ return r.byline ? r.segments.concat([r.byline]) : r.segments; }
+  function drawByline(r, now){
+    var b = r.byline; if(!b) return {html:'', any:false};
+    if(ui.beat && ui.beat !== b.name) return {html:'', any:false};
+    var st = segState(b, now), blocks = '', gc = 0, gdup = 0;
+    (b.groups[0] ? b.groups[0].clusters : []).forEach(function(c, ci){
+      c.forEach(function(it, ii){ prep(r, b, BYSI, 0, ci, ii, it, b.name); });
+      var items = c.filter(keep); if(!items.length) return;
+      var x = topicBlock(items, 'b'+ci, false); blocks += x.html; gc += x.fresh; gdup += x.dup;
+    });
+    var note = st === 'future' ? b.label.replace('~','')+'부터 모읍니다.' :
+               '발행 '+esc(b.label)+(st==='live' ? ' 지금까지' : '')+' · 노컷뉴스 바이라인 기준';
+    if(!blocks){
+      if(ui.q || ui.filter !== 'all') return {html:'', any:false};
+      blocks = '<p class="empty" style="padding:14px 0">'+(st==='future' ? '아직 시작 전입니다.' : '아직 올라온 기사가 없습니다.')+'</p>';
+    }
+    return {html: section(b.name, '<p class="note" style="margin:6px 0 4px">'+note+'</p>'+blocks, gc, gdup), any: gc + gdup > 0};
+  }
+
+  // '전체' 탭 — 구간을 출입처 → 기사묶음으로 합친다(0-22). 구조는 data.json의 rep.all
+  // ([{name, c:[[[si,ci],...],...]}]), 기사는 구간 데이터에서 꺼내므로 체크·'이미 나옴'·
+  // 보고 양식은 구간 탭과 같다.
+  function drawMerged(r, now){
+    var html = '', started = [];
+    r.segments.forEach(function(s, si){ if(segState(s, now) !== 'future') started.push(si); });
+    // 구간 현황 한 줄(기존 구간 머리줄 대신)
+    html += '<p class="note">' + r.segments.map(function(s, si){
+      var st = segState(s, now);
+      return '<b>'+CIRC.charAt(si)+'</b> '+esc(s.label)+' '+(st==='future'?'대기':st==='live'?'<span class="st-live">진행 중</span>':'마감')+(st==='future'?'':' '+s.n+'건');
+    }).join(' · ') + (r.segments.some(function(s){ return segState(s, now) === 'live'; }) && D.generated ?
+      ' — '+hm(new Date(D.last_seen || D.generated))+' 수집분까지' : '') + '</p>';
+    var any = false;
+    r.all.forEach(function(mg, mgi){
+      if(ui.beat && mg.name !== ui.beat) return;
+      var blocks = '', gc = 0, gdup = 0;
+      mg.c.forEach(function(refs, mi){
+        var items = [];
+        refs.forEach(function(ref){
+          var si = ref[0], gi = ref[1], ci = ref[2], ii = ref[3], s = r.segments[si];
+          var g = s && s.groups[gi], c = g && g.clusters[ci], it = c && c[ii];
+          if(!it) return;
+          prep(r, s, si, gi, ci, ii, it, g.name); if(keep(it)) items.push(it);
+        });
+        if(!items.length) return;
+        // 새 기사를 앞으로(안정 정렬) — '이미 나옴'이 대표 줄로 올라와 새 기사를 접어 숨기지 않게
+        items = items.filter(function(x){ return !x.d; }).concat(items.filter(function(x){ return x.d; }));
+        var b = topicBlock(items, 'm'+mgi+'-'+mi, true);
+        blocks += b.html; gc += b.fresh; gdup += b.dup;
+      });
+      if(gc || gdup){ html += section(mg.name, blocks, gc, gdup); any = true; }
+    });
+    var by = drawByline(r, now); if(by.any) any = true; html += by.html;
+    if(!any){
+      var raw = started.some(function(si){ return r.segments[si].raw; });
+      html += '<p class="empty">'+(raw ? '조건에 맞는 기사가 없습니다.' : '이 보고에 수집된 기사가 아직 없습니다.')+'</p>';
+    }
+    return html;
   }
 
   function keep(it){
@@ -1441,7 +1533,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     var on = isPicked(it.rid, it.sid, it.key);
     var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>' : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
     return '<div class="row'+(on?' on':'')+(it.d?' rep':'')+'" data-u="'+esc(it.uid)+'"'+(it.d?' title="직전 구간에서 이미 수집된 같은 제목('+esc(it.d)+')"':'')+'>'+
-      '<input class="pick" type="checkbox" '+(on?'checked':'')+' aria-label="보고에 포함">'+tag+
+      '<input class="pick" type="checkbox" '+(on?'checked':'')+' aria-label="보고에 포함">'+
+      (MERGED && it.si !== BYSI ? '<span class="sg'+(segState(curRep().segments[it.si], Date.now())==='live'?' live':'')+'" title="'+esc(curRep().segments[it.si].label)+' 구간">'+CIRC.charAt(it.si)+'</span>' : '')+tag+
       '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>'+
       '<span class="meta">'+(it.d ? '<span class="rp">이미 나옴 '+esc(it.d)+'</span>' : '')+
       '<span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>'+
@@ -1451,8 +1544,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   function syncBar(){
     var t = curTab(), r = curRep(), nseg = 0, nall = 0;
     if(t.seg) nseg = segPickCount(t.rep, t.seg);
-    else nseg = r.segments.reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
-    nall = r.segments.reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
+    else nseg = allSegs(r).reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
+    nall = allSegs(r).reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
     document.getElementById('n-seg').textContent = nseg;
     document.getElementById('n-all').textContent = nall;
     document.getElementById('make-seg').disabled = !nseg || !!t.all;
@@ -1468,18 +1561,36 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
         var c = g.clusters[ci];
         for(var ii=0; ii<c.length; ii++){
           var it = c[ii];
-          if((it.l || it.t) === key) return {t:it.t, s:it.s, m:it.m, g:g.name, ord:gi*1e5+ci*100+ii};
+          if((it.l || it.t) === key) return {t:it.t, s:it.s, l:it.l, m:it.m, g:g.name, ord:gi*1e5+ci*100+ii};
         }
       }
     }
     return null;
   }
+  // 본인(김광일 기자) 기사 판별(0-23b) — 이 보고의 byline 섹션에 있는 기사면 어느 섹션에서
+  // 체크했든 <기처리>로 보낸다. 링크가 같거나, 제목(공백·문장부호 뺀 것)이 같으면 같은 기사.
+  function tnorm(t){ return String(t).replace(/[^0-9A-Za-z가-힣]/g, ''); }
+  function bylineIndex(rep){
+    var m = {links:{}, titles:{}, tag:''}, b = rep.byline;
+    if(!b) return m;
+    m.tag = String(b.name || '').replace(/\s*기자$/, '');
+    (b.groups[0] ? b.groups[0].clusters : []).forEach(function(c, ci){
+      c.forEach(function(it){ if(it.l) m.links[it.l] = ci; m.titles[tnorm(it.t)] = ci; });
+    });
+    return m;
+  }
   function buildReport(rep, segs){
-    var items = [], seen = {};
+    var items = [], mine = [], seen = {}, bx = bylineIndex(rep);
     segs.forEach(function(seg, si){
       var o = picks[rep.id] && picks[rep.id][seg.id]; if(!o) return;
       Object.keys(o).forEach(function(k){
         var it = findItem(rep, seg, k); if(!it) return;
+        var bi = (it.l && it.l in bx.links) ? bx.links[it.l] : bx.titles[tnorm(it.t)];
+        if(bi != null){
+          // 같은 기사를 과기정통부 섹션과 김광일 섹션에서 둘 다 체크해도 한 줄
+          if(seen['by' + bi]) return; seen['by' + bi] = 1;
+          it.bi = bi; mine.push(it); return;
+        }
         var dk = it.t + '|' + it.s; if(seen[dk]) return; seen[dk] = 1;
         it.ord += si * 1e7; items.push(it);
       });
@@ -1490,9 +1601,19 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       var ra = rank(a.g), rb = rank(b.g); if(ra!==rb) return ra-rb;
       return a.ord - b.ord;
     });
-    var lines = ['<모니터>'];
-    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
-    return {text: lines.join('\n'), n: items.length};
+    var lines = [];
+    if(items.length || !mine.length){
+      lines.push('<모니터>');
+      items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    }
+    if(mine.length){
+      // <기처리>: 본인 기사, 발행순, 매체 대신 이름
+      mine.sort(function(a,b){ return a.bi - b.bi; });
+      if(lines.length) lines.push('');
+      lines.push('<기처리>');
+      mine.forEach(function(it){ lines.push(it.t + '(' + bx.tag + ')'); });
+    }
+    return {text: lines.join('\n'), n: items.length + mine.length};
   }
 
   var veil = document.getElementById('veil'), report = document.getElementById('report');
@@ -1502,7 +1623,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     if(scope === 'seg' && t.seg){
       res = buildReport(t.rep, [t.seg]); sub = (t.over ? '다음 보고 ' : '') + t.seg.label; panelSeg = t;
     } else {
-      res = buildReport(r, r.segments); sub = r.title + ' 전체'; panelSeg = null;
+      res = buildReport(r, allSegs(r)); sub = r.title + ' 전체'; panelSeg = null;
     }
     report.value = res.text;
     document.getElementById('psub').textContent = sub + ' · ' + res.n + '건';
@@ -1552,7 +1673,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     var btn = e.target.closest('.more'); if(!btn) return;
     var box = document.getElementById(btn.getAttribute('aria-controls')), open = box.hidden;
     box.hidden = !open; btn.setAttribute('aria-expanded', String(open));
-    btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+    var mix = btn.getAttribute('data-mix') || '';
+    btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안'+mix+')' : '+'+box.children.length+'건 같은 사안'+mix;
   });
 
   document.getElementById('make-seg').addEventListener('click', function(){ openPanel('seg'); });
