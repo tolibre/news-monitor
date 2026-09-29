@@ -2816,13 +2816,210 @@ def live_select(conn, start, end, now):
     return out
 
 
+def live_merge_sections(seg_sections, seg_groups):
+    """'전체' 탭용 — 보고의 구간들을 출입처 → 기사묶음으로 합친 구조. (0-22)
+
+    seg_sections: [(구간 인덱스 si, digest_page_sections() 결과), ...] — 시작된 구간만.
+    seg_groups:   {si: 그 구간의 페이지용 groups(build_groups_data + '이미 나옴' 표시 후)}
+    반환: [{"name": 그룹, "c": [[[si, gi, ci, ii], ...], ...]}, ...]
+      c의 원소 하나가 합친 묶음 하나, [si, gi, ci, ii]는 '구간 si의 groups[gi]
+      .clusters[ci][ii]' 기사를 가리킨다. 기사 자체는 싣지 않는다 — 페이지가 구간
+      데이터에서 꺼내 쓰므로 체크 저장(구간별 키)·'이미 나옴'·보고 양식이 구간 탭과 같다.
+
+    **묶는 규칙 = 보고 전체 창(예: 13:30~08:30)으로 digest를 한 번 돌린 것.** 그룹마다
+    모든 구간의 기사(전재 묶음 대표)를 모아 cluster_by_topic()을 다시 돌리고(사슬 절단
+    포함), 묶음은 digest_cluster_rank, 묶음 안은 article_rank로 정렬한다. 구간 탭이 따로
+    있으므로 '전체'는 구간 경계와 무관하게 같은 사안을 한데 모은다(사용자 결정 9/29).
+    처음(0-22 초안)엔 '같은 구간 묶음끼리는 합치지 않음' 규칙을 뒀는데, 구간이 4개인
+    9/29 09:00 보고에서 명륜당 47건이 ①②③④로 흩어진 묶음을 절반만 잇는 등 진짜
+    같은 사안을 더 많이 갈랐다. 느슨한 결합(9/28 쿠팡 집행정지 묶음에 '공정위 집행력
+    국감' 기사 등)은 digest가 같은 창에서 내는 것과 같은 수준이다."""
+    # (si, 링크 또는 제목) → [si, gi, ci, ii]. 대표 기사 링크는 구간 안에서 유일하다.
+    pos = {}
+    for si, groups in seg_groups.items():
+        for gi, g in enumerate(groups):
+            for ci, clu in enumerate(g["clusters"]):
+                for ii, it in enumerate(clu):
+                    pos.setdefault((si, it["l"] or it["t"]), [si, gi, ci, ii])
+    items_by_group = {}
+    for si, sections in seg_sections:
+        for g, clusters in sections:
+            for clu in clusters:
+                for gs in clu:
+                    items_by_group.setdefault(g, []).append((si, gs))
+    out, used = [], set()
+    for g in effective_group_order(items_by_group.keys()):
+        items = items_by_group.get(g)
+        if not items:
+            continue
+        clusters = cluster_by_topic(items, lambda x: x[1][0][0])
+        clusters.sort(key=lambda c: digest_cluster_rank([gs for _, gs in c]))
+        c_out = []
+        for c in clusters:
+            c.sort(key=lambda x: article_rank(x[1][0][0], x[1][0][2], x[1][0][3]))
+            refs = []
+            for si, gs in c:
+                ref = pos.get((si, gs[0][1])) or pos.get((si, gs[0][0]))
+                # build_groups_data()가 '앞줄과 완전히 같은 제목'으로 뺀 기사는 페이지에
+                # 없으므로 참조도 없다(구간 탭과 같다).
+                if ref and tuple(ref) not in used:
+                    used.add(tuple(ref))
+                    refs.append(ref)
+            if refs:
+                c_out.append(refs)
+        out.append({"name": g, "c": c_out})
+    # 빠짐 방지: 구간 탭에 있는데 위에서 참조되지 않은 기사(링크 없는 기사의 제목이
+    # 대체 제목으로 바뀐 경우 등)는 그 그룹 끝에 한 건짜리 묶음으로 붙인다.
+    by_name = {x["name"]: x for x in out}
+    for si, groups in seg_groups.items():
+        for gi, g in enumerate(groups):
+            for ci, clu in enumerate(g["clusters"]):
+                for ii, _ in enumerate(clu):
+                    if (si, gi, ci, ii) not in used:
+                        if g["name"] not in by_name:
+                            by_name[g["name"]] = {"name": g["name"], "c": []}
+                            out.append(by_name[g["name"]])
+                        by_name[g["name"]]["c"].append([[si, gi, ci, ii]])
+    return out
+
+
+# ==================== 김광일 기자 섹션 (0-23, 라이브 페이지 전용) ====================
+# 사용자(노컷뉴스 김광일 기자) 본인 기사를 보고 페이지 맨 끝 섹션으로 모은다.
+# check·digest와 완전히 분리한다 — 별도 테이블(byline_articles)에 담고, 수집은
+# run_live()에서 한다(워크플로가 check 직후 live를 부르므로 주기는 check와 같다.
+# live 실패는 경고만이라 이 수집이 실패해도 check 커밋에는 영향이 없다).
+#
+# 수집: 네이버 API "김광일 기자"(최신 100건, 1페이지) + 구글 RSS "김광일 기자"(구문).
+#   검색은 본문까지 훑으므로 **노컷뉴스 기사만** 남긴다(네이버는 원문 도메인, 구글은
+#   매체명). 조선일보 김광일 논설위원 등 동명이인 기사는 매체에서 걸러진다.
+#   제목에 '김광일'이 들어간 기사는 뺀다 — 본인 바이라인 기사는 제목에 이름이 없고,
+#   제목에 있으면 그 이름을 다룬 기사다.
+# 창: 발행 시각 기준. 09:00 보고 = 보고일 00:00~, 14:00 보고 = 보고일 08:00~, 끝은
+#   지금(보고 화면이 넘어가면 그 시각에서 멈춘다).
+BYLINE_NAME = "김광일"
+BYLINE_SECTION = "김광일 기자"
+BYLINE_QUERY = "김광일 기자"
+BYLINE_DOMAINS = ("nocutnews.co.kr",)
+BYLINE_GOOGLE_SOURCES = ("노컷뉴스", "CBS노컷뉴스", "nocutnews.co.kr")
+BYLINE_FROM = {"am": _T(0, 0), "pm": _T(8, 0)}
+BYLINE_KEEP_DAYS = 14
+KEYWORD_MAX_PAGES[BYLINE_QUERY] = 1   # 노컷 외 결과는 저장 안 하니 조기중단이 안 걸린다
+
+
+def _byline_table(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS byline_articles(
+        id TEXT PRIMARY KEY, title TEXT, link TEXT, source TEXT,
+        pub_dt TEXT, seen_dt TEXT, origin TEXT)""")
+
+
+def byline_accept(it):
+    """수집 결과 한 건이 노컷뉴스 김광일 기자 기사로 볼 만한가. 반환: (ok, 사유)"""
+    if BYLINE_NAME in it["title"]:
+        return False, "제목에 이름"
+    if it["origin"] == "naver":
+        host = urllib.parse.urlparse(it["link"]).netloc.lower()
+        ok = any(host == d or host.endswith("." + d) for d in BYLINE_DOMAINS)
+    else:
+        ok = any(x in it["source"] for x in BYLINE_GOOGLE_SOURCES)
+    return ok, ("" if ok else "노컷 아님")
+
+
+def collect_byline(conn, now):
+    """네이버·구글에서 김광일 기자 기사를 모아 byline_articles에 넣는다. 반환: 새로 넣은 수."""
+    _byline_table(conn)
+    have = {r[0] for r in conn.execute("SELECT id FROM byline_articles")}
+    keys = {group_key(clean_title_display(r[0]))
+            for r in conn.execute("SELECT title FROM byline_articles")}
+    got = fetch_naver(conn, BYLINE_QUERY, set()) + fetch_google(BYLINE_QUERY, set())
+    stat = {"naver": [0, 0], "google": [0, 0]}
+    new = []
+    for it in got:
+        stat[it["origin"]][0] += 1
+        ok, _ = byline_accept(it)
+        if not ok:
+            continue
+        stat[it["origin"]][1] += 1
+        k = group_key(clean_title_display(it["title"]))
+        if it["id"] in have or k in keys:   # 네이버·구글 같은 기사는 하나만
+            continue
+        have.add(it["id"]); keys.add(k)
+        conn.execute("INSERT OR IGNORE INTO byline_articles VALUES(?,?,?,?,?,?,?)",
+                     (it["id"], it["title"], it["link"], it["source"], it["pub_dt"],
+                      now.isoformat(), it["origin"]))
+        new.append(it)
+    cut = (now - datetime.timedelta(days=BYLINE_KEEP_DAYS)).isoformat()
+    conn.execute("DELETE FROM byline_articles WHERE pub_dt < ?", (cut,))
+    conn.commit()
+    print(f"[byline] 네이버 {stat['naver'][0]}건 중 노컷 {stat['naver'][1]} / "
+          f"구글 {stat['google'][0]}건 중 노컷 {stat['google'][1]} → 신규 {len(new)}건")
+    for it in new:
+        print(f"  [byline+] {it['pub_dt'][5:16]} {clean_title_display(it['title'])[:60]}")
+    return len(new)
+
+
+def byline_own_keys(conn):
+    """byline_articles 전체(14일)의 (링크 집합, 제목 키 집합) — 구간 섹션에서 본인 기사를 뺄 때 쓴다."""
+    _byline_table(conn)
+    links, titles = set(), set()
+    for title, link in conn.execute("SELECT title, link FROM byline_articles"):
+        if link:
+            links.add(link)
+        k = group_key(clean_title_display(title))
+        if k:
+            titles.add(k)
+    return links, titles
+
+
+def is_own_article(row, keys):
+    """articles 행(title, link, source, ...)이 본인(김광일 기자) 기사인가. (0-23c)
+    링크가 같으면 본인 기사. 제목이 같을 땐 **노컷뉴스 기사일 때만** — 다른 매체가 같은
+    제목을 썼다고 빼지 않는다."""
+    links, titles = keys
+    if row[1] and row[1] in links:
+        return True
+    src = media_name(row[2] or "") or ""
+    nocut = ("노컷" in src) or any(
+        (urllib.parse.urlparse(row[1] or "").netloc.lower() == d
+         or urllib.parse.urlparse(row[1] or "").netloc.lower().endswith("." + d))
+        for d in BYLINE_DOMAINS)
+    return nocut and group_key(clean_title_display(row[0])) in titles
+
+
+def byline_section(conn, spec, now):
+    """보고 하나의 김광일 기자 섹션 — 페이지가 구간처럼 다룰 수 있는 모양(id='byline')."""
+    import render_page
+    _byline_table(conn)
+    start = _at(spec["date"], BYLINE_FROM[spec["kind"]])
+    end = spec["display_until"]
+    sec = {
+        "id": "byline", "name": BYLINE_SECTION,
+        "label": f"{_WD[start.weekday()]} {start:%H:%M}~",
+        "start": start.isoformat(), "end": end.isoformat(),
+        "state": ("future" if now < start else "live" if now < end else "done"),
+        "raw": 0, "n": 0, "dup": 0, "x": 0, "groups": [],
+    }
+    if now < start:
+        return sec
+    rows = conn.execute("""SELECT title, link, source, pub_dt FROM byline_articles
+                           WHERE pub_dt >= ? AND pub_dt < ? ORDER BY pub_dt""",
+                        (start.isoformat(), min(now, end).isoformat())).fetchall()
+    groups = render_page.build_groups_data([(BYLINE_SECTION, [[(r, [r[2]])] for r in rows])])
+    sec.update(raw=len(rows), n=sum(g["n"] for g in groups), groups=groups)
+    return sec
+
+
 def build_live_data(conn, now):
     """페이지용 JSON(dict). 구간마다 digest와 같은 선별·클러스터링을 돌린다."""
     import render_page
     reports = []
+    # 본인 기사는 구간 섹션에서 뺀다(0-23c, 사용자 결정 — 김광일 기자 섹션에서 보므로
+    # 두 번 볼 필요 없다). 창 밖 본인 기사(전날 14시 이후 등)도 빠진다 — 보고 안 하기로 함.
+    own = byline_own_keys(conn)
     for spec in report_timeline(now):
         segs_out = []
-        for start, end in spec["segments"]:
+        seg_sections = []   # '전체' 탭 합치기용(0-22) — 시작된 구간의 섹션 원본
+        seg_groups = {}
+        for si, (start, end) in enumerate(spec["segments"]):
             seg = {
                 "id": f"{start:%Y%m%d%H%M}",
                 "label": _seg_label(start, end),
@@ -2836,17 +3033,26 @@ def build_live_data(conn, now):
                 # 그 구간 digest가 제때 돌았을 때와 같은 결과.
                 # 휴일 구간(24시간)은 live_select()가 digest 슬롯 단위로 쪼개 고른다(0-21).
                 rows, photo, junk, noise = live_select(conn, start, end, now)
-                groups = render_page.build_groups_data(
-                    digest_page_sections(digest_by_group(rows)))
+                n_own = len(rows)
+                rows = [r for r in rows if not is_own_article(r, own)]
+                n_own -= len(rows)
+                sections = digest_page_sections(digest_by_group(rows))
+                groups = render_page.build_groups_data(sections)
                 dup = _mark_live_repeats(conn, start, groups)
+                seg_sections.append((si, sections))
+                seg_groups[si] = groups
                 seg.update(raw=len(rows), n=sum(g["n"] for g in groups), dup=dup,
                            x=len(photo) + len(junk) + len(noise), groups=groups)
+                if n_own:
+                    seg["own"] = n_own
             segs_out.append(seg)
         reports.append({
             "id": spec["id"], "kind": spec["kind"], "title": spec["title"],
             "display_from": spec["display_from"].isoformat(),
             "display_until": spec["display_until"].isoformat(),
             "segments": segs_out,
+            "all": live_merge_sections(seg_sections, seg_groups),
+            "byline": byline_section(conn, spec, now),
         })
     last_seen = conn.execute("SELECT MAX(seen_dt) FROM articles").fetchone()[0]
     return {
@@ -2862,6 +3068,10 @@ def run_live():
     now = datetime.datetime.now(KST)
     conn = db()
     try:
+        try:
+            collect_byline(conn, now)   # 0-23 — 실패해도 페이지는 굽는다
+        except Exception as e:
+            print(f"[warn] byline 수집 실패: {e}")
         data = build_live_data(conn, now)
     finally:
         conn.close()
@@ -2869,7 +3079,7 @@ def run_live():
     cur = data["reports"][1]   # report_timeline()이 [이전, 현재, 다음] 순서로 준다
     print(f"[live] {cur['title']} — " + ", ".join(
         f"{s['label']} {s['n']}건" for s in cur["segments"] if s["state"] != "future")
-        + f" → {path}")
+        + f" · {BYLINE_SECTION} {cur['byline']['n']}건 → {path}")
 
 # ==================== excluded 모드 (제외 기사 조회) ====================
 def run_excluded(days=1):
