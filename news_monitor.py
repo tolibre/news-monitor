@@ -3006,6 +3006,28 @@ def collect_byline(conn, now, fetch=None):
     return len(new)
 
 
+def _attach_seen(conn, start, end, groups):
+    """페이지 기사마다 최초 수집 시각 q(ISO, 초 단위)를 단다. (0-24, 라이브 전용)
+    '전체' 탭의 '확인 완료' 이후 새 기사 판별에 쓴다. 링크로 찾고, 링크가 없으면 제목으로."""
+    by_link, by_title = {}, {}
+    for title, link, seen in conn.execute(
+            "SELECT title, link, seen_dt FROM articles WHERE seen_dt>=? AND seen_dt<?",
+            (start.isoformat(), end.isoformat())):
+        if link and (link not in by_link or seen < by_link[link]):
+            by_link[link] = seen
+        k = group_key(clean_title_display(title))
+        if k and (k not in by_title or seen < by_title[k]):
+            by_title[k] = seen
+    for g in groups:
+        for clu in g["clusters"]:
+            for it in clu:
+                seen = by_link.get(it["l"]) if it["l"] else None
+                seen = seen or by_title.get(group_key(it["t"]))
+                if seen:
+                    t = datetime.datetime.fromisoformat(seen).astimezone(KST)
+                    it["q"] = t.strftime("%Y-%m-%dT%H:%M:%S%z")[:-2] + ":" + t.strftime("%z")[-2:]
+
+
 def byline_own_keys(conn):
     """byline_articles 전체(14일)의 (링크 집합, 제목 키 집합) — 구간 섹션에서 본인 기사를 뺄 때 쓴다."""
     _byline_table(conn)
@@ -3088,6 +3110,7 @@ def build_live_data(conn, now):
                 sections = digest_page_sections(digest_by_group(rows))
                 groups = render_page.build_groups_data(sections)
                 dup = _mark_live_repeats(conn, start, groups)
+                _attach_seen(conn, start, end, groups)
                 seg_sections.append((si, sections))
                 seg_groups[si] = groups
                 seg.update(raw=len(rows), n=sum(g["n"] for g in groups), dup=dup,
