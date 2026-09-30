@@ -115,6 +115,14 @@ section{margin-top:18px}
 .row.rep .tag{opacity:.6}
 .sg{flex:0 0 auto; font-size:12px; color:var(--muted); line-height:1; transform:translateY(1px)}
 .sg.live{color:var(--pick); font-weight:600}
+.nw{flex:0 0 auto; font-size:10.5px; font-weight:700; padding:1px 5px; border-radius:4px; background:var(--accent); color:#fff; transform:translateY(-1px)}
+.seenbar{margin:14px 0 0; padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface); display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; font-size:13px; color:var(--ink-2)}
+.seenbar b{color:var(--ink)}
+.seenbar .nwc{color:var(--accent); font-weight:700}
+.seenbar .sp{margin-left:auto; display:flex; gap:6px}
+.seenbar .btn{padding:5px 11px; font-size:12.5px}
+.tab .nwt{color:var(--accent); font-weight:700}
+.tab[aria-pressed="true"] .nwt{color:#fff}
 .rp{font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 5px; white-space:nowrap}
 .pick{flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer; accent-color:var(--pick); transform:translateY(2px)}
 .tag{flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em; padding:1.5px 6px; border-radius:4px; transform:translateY(-1px)}
@@ -182,6 +190,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
         <button data-f="mark" aria-pressed="false">단독·속보</button>
         <button data-f="spread" aria-pressed="false">전재 2건+</button>
         <button data-f="picked" aria-pressed="false">선택분</button>
+        <button data-f="new" aria-pressed="false" id="f-new" hidden>새 기사</button>
       </div>
       <input id="q" type="search" placeholder="제목·매체 검색" autocomplete="off">
     </div>
@@ -232,6 +241,28 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   var lastFetch = 0;
   var ITEMS = {};             // uid -> item (현재 보고 + 넘어감 구간)
   var MERGED = false;         // '전체' 탭을 출입처·기사묶음으로 합쳐 그리는 중(0-22)
+
+  // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용, 이 브라우저에만) ----------
+  // {보고id: {at: 확인 시점의 마지막 수집 시각, prev: 그 전 확인 시각(되돌리기용), t: 누른 시각}}
+  // 페이지를 여는 것만으로는 기록하지 않는다 — 폰으로 잠깐 열어 봐도 '본 것'이 되지 않게.
+  var SEENSTORE = 'nm-live-seen-v1';
+  var seenMarks = {};
+  try{ seenMarks = JSON.parse(localStorage.getItem(SEENSTORE) || '{}') || {}; }catch(e){ seenMarks = {}; }
+  function saveSeen(){
+    try{
+      var c = ymd(new Date(Date.now() - 14*864e5));
+      Object.keys(seenMarks).forEach(function(k){ if(k.slice(0,8) < c) delete seenMarks[k]; });
+      localStorage.setItem(SEENSTORE, JSON.stringify(seenMarks));
+    }catch(e){}
+  }
+  function seenAt(rid){ var m = seenMarks[rid]; return m && m.at ? T(m.at) : null; }
+  function isNew(it){ var a = seenAt(it.rid); return a != null && !!it.q && !it.d && T(it.q) > a; }
+  function newCount(r){
+    var a = seenAt(r.id), n = 0; if(a == null) return 0;
+    r.segments.forEach(function(s){ s.groups.forEach(function(g){ g.clusters.forEach(function(c){
+      c.forEach(function(it){ if(it.q && !it.d && T(it.q) > a) n++; }); }); }); });
+    return n;
+  }
 
   // ---------- 선택 저장 (이 브라우저에만) ----------
   var picks = {};             // {reportId: {segId: {key:1}}}
@@ -299,6 +330,9 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       // 본 보고를 쓰는 중이므로 본 보고 구간이 떠야 한다.
       var dflt = live || done[done.length-1] || own[0];
       ui.tab = dflt.key;
+      // '여기까지 확인'을 쓰기 시작한 보고는 '전체' 탭으로 연다(0-24)
+      var allTab = tabs.filter(function(t){ return t.all; })[0];
+      if(allTab && seenAt(ui.rep) != null) ui.tab = allTab.key;
     }
   }
 
@@ -363,8 +397,9 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       if(t.all){
         var tot = t.rep.segments.reduce(function(a,s){ return a + s.n; }, 0);
         var pk = allSegs(t.rep).reduce(function(a,s){ return a + segPickCount(t.rep, s); }, 0);
+        var nw = newCount(t.rep);
         return '<button class="tab" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'"><span class="l">전체</span>'+
-               '<span class="s"><span class="mono">'+tot+'건</span>'+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
+               '<span class="s"><span class="mono">'+tot+'건</span>'+(nw?'<span class="nwt mono">새 '+nw+'</span>':'')+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
       }
       var st = segState(t.seg, now), pk = segPickCount(t.rep, t.seg);
       var stl = st === 'live' ? '<span class="st-live">진행 중</span>' : st === 'future' ? '<span class="st-future">대기</span>' : '<span>마감</span>';
@@ -386,6 +421,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   // 묶음 하나(items: 이미 필터 통과한 기사들)를 그린다. 반환: {html, fresh, dup}
   function topicBlock(items, id, merged){
     var fresh = items.filter(function(x){ return !x.d; }).length;
+    var nnew = merged ? items.filter(isNew).length : 0;
     var lead = items[0], rest = items.slice(1);
     var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
     var body = row(lead);
@@ -401,15 +437,17 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
           segs.sort(function(a,b){ return a-b; });
           mix = ' · ' + segs.map(function(k){ return CIRC.charAt(k) + bySeg[k]; }).join(' ');
         }
+        var rn = rest.filter(isNew).length;
+        if(rn) mix += ' · 새 ' + rn;
       }
       body += '<button class="more" type="button" aria-expanded="'+big+'" aria-controls="'+id+'" data-mix="'+esc(mix)+'">'+
               (big ? '접기 ('+rest.length+'건 같은 사안'+mix+')' : '+'+rest.length+'건 같은 사안'+mix)+'</button>'+
               '<div class="dupes" id="'+id+'"'+(big?'':' hidden')+'>'+rest.map(row).join('')+'</div>';
     }
-    return {html:'<div class="'+cls+'">'+body+'</div>', fresh:fresh, dup:items.length-fresh};
+    return {html:'<div class="'+cls+'">'+body+'</div>', fresh:fresh, dup:items.length-fresh, nnew:nnew};
   }
-  function section(name, blocks, gc, gdup){
-    return '<section><div class="sec-head"><h2>'+esc(name)+'</h2><span class="n mono">'+gc+'건'+(gdup?' · 이미 나옴 '+gdup:'')+'</span></div>'+blocks+'</section>';
+  function section(name, blocks, gc, gdup, gnew){
+    return '<section><div class="sec-head"><h2>'+esc(name)+'</h2><span class="n mono">'+gc+'건'+(gnew?' · <span style="color:var(--accent);font-weight:700">새 '+gnew+'</span>':'')+(gdup?' · 이미 나옴 '+gdup:'')+'</span></div>'+blocks+'</section>';
   }
 
   function drawBody(){
@@ -418,6 +456,13 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     // 보여줄 구간들
     var t = curTab(), segs = t.all ? t.rep.segments.map(function(s){ return {rep:t.rep, seg:s}; }) : [{rep:t.rep, seg:t.seg}];
     MERGED = !!(t.all && t.rep.all);
+    // '새 기사' 필터는 '전체' 탭 + 확인 기록이 있을 때만(0-24)
+    var fnew = document.getElementById('f-new'), showNew = MERGED && seenAt(t.rep.id) != null;
+    fnew.hidden = !showNew;
+    if(!showNew && ui.filter === 'new'){
+      ui.filter = 'all';
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){ b.setAttribute('aria-pressed', String(b.dataset.f === 'all')); });
+    }
     // 출입처 칩: 보여줄 구간들의 그룹 합계
     var gcount = {}, gorder = [];
     if(MERGED) t.rep.all.forEach(function(mg){ gcount[mg.name] = 0; gorder.push(mg.name); });
@@ -486,6 +531,18 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     return {html: section(b.name, '<p class="note" style="margin:6px 0 4px">'+note+'</p>'+blocks, gc, gdup), any: gc + gdup > 0};
   }
 
+  function fmtAt(ms){ var d = new Date(ms); return (ymd(d) === ymd(new Date()) ? '' : (d.getMonth()+1)+'/'+d.getDate()+' ') + hm(d); }
+  function seenBar(r){
+    var m = seenMarks[r.id], a = seenAt(r.id), last = D.last_seen ? T(D.last_seen) : null;
+    var can = last != null && (a == null || last > a);
+    var btn = '<button class="btn primary" type="button" id="seen-mark"'+(can?'':' disabled')+'>여기까지 확인'+(last!=null?' <span class="lg">('+hm(new Date(last))+' 수집분)</span>':'')+'</button>';
+    var undo = m && m.at ? '<button class="btn" type="button" id="seen-undo">되돌리기</button>' : '';
+    var msg;
+    if(a == null) msg = '확인 기록 없음 — 다 보고 나서 <b>여기까지 확인</b>을 누르면, 다음에 열 때 그 뒤 들어온 기사에 <span class="nw">새</span> 표시가 붙습니다.';
+    else { var n = newCount(r); msg = '마지막 확인 <b>'+fmtAt(a)+' 수집분</b>까지 · 그 뒤 <span class="nwc">새 '+n+'건</span>' + (n ? ' — ‘새 기사’ 버튼으로 그것만 볼 수 있습니다.' : ''); }
+    return '<div class="seenbar"><span>'+msg+'</span><span class="sp">'+undo+btn+'</span></div>';
+  }
+
   // '전체' 탭 — 구간을 출입처 → 기사묶음으로 합친다(0-22). 구조는 data.json의 rep.all
   // ([{name, c:[[[si,ci],...],...]}]), 기사는 구간 데이터에서 꺼내므로 체크·'이미 나옴'·
   // 보고 양식은 구간 탭과 같다.
@@ -498,10 +555,11 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       return '<b>'+CIRC.charAt(si)+'</b> '+esc(s.label)+' '+(st==='future'?'대기':st==='live'?'<span class="st-live">진행 중</span>':'마감')+(st==='future'?'':' '+s.n+'건');
     }).join(' · ') + (r.segments.some(function(s){ return segState(s, now) === 'live'; }) && D.generated ?
       ' — '+hm(new Date(D.last_seen || D.generated))+' 수집분까지' : '') + '</p>';
+    html += seenBar(r);
     var any = false;
     r.all.forEach(function(mg, mgi){
       if(ui.beat && mg.name !== ui.beat) return;
-      var blocks = '', gc = 0, gdup = 0;
+      var blocks = '', gc = 0, gdup = 0, gnew = 0;
       mg.c.forEach(function(refs, mi){
         var items = [];
         refs.forEach(function(ref){
@@ -512,11 +570,12 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
         });
         if(!items.length) return;
         // 새 기사를 앞으로(안정 정렬) — '이미 나옴'이 대표 줄로 올라와 새 기사를 접어 숨기지 않게
-        items = items.filter(function(x){ return !x.d; }).concat(items.filter(function(x){ return x.d; }));
+        // 확인 이후 새 기사 → 나머지 → '이미 나옴' 순(안정 정렬) — 새 후속보도가 본 기사 밑에 접혀 숨지 않게
+        items = items.filter(isNew).concat(items.filter(function(x){ return !x.d && !isNew(x); }), items.filter(function(x){ return x.d; }));
         var b = topicBlock(items, 'm'+mgi+'-'+mi, true);
-        blocks += b.html; gc += b.fresh; gdup += b.dup;
+        blocks += b.html; gc += b.fresh; gdup += b.dup; gnew += b.nnew;
       });
-      if(gc || gdup){ html += section(mg.name, blocks, gc, gdup); any = true; }
+      if(gc || gdup){ html += section(mg.name, blocks, gc, gdup, gnew); any = true; }
     });
     var by = drawByline(r, now); if(by.any) any = true; html += by.html;
     if(!any){
@@ -530,6 +589,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     if(ui.filter==='mark' && !it.m) return false;
     if(ui.filter==='spread' && it.n < 2) return false;
     if(ui.filter==='picked' && !isPicked(it.rid, it.sid, it.key)) return false;
+    if(ui.filter==='new' && MERGED && !isNew(it)) return false;
     if(ui.q && (it.t+' '+it.s).toLowerCase().indexOf(ui.q) === -1) return false;
     return true;
   }
@@ -538,6 +598,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>' : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
     return '<div class="row'+(on?' on':'')+(it.d?' rep':'')+'" data-u="'+esc(it.uid)+'"'+(it.d?' title="직전 구간에서 이미 수집된 같은 제목('+esc(it.d)+')"':'')+'>'+
       '<input class="pick" type="checkbox" '+(on?'checked':'')+' aria-label="보고에 포함">'+
+      (MERGED && isNew(it) ? '<span class="nw" title="마지막 확인 뒤 수집">새</span>' : '')+
       (MERGED && it.si !== BYSI ? '<span class="sg'+(segState(curRep().segments[it.si], Date.now())==='live'?' live':'')+'" title="'+esc(curRep().segments[it.si].label)+' 구간">'+CIRC.charAt(it.si)+'</span>' : '')+tag+
       '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>'+
       '<span class="meta">'+(it.d ? '<span class="rp">이미 나옴 '+esc(it.d)+'</span>' : '')+
@@ -674,6 +735,20 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     drawTabs(); tabsEl.scrollLeft = sx;
   });
   main.addEventListener('click', function(e){
+    // '여기까지 확인' / 되돌리기(0-24). 기준은 누른 시각이 아니라 이 화면이 보여주는 마지막
+    // 수집 시각 — 화면을 연 뒤 들어온(아직 못 본) 기사가 '본 것'이 되지 않게.
+    var sb = e.target.closest('#seen-mark, #seen-undo');
+    if(sb){
+      var r = curRep(), m = seenMarks[r.id];
+      if(sb.id === 'seen-mark' && D.last_seen){
+        seenMarks[r.id] = {at: D.last_seen, prev: m ? m.at : null, t: new Date().toISOString()};
+      } else if(sb.id === 'seen-undo' && m){
+        if(m.prev) seenMarks[r.id] = {at: m.prev, prev: null, t: new Date().toISOString()};
+        else delete seenMarks[r.id];
+      }
+      saveSeen(); var y = window.scrollY; draw(); window.scrollTo(0, y);
+      return;
+    }
     var btn = e.target.closest('.more'); if(!btn) return;
     var box = document.getElementById(btn.getAttribute('aria-controls')), open = box.hidden;
     box.hidden = !open; btn.setAttribute('aria-expanded', String(open));
