@@ -998,7 +998,8 @@ _LIVE_TEMPLATE = r"""<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>모니터 보고 준비</title>
+<title>뉴스레이다</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%231c5f88'/><circle cx='16' cy='16' r='10' fill='none' stroke='%23fff' stroke-opacity='.45' stroke-width='1.5'/><circle cx='16' cy='16' r='5' fill='none' stroke='%23fff' stroke-opacity='.45' stroke-width='1.5'/><path d='M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z' fill='%23fff' fill-opacity='.8'/><circle cx='22' cy='11' r='2' fill='%23fff'/></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 :root{
@@ -1052,6 +1053,9 @@ body{
 header{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top,0px)}
 .top{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding-block:12px 8px}
 h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.brand{display:flex; align-items:center; gap:6px; color:var(--accent); font-weight:700; font-size:14px; letter-spacing:-.01em; white-space:nowrap; text-decoration:none; padding-right:12px; border-right:1px solid var(--line)}
+.brand svg{width:18px; height:18px; flex:0 0 auto}
+@media (max-width:560px){ .brand{font-size:13px; padding-right:9px} h1{font-size:17px} }
 .fresh{font-size:12.5px; color:var(--muted); display:flex; align-items:center; gap:8px}
 .fresh button{border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2); font:inherit; font-size:12px; border-radius:999px; padding:2px 10px; cursor:pointer}
 .fresh button:hover{border-color:var(--accent); color:var(--ink)}
@@ -1075,6 +1079,8 @@ h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
 .tab[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
 .tab[aria-pressed="true"] .s, .tab[aria-pressed="true"] .st-live, .tab[aria-pressed="true"] .pk{color:rgba(255,255,255,.88)}
 .tab.future{opacity:.55}
+.tab.tog{border-style:dashed; background:transparent; color:var(--muted)}
+.tab.tog .l{font-weight:500}
 .tab.over{border-style:dashed; opacity:.8}
 .tab.over[aria-pressed="true"]{opacity:1}
 
@@ -1173,7 +1179,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
 <header>
   <div class="wrap">
     <div class="top">
-      <h1 id="title">모니터 보고 준비</h1>
+      <a class="brand" href="./" title="뉴스레이다 — 처음 화면으로"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="#fff" fill-opacity=".8"/><circle cx="22" cy="11" r="2" fill="#fff"/></svg>뉴스레이다</a>
+      <h1 id="title">보고 준비</h1>
       <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload">새로고침</button></span>
       <div class="reports" id="reports"></div>
     </div>
@@ -1197,7 +1204,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
 
 <div class="bar" id="bar">
   <div class="bar-in">
-    <span class="count">선택 <span class="lg">이 구간 </span><span class="sm">구간 </span><b class="mono" id="n-seg">0</b> · <span class="lg">보고 </span>전체 <b class="mono" id="n-all">0</b></span>
+    <span class="count">선택 <span id="segpart"><span class="lg">이 구간 </span><span class="sm">구간 </span><b class="mono" id="n-seg">0</b> · </span><span class="lg">보고 </span>전체 <b class="mono" id="n-all">0</b></span>
     <span class="spacer"></span>
     <button class="btn" type="button" id="make-seg"><span class="lg">이 </span>구간 양식</button>
     <button class="btn primary" type="button" id="make-all"><span id="all-pre" class="lg">보고 </span>전체 양식</button>
@@ -1237,6 +1244,11 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   var lastFetch = 0;
   var ITEMS = {};             // uid -> item (현재 보고 + 넘어감 구간)
   var MERGED = false;         // '전체' 탭을 출입처·기사묶음으로 합쳐 그리는 중(0-22)
+  // 구간 탭 접기(0-24b) — 기본은 접힘('전체'·'→ 다음 보고'만). '구간별 보기'로 펼치면 이 브라우저에 기억.
+  var SEGSTORE = 'nm-live-segview-v1';
+  var segOpen = false;
+  try{ segOpen = localStorage.getItem(SEGSTORE) === '1'; }catch(e){}
+  function tabShown(t){ return segOpen || t.all || t.over; }
 
   // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용, 이 브라우저에만) ----------
   // {보고id: {at: 확인 시점의 마지막 수집 시각, prev: 그 전 확인 시각(되돌리기용), t: 누른 시각}}
@@ -1330,6 +1342,12 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       var allTab = tabs.filter(function(t){ return t.all; })[0];
       if(allTab && seenAt(ui.rep) != null) ui.tab = allTab.key;
     }
+    // 구간 탭이 접혀 있으면 구간 탭은 열지 않는다 → '전체'
+    var ct = tabs.filter(function(t){ return t.key === ui.tab; })[0];
+    if(!segOpen && (!ct || !tabShown(ct))){
+      var at = tabs.filter(function(t){ return t.all; })[0];
+      if(at) ui.tab = at.key;
+    }
   }
 
   function curRep(){ return D.reports.filter(function(r){ return r.id === ui.rep; })[0]; }
@@ -1362,7 +1380,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
 
   function drawHeader(){
     var now = Date.now(), r = curRep();
-    document.title = r.title + ' 준비';
+    document.title = '뉴스레이다 · ' + r.title;
     document.getElementById('title').textContent = r.title;
 
     // 신선도
@@ -1389,7 +1407,10 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   function drawTabs(){
     var now = Date.now();
     var tabs = tabList();
-    document.getElementById('tabs').innerHTML = tabs.map(function(t){
+    var nseg = tabs.filter(function(t){ return t.seg && !t.over; }).length;
+    var tog = '<button class="tab tog" type="button" data-tog="1" title="구간 탭 '+(segOpen?'접기':'펼치기')+'"><span class="l">'+
+              (segOpen ? '◂ 구간 접기' : '구간별 보기 ▸')+'</span><span class="s">'+(segOpen ? '전체만 보기' : CIRC.slice(0, nseg).split('').join('')+' 구간 탭')+'</span></button>';
+    document.getElementById('tabs').innerHTML = tabs.filter(tabShown).map(function(t){
       if(t.all){
         var tot = t.rep.segments.reduce(function(a,s){ return a + s.n; }, 0);
         var pk = allSegs(t.rep).reduce(function(a,s){ return a + segPickCount(t.rep, s); }, 0);
@@ -1403,7 +1424,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
       var cnt = st === 'future' ? '' : '<span class="mono">'+t.seg.n+'건</span>'+(t.seg.dup ? '<span class="mono">+중복 '+t.seg.dup+'</span>' : '');
       return '<button class="tab'+(st==='future'?' future':'')+(t.over?' over':'')+'" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'">'+
              '<span class="l">'+lab+'</span><span class="s">'+stl+cnt+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
-    }).join('');
+    }).join('') + (nseg > 1 ? tog : '');
 
     syncBar();
   }
@@ -1610,6 +1631,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     document.getElementById('n-seg').textContent = nseg;
     document.getElementById('n-all').textContent = nall;
     document.getElementById('make-seg').disabled = !nseg || !!t.all;
+    document.getElementById('make-seg').hidden = !!t.all;      // '전체'에선 구간 양식 버튼 숨김(0-24b)
+    document.getElementById('segpart').hidden = !!t.all;
     document.getElementById('make-all').disabled = !nall;
     document.getElementById('all-pre').textContent = t.over ? '현재 보고 ' : '보고 ';
   }
@@ -1700,6 +1723,13 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     ui.rep = b.getAttribute('data-r'); repManual = true; tabManual = false; pickDefaults(); draw();
   });
   document.getElementById('tabs').addEventListener('click', function(e){
+    var tg = e.target.closest('button[data-tog]');
+    if(tg){
+      segOpen = !segOpen;
+      try{ localStorage.setItem(SEGSTORE, segOpen ? '1' : '0'); }catch(err){}
+      if(!segOpen){ var ct = curTab(); if(!ct || !tabShown(ct)){ ui.tab = ui.rep + '/all'; } }
+      draw(); return;
+    }
     var b = e.target.closest('button[data-t]'); if(!b) return;
     ui.tab = b.getAttribute('data-t'); tabManual = true;
     try{ localStorage.setItem(TABSTORE, JSON.stringify({rep: ui.rep, tab: ui.tab, at: Date.now()})); }catch(e){}
