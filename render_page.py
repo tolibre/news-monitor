@@ -1206,6 +1206,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   <div class="bar-in">
     <span class="count">선택 <span id="segpart"><span class="lg">이 구간 </span><span class="sm">구간 </span><b class="mono" id="n-seg">0</b> · </span><span class="lg">보고 </span>전체 <b class="mono" id="n-all">0</b></span>
     <span class="spacer"></span>
+    <button class="btn" type="button" id="bar-seen" hidden>여기까지 확인</button>
     <button class="btn" type="button" id="make-seg"><span class="lg">이 </span>구간 양식</button>
     <button class="btn primary" type="button" id="make-all"><span id="all-pre" class="lg">보고 </span>전체 양식</button>
   </div>
@@ -1566,8 +1567,8 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   function drawMerged(r, now){
     var html = '', started = [];
     r.segments.forEach(function(s, si){ if(segState(s, now) !== 'future') started.push(si); });
-    // 구간 현황 한 줄(기존 구간 머리줄 대신)
-    html += '<p class="note">' + r.segments.map(function(s, si){
+    // 구간 현황 한 줄(기존 구간 머리줄 대신) — 구간 탭을 펼쳤을 때만(0-24d). 마지막 수집 시각은 머리줄에 있다.
+    if(segOpen) html += '<p class="note">' + r.segments.map(function(s, si){
       var st = segState(s, now);
       return '<b>'+CIRC.charAt(si)+'</b> '+esc(s.label)+' '+(st==='future'?'대기':st==='live'?'<span class="st-live">진행 중</span>':'마감')+(st==='future'?'':' '+s.n+'건');
     }).join(' · ') + (r.segments.some(function(s){ return segState(s, now) === 'live'; }) && D.generated ?
@@ -1633,6 +1634,15 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     document.getElementById('make-seg').disabled = !nseg || !!t.all;
     document.getElementById('make-seg').hidden = !!t.all;      // '전체'에선 구간 양식 버튼 숨김(0-24b)
     document.getElementById('segpart').hidden = !!t.all;
+    // 하단 '여기까지 확인'(0-24d) — '전체' 탭에서만. 위쪽 확인 바와 같은 동작.
+    var bs = document.getElementById('bar-seen');
+    bs.hidden = !(t.all && r.all);
+    if(!bs.hidden){
+      var a = seenAt(r.id), last = D.last_seen ? T(D.last_seen) : null;
+      var can = last != null && (a == null || last > a);
+      bs.disabled = !can;
+      bs.innerHTML = can ? '여기까지 확인' : '확인함 ✓ <span class="lg">'+(a != null ? hm(new Date(a)) : '')+'</span>';
+    }
     document.getElementById('make-all').disabled = !nall;
     document.getElementById('all-pre').textContent = t.over ? '현재 보고 ' : '보고 ';
   }
@@ -1749,6 +1759,18 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
   var q = document.getElementById('q'), timer;
   q.addEventListener('input', function(){ clearTimeout(timer); timer = setTimeout(function(){ ui.q = q.value.trim().toLowerCase(); draw(); }, 120); });
 
+  function seenAction(kind){
+    var r = curRep(), m = seenMarks[r.id];
+    if(kind === 'mark' && D.last_seen){
+      if(m && m.at && T(m.at) >= T(D.last_seen)) return;
+      seenMarks[r.id] = {at: D.last_seen, prev: m ? m.at : null, t: new Date().toISOString()};
+    } else if(kind === 'undo' && m){
+      if(m.prev) seenMarks[r.id] = {at: m.prev, prev: null, t: new Date().toISOString()};
+      else delete seenMarks[r.id];
+    }
+    saveSeen(); var y = window.scrollY; draw(); window.scrollTo(0, y);
+  }
+  document.getElementById('bar-seen').addEventListener('click', function(){ seenAction('mark'); });
   var main = document.getElementById('main');
   main.addEventListener('change', function(e){
     var cb = e.target; if(!cb.classList || !cb.classList.contains('pick')) return;
@@ -1764,17 +1786,7 @@ a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
     // '여기까지 확인' / 되돌리기(0-24). 기준은 누른 시각이 아니라 이 화면이 보여주는 마지막
     // 수집 시각 — 화면을 연 뒤 들어온(아직 못 본) 기사가 '본 것'이 되지 않게.
     var sb = e.target.closest('#seen-mark, #seen-undo');
-    if(sb){
-      var r = curRep(), m = seenMarks[r.id];
-      if(sb.id === 'seen-mark' && D.last_seen){
-        seenMarks[r.id] = {at: D.last_seen, prev: m ? m.at : null, t: new Date().toISOString()};
-      } else if(sb.id === 'seen-undo' && m){
-        if(m.prev) seenMarks[r.id] = {at: m.prev, prev: null, t: new Date().toISOString()};
-        else delete seenMarks[r.id];
-      }
-      saveSeen(); var y = window.scrollY; draw(); window.scrollTo(0, y);
-      return;
-    }
+    if(sb){ seenAction(sb.id === 'seen-undo' ? 'undo' : 'mark'); return; }
     var btn = e.target.closest('.more'); if(!btn) return;
     var box = document.getElementById(btn.getAttribute('aria-controls')), open = box.hidden;
     box.hidden = !open; btn.setAttribute('aria-expanded', String(open));
