@@ -1214,6 +1214,23 @@ a.title:visited{color:var(--ink-900)}
 .panel-foot{display:flex; gap:12px; align-items:center; padding:0 16px 16px; flex-wrap:wrap}
 .hint{font-size:12px; color:var(--ink-500)}
 .hint.ok{color:var(--green-600); font-weight:700}
+/* 기기 연동(0-26) — 머리 버튼 상태 + 설정 창 */
+.fresh button.sync.ok{border-color:var(--appbar-ink-2)}
+.fresh button.sync.ok::before{content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:#4FBF86; margin-right:6px; vertical-align:1px}
+.fresh button.sync.err{border-color:#F0B55A; color:#F0B55A}
+.spanel{max-width:520px}
+.sbody{padding:12px 16px 16px; font-size:13px; color:var(--ink-700); overflow:auto}
+.sbody p{margin:0 0 12px}
+.sbody b{color:var(--ink-900)}
+.sbody ol{margin:0 0 12px; padding-left:20px; display:grid; gap:4px}
+.sbody code{font-family:inherit; font-weight:600; color:var(--ink-900); background:var(--surf-100); border:1px solid var(--line-200); border-radius:2px; padding:0 4px}
+.sbody a{color:var(--link)}
+.sbody .row2{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.sbody input{flex:1 1 220px; min-width:0; height:32px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:13px; padding:0 12px}
+.sbody input:focus{outline:none; border-color:var(--blue-600); box-shadow:0 0 0 2px var(--blue-100)}
+.sbody .stat{padding:8px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-100); margin-bottom:12px}
+.sbody .stat.err{border-color:var(--amber-600); background:var(--amber-50); color:var(--ink-900)}
+.sbody .hint{display:block; margin-top:8px}
 .foot{margin-top:40px; font-size:12px; color:var(--ink-500)}
 .foot a{color:var(--link)}
 
@@ -1245,7 +1262,7 @@ a.title:visited{color:var(--ink-900)}
     <div class="wrap top">
       <a class="brand" href="./" title="뉴스레이다 — 처음 화면으로"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="#fff" fill-opacity=".8"/><circle cx="22" cy="11" r="2" fill="#fff"/></svg>뉴스레이다</a>
       <h1 id="title">보고 준비</h1>
-      <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload">새로고침</button></span>
+      <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload">새로고침</button><button type="button" id="sync" class="sync off" title="체크·‘여기까지 확인’을 다른 기기와 맞추기">기기 연동</button></span>
       <div class="reports" id="reports"></div>
     </div>
   </div>
@@ -1294,6 +1311,17 @@ a.title:visited{color:var(--ink-900)}
   </div>
 </div>
 
+<div class="veil" id="sveil" hidden>
+  <div class="panel spanel" role="dialog" aria-modal="true" aria-labelledby="stitle">
+    <div class="panel-head">
+      <h3 id="stitle">기기 연동</h3>
+      <span class="sub" id="ssub"></span>
+      <button class="x" type="button" id="sclose" aria-label="닫기">&times;</button>
+    </div>
+    <div class="sbody" id="sbody"></div>
+  </div>
+</div>
+
 <script>
 (function(){
   var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
@@ -1317,19 +1345,14 @@ a.title:visited{color:var(--ink-900)}
   try{ segOpen = localStorage.getItem(SEGSTORE) === '1'; }catch(e){}
   function tabShown(t){ return segOpen || t.all || t.over; }
 
-  // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용, 이 브라우저에만) ----------
+  // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용. 기기 연동을 켜면 다른 기기와 맞춘다 — 0-26) ----------
   // {보고id: {at: 확인 시점의 마지막 수집 시각, prev: 그 전 확인 시각(되돌리기용), t: 누른 시각}}
+  // 되돌려서 기록이 없어진 보고는 {at:null, prev:null, t} — 지운 사실도 다른 기기에 전해야 해서 남긴다.
   // 페이지를 여는 것만으로는 기록하지 않는다 — 폰으로 잠깐 열어 봐도 '본 것'이 되지 않게.
   var SEENSTORE = 'nm-live-seen-v1';
   var seenMarks = {};
   try{ seenMarks = JSON.parse(localStorage.getItem(SEENSTORE) || '{}') || {}; }catch(e){ seenMarks = {}; }
-  function saveSeen(){
-    try{
-      var c = ymd(new Date(Date.now() - 14*864e5));
-      Object.keys(seenMarks).forEach(function(k){ if(k.slice(0,8) < c) delete seenMarks[k]; });
-      localStorage.setItem(SEENSTORE, JSON.stringify(seenMarks));
-    }catch(e){}
-  }
+  function saveSeen(){ seenMarks = pruneRid(seenMarks); storeLocal(); syncSoon(); }
   function seenAt(rid){ var m = seenMarks[rid]; return m && m.at ? T(m.at) : null; }
   function isNew(it){ var a = seenAt(it.rid); return a != null && !!it.q && !it.d && T(it.q) > a; }
   function newCount(r){
@@ -1339,17 +1362,52 @@ a.title:visited{color:var(--ink-900)}
     return n;
   }
 
-  // ---------- 선택 저장 (이 브라우저에만) ----------
-  var picks = {};             // {reportId: {segId: {key:1}}}
+  // ---------- 선택 저장 (기기 연동을 켜면 다른 기기와 맞춘다 — 0-26) ----------
+  var picks = {};             // {reportId: {segId: {key:1}}} — 그리기·보고 양식이 쓰는 모양(0-20부터 같음)
   try{ picks = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; }catch(e){ picks = {}; }
-  function savePicks(){
+  // 병합용 기록(0-26): {reportId: {segId: {key: [1|0, 바꾼 시각 ms]}}}. 해제도 0으로 남긴다 —
+  // 지운 걸 다른 기기에 전하려면 '지웠다'는 기록이 있어야 해서. picks는 여기서 v=1만 뽑은 것.
+  var PTSTORE = 'nm-live-pickt-v1';
+  var pickt = {};
+  try{ pickt = JSON.parse(localStorage.getItem(PTSTORE) || '{}') || {}; }catch(e){ pickt = {}; }
+  (function reconcile(){
+    // 기록과 picks가 어긋나면(연동 전 체크, 또는 되돌린 옛 판에서 고친 것) picks가 최근 사실이다.
+    var now = Date.now(), seen = {};
+    Object.keys(picks).forEach(function(r){ Object.keys(picks[r] || {}).forEach(function(s){ Object.keys(picks[r][s] || {}).forEach(function(k){
+      seen[r+'\n'+s+'\n'+k] = 1;
+      var e = pickt[r] && pickt[r][s] && pickt[r][s][k];
+      if(!e || !e[0]) ptSet(r, s, k, [1, e ? now : 0]);
+    }); }); });
+    Object.keys(pickt).forEach(function(r){ Object.keys(pickt[r] || {}).forEach(function(s){ Object.keys(pickt[r][s] || {}).forEach(function(k){
+      var e = pickt[r][s][k];
+      if(e && e[0] && !seen[r+'\n'+s+'\n'+k]) pickt[r][s][k] = [0, now];
+    }); }); });
+  })();
+  function ptSet(r, s, k, e){ pickt[r] = pickt[r] || {}; pickt[r][s] = pickt[r][s] || {}; pickt[r][s][k] = e; }
+  function rebuildPicks(){
+    picks = {};
+    Object.keys(pickt).forEach(function(r){ Object.keys(pickt[r] || {}).forEach(function(s){ Object.keys(pickt[r][s] || {}).forEach(function(k){
+      var e = pickt[r][s][k]; if(Array.isArray(e) && e[0]) pset(r, s)[k] = 1;
+    }); }); });
+  }
+  function setPick(rid, sid, key, on){
+    ptSet(rid, sid, key, [on ? 1 : 0, Date.now()]);
+    var o = pset(rid, sid); if(on) o[key] = 1; else delete o[key];
+  }
+  // 14일 지난 보고 기록은 버린다(id 앞 8자리 = 보고일).
+  function pruneRid(o){
+    var c = ymd(new Date(Date.now() - 14*864e5));
+    Object.keys(o).forEach(function(k){ if(k.slice(0,8) < c) delete o[k]; });
+    return o;
+  }
+  function storeLocal(){
     try{
-      // 14일 지난 보고의 선택 기록은 버린다(id 앞 8자리 = 보고일).
-      var cut = new Date(Date.now() - 14*864e5), c = ymd(cut);
-      Object.keys(picks).forEach(function(k){ if(k.slice(0,8) < c) delete picks[k]; });
       localStorage.setItem(STORE, JSON.stringify(picks));
+      localStorage.setItem(PTSTORE, JSON.stringify(pickt));
+      localStorage.setItem(SEENSTORE, JSON.stringify(seenMarks));
     }catch(e){}
   }
+  function savePicks(){ pruneRid(pickt); pruneRid(picks); storeLocal(); syncSoon(); }
   function pset(rid, sid){ picks[rid] = picks[rid] || {}; picks[rid][sid] = picks[rid][sid] || {}; return picks[rid][sid]; }
   function isPicked(rid, sid, key){ return !!(picks[rid] && picks[rid][sid] && picks[rid][sid][key]); }
 
@@ -1357,6 +1415,177 @@ a.title:visited{color:var(--ink-900)}
   function hm(d){ return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function T(s){ return new Date(s).getTime(); }
+
+  // ---------- 기기 연동 (0-26) ----------
+  // 체크(pickt)와 '여기까지 확인'(seenMarks)을 내 GitHub 비공개 gist의 파일 하나에 맞춰 둔다.
+  // 토큰은 기기마다 한 번 넣고 이 브라우저의 localStorage에만 둔다 — 페이지 소스·저장소·data.json에는 없다.
+  // 병합: 체크는 기사마다 [상태, 바꾼 시각], '여기까지 확인'은 보고마다 누른 시각 t — 나중에 바꾼 쪽이 이긴다.
+  // 맞추는 때: 바꾼 뒤 1초, 화면으로 돌아올 때·창 포커스(15초에 한 번까지), 켜 둔 채 5분마다, 화면을 떠날 때.
+  // 연결하지 않은 기기는 api.github.com에 아무 요청도 보내지 않는다(0-25까지와 같은 동작).
+  var SYNCSTORE = 'nm-live-sync-v1';       // {token, gist, last}
+  var SYNC_FILE = 'newsradar-sync.json';
+  var GH = 'https://api.github.com';
+  var cfg = {};
+  try{ cfg = JSON.parse(localStorage.getItem(SYNCSTORE) || '{}') || {}; }catch(e){ cfg = {}; }
+  function saveCfg(){ try{ localStorage.setItem(SYNCSTORE, JSON.stringify(cfg)); }catch(e){} }
+  var sync = {busy:false, again:false, timer:null, err:'', lastTry:0};
+
+  function canon(o){
+    if(o === null || typeof o !== 'object') return JSON.stringify(o === undefined ? null : o);
+    if(Array.isArray(o)) return '[' + o.map(canon).join(',') + ']';
+    return '{' + Object.keys(o).sort().map(function(k){ return JSON.stringify(k) + ':' + canon(o[k]); }).join(',') + '}';
+  }
+  function mergePickt(a, b){
+    var out = {};
+    [a, b].forEach(function(src){ Object.keys(src || {}).forEach(function(r){ var R = src[r] || {};
+      Object.keys(R).forEach(function(s){ var S = R[s] || {};
+        Object.keys(S).forEach(function(k){
+          var e = S[k]; if(!Array.isArray(e)) return;
+          var v = e[0] ? 1 : 0, t = +e[1] || 0;
+          out[r] = out[r] || {}; out[r][s] = out[r][s] || {};
+          var cur = out[r][s][k];
+          if(!cur || t > cur[1] || (t === cur[1] && v > cur[0])) out[r][s][k] = [v, t];
+        });
+      });
+    }); });
+    return out;
+  }
+  function stamp(m){ var t = m && m.t ? T(m.t) : 0; return isNaN(t) ? 0 : t; }
+  function mergeSeen(a, b){
+    var out = {};
+    [a, b].forEach(function(src){ Object.keys(src || {}).forEach(function(r){
+      var m = src[r]; if(!m || typeof m !== 'object') return;
+      if(!out[r] || stamp(m) > stamp(out[r])) out[r] = {at: m.at || null, prev: m.prev || null, t: m.t || null};
+    }); });
+    return out;
+  }
+
+  function gh(method, path, body){
+    var h = {'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + cfg.token};
+    if(body) h['Content-Type'] = 'application/json';
+    return fetch(GH + path, {method: method, cache: 'no-store', headers: h, body: body ? JSON.stringify(body) : undefined})
+      .then(function(r){
+        if(!r.ok){ var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+        return r.status === 204 ? null : r.json();
+      });
+  }
+  function docBody(p, s){
+    var f = {}; f[SYNC_FILE] = {content: JSON.stringify({v: 1, picks: p, seen: s, at: new Date().toISOString()})};
+    return f;
+  }
+  // 첫 연결: 내 gist 중 newsradar-sync.json이 든 것(가장 먼저 만든 것)을 쓴다. 없으면 비공개로 새로 만든다.
+  // 그래서 두 번째 기기는 토큰만 넣으면 된다(토큰을 기기마다 따로 만들어도 같은 계정이면 같은 gist).
+  function findGist(){
+    return gh('GET', '/gists?per_page=100').then(function(list){
+      var hit = (list || []).filter(function(g){ return g && g.files && g.files[SYNC_FILE]; })
+        .sort(function(a, b){ return T(a.created_at) - T(b.created_at); })[0];
+      if(hit) return hit.id;
+      return gh('POST', '/gists', {description: '뉴스레이다 기기 연동 기록 (자동 생성 — 지우면 다음 연결 때 새로 만듭니다)',
+        public: false, files: docBody({}, {})}).then(function(g){ return g.id; });
+    });
+  }
+  function readRemote(id){
+    return gh('GET', '/gists/' + id).then(function(g){
+      var f = g && g.files && g.files[SYNC_FILE];
+      if(!f) return {};
+      if(f.truncated && f.raw_url) return fetch(f.raw_url, {cache: 'no-store'}).then(function(r){ return r.json(); });
+      try{ return JSON.parse(f.content || '{}') || {}; }catch(e){ return {}; }
+    });
+  }
+  function apply(id, rem){
+    rem = rem && typeof rem === 'object' ? rem : {};
+    var mp = pruneRid(mergePickt(pickt, rem.picks)), ms = pruneRid(mergeSeen(seenMarks, rem.seen));
+    var cp = canon(mp), cs = canon(ms);
+    if(cp !== canon(pickt) || cs !== canon(seenMarks)){
+      pickt = mp; seenMarks = ms; rebuildPicks(); storeLocal();
+      if(D){ var y = window.scrollY; pickDefaults(); draw(); window.scrollTo(0, y); }
+    }
+    if(cp === canon(rem.picks || {}) && cs === canon(rem.seen || {})) return null;
+    return gh('PATCH', '/gists/' + id, {files: docBody(mp, ms)});
+  }
+  function errText(e){
+    var st = e && e.status;
+    if(st === 401) return '토큰이 틀렸거나 만료됐습니다. 연결을 끊고 새 토큰을 넣어 주세요.';
+    if(st === 403 || st === 404 && !cfg.gist) return '토큰에 Gists 읽기·쓰기 권한이 없거나 요청이 막혔습니다(' + st + ').';
+    if(st === 422) return 'GitHub이 요청을 거절했습니다(422).';
+    if(st) return 'GitHub 응답 ' + st + ' — 잠시 뒤 다시 맞춥니다.';
+    return '연결 실패(오프라인?) — 이 기기에 저장해 두고 다음에 맞춥니다.';
+  }
+  function syncNow(){
+    if(!cfg.token) return Promise.resolve();
+    if(sync.busy){ sync.again = true; return Promise.resolve(); }
+    clearTimeout(sync.timer); sync.timer = null;
+    sync.busy = true; sync.again = false; sync.lastTry = Date.now(); syncUI();
+    function step(retried){
+      var idp = cfg.gist ? Promise.resolve(cfg.gist) : findGist().then(function(id){ cfg.gist = id; saveCfg(); return id; });
+      return idp.then(function(id){ return readRemote(id).then(function(rem){ return apply(id, rem); }); })
+        .catch(function(e){
+          // gist를 지웠으면 한 번만 다시 찾는다(없으면 새로 만든다)
+          if(e && e.status === 404 && cfg.gist && !retried){ cfg.gist = ''; saveCfg(); return step(true); }
+          throw e;
+        });
+    }
+    return step(false)
+      .then(function(){ sync.err = ''; cfg.last = Date.now(); saveCfg(); })
+      .catch(function(e){ sync.err = errText(e); })
+      .then(function(){ sync.busy = false; syncUI(); if(sync.again) syncNow(); });
+  }
+  function syncSoon(){
+    if(!cfg.token) return;
+    clearTimeout(sync.timer); sync.timer = setTimeout(syncNow, 1000);
+  }
+  function syncIfStale(){ if(cfg.token && Date.now() - sync.lastTry > 15e3) syncNow(); }
+
+  // 머리 버튼 + 설정 창
+  var sveil = document.getElementById('sveil'), sbody = document.getElementById('sbody');
+  function syncUI(){
+    var b = document.getElementById('sync');
+    if(!cfg.token){ b.className = 'sync off'; b.textContent = '기기 연동'; }
+    else if(sync.busy && !cfg.last){ b.className = 'sync'; b.textContent = '연동 중…'; }
+    else if(sync.err){ b.className = 'sync err'; b.textContent = '연동 오류'; }
+    else { b.className = 'sync ok'; b.innerHTML = '연동<span class="lg">됨</span>' + (cfg.last ? ' <span class="mono">' + hm(new Date(cfg.last)) + '</span>' : ''); }
+    if(!sveil.hidden) drawSyncPanel();
+  }
+  function drawSyncPanel(){
+    var h = '', sub = document.getElementById('ssub');
+    if(!cfg.token){
+      sub.textContent = '꺼짐 · 이 기기에만 저장 중';
+      h = '<p>데스크톱과 폰에서 <b>체크</b>와 <b>여기까지 확인</b>을 이어 쓰려면, 기기마다 한 번 GitHub 토큰을 넣어 주세요. '+
+          '기록은 내 GitHub 계정의 <b>비공개 gist</b> 하나(<code>'+SYNC_FILE+'</code>)에 저장됩니다. 토큰은 이 기기 브라우저에만 남습니다.</p>'+
+          '<ol><li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → Fine-grained token 만들기</a></li>'+
+          '<li>Repository access는 기본값 그대로, <b>Account permissions → Gists: Read and write</b> 하나만</li>'+
+          '<li>만든 토큰(<code>github_pat_…</code>)을 아래에 붙여 넣고 연결</li></ol>'+
+          '<p class="hint">폰에서는 폰 브라우저로 토큰을 하나 더 만들어 넣어도 됩니다 — 같은 계정이면 같은 gist를 찾아 이어집니다. 이 기기에 이미 있는 체크는 그대로 합쳐집니다.</p>'+
+          '<div class="row2"><input id="stoken" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false" aria-label="GitHub 토큰">'+
+          '<button class="btn primary" type="button" id="sconnect">연결</button></div>'+
+          (sync.err ? '<span class="hint" style="color:var(--amber-600)">'+esc(sync.err)+'</span>' : '');
+    } else {
+      sub.textContent = sync.busy ? '맞추는 중…' : sync.err ? '오류' : '켜짐';
+      h = '<div class="stat'+(sync.err ? ' err' : '')+'">'+
+          (sync.err ? esc(sync.err) : (cfg.last ? '마지막으로 맞춘 시각 <b>'+fmtAt(cfg.last)+'</b>' : '처음 맞추는 중…'))+
+          (cfg.gist ? ' · <a href="https://gist.github.com/'+esc(cfg.gist)+'" target="_blank" rel="noopener">gist 보기</a>' : '')+'</div>'+
+          '<p>체크·해제와 여기까지 확인·되돌리기가 바로 다른 기기로 가고, 화면으로 돌아올 때마다 받아 옵니다. '+
+          '같은 기사를 두 기기에서 다르게 바꿨다면 <b>나중에 바꾼 쪽</b>이 남습니다. 오프라인일 때 바꾼 것은 이 기기에 두었다가 다음에 합칩니다.</p>'+
+          '<p class="hint">구간별 보기 펼침·마지막 탭 같은 화면 설정은 기기마다 따로입니다(데스크톱과 폰 화면이 달라서).</p>'+
+          '<div class="row2"><button class="btn sec" type="button" id="snow"'+(sync.busy ? ' disabled' : '')+'>지금 맞추기</button>'+
+          '<button class="btn" type="button" id="soff">이 기기 연결 끊기</button></div>'+
+          '<span class="hint">연결을 끊어도 이 기기의 기록과 gist는 그대로 남습니다. 토큰을 없애려면 GitHub 설정에서 삭제하세요.</span>';
+    }
+    sbody.innerHTML = h;
+  }
+  document.getElementById('sync').addEventListener('click', function(){ sveil.hidden = false; drawSyncPanel(); var i = document.getElementById('stoken'); if(i) i.focus(); });
+  document.getElementById('sclose').addEventListener('click', function(){ sveil.hidden = true; });
+  sveil.addEventListener('click', function(e){
+    if(e.target === sveil){ sveil.hidden = true; return; }
+    var b = e.target.closest('button'); if(!b) return;
+    if(b.id === 'sconnect'){
+      var v = (document.getElementById('stoken').value || '').trim();
+      if(!v){ document.getElementById('stoken').focus(); return; }
+      cfg = {token: v, gist: '', last: 0}; sync.err = ''; saveCfg(); storeLocal(); syncNow();
+    } else if(b.id === 'snow'){ syncNow(); }
+    else if(b.id === 'soff'){ cfg = {}; sync.err = ''; clearTimeout(sync.timer); saveCfg(); syncUI(); }
+  });
+  sveil.addEventListener('keydown', function(e){ if(e.key === 'Enter' && e.target.id === 'stoken') document.getElementById('sconnect').click(); });
 
   // ---------- 데이터 ----------
   function load(force){
@@ -1588,7 +1817,7 @@ a.title:visited{color:var(--ink-900)}
       html += part;
     });
     if(t.all && !MERGED) html += drawByline(t.rep, now).html;
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. 체크한 기사는 이 브라우저에만 저장됩니다. · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. 체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
     document.getElementById('main').innerHTML = html;
     syncBar();
   }
@@ -1830,9 +2059,9 @@ a.title:visited{color:var(--ink-900)}
     if(kind === 'mark' && D.last_seen){
       if(m && m.at && T(m.at) >= T(D.last_seen)) return;
       seenMarks[r.id] = {at: D.last_seen, prev: m ? m.at : null, t: new Date().toISOString()};
-    } else if(kind === 'undo' && m){
-      if(m.prev) seenMarks[r.id] = {at: m.prev, prev: null, t: new Date().toISOString()};
-      else delete seenMarks[r.id];
+    } else if(kind === 'undo' && m && m.at){
+      // 기록이 없어지는 되돌리기도 지우지 않고 at:null로 남긴다 — 다른 기기에 '지웠다'를 전하려고(0-26)
+      seenMarks[r.id] = {at: m.prev || null, prev: null, t: new Date().toISOString()};
     }
     saveSeen(); var y = window.scrollY; draw(); window.scrollTo(0, y);
   }
@@ -1841,8 +2070,8 @@ a.title:visited{color:var(--ink-900)}
   main.addEventListener('change', function(e){
     var cb = e.target; if(!cb.classList || !cb.classList.contains('pick')) return;
     var rowEl = cb.closest('.row'), it = ITEMS[rowEl.getAttribute('data-u')]; if(!it) return;
-    var o = pset(it.rid, it.sid);
-    if(cb.checked){ o[it.key] = 1; rowEl.classList.add('on'); } else { delete o[it.key]; rowEl.classList.remove('on'); }
+    setPick(it.rid, it.sid, it.key, cb.checked);
+    rowEl.classList.toggle('on', cb.checked);
     savePicks();
     // 탭의 ✓ 숫자와 하단 바만 갱신한다(본문을 다시 그리면 스크롤·펼침이 초기화된다)
     var tabsEl = document.getElementById('tabs'), sx = tabsEl.scrollLeft;
@@ -1864,10 +2093,11 @@ a.title:visited{color:var(--ink-900)}
   document.getElementById('make-all').addEventListener('click', function(){ openPanel('all'); });
   document.getElementById('close').addEventListener('click', closePanel);
   veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ if(!sveil.hidden) sveil.hidden = true; else if(!veil.hidden) closePanel(); } });
   document.getElementById('unpick').addEventListener('click', function(){
     if(!panelSeg) return;
-    if(picks[panelSeg.rep.id]) delete picks[panelSeg.rep.id][panelSeg.seg.id];
+    var o = picks[panelSeg.rep.id] && picks[panelSeg.rep.id][panelSeg.seg.id];
+    Object.keys(o || {}).forEach(function(k){ setPick(panelSeg.rep.id, panelSeg.seg.id, k, false); });
     savePicks(); closePanel(); draw();
   });
   document.getElementById('copy').addEventListener('click', function(){
@@ -1878,9 +2108,14 @@ a.title:visited{color:var(--ink-900)}
   document.getElementById('reload').addEventListener('click', function(){ load(true); });
 
   // 탭으로 돌아오거나 창에 포커스가 오면 새로 받아온다(1분에 한 번까지). 켜 둔 채로도 5분마다.
-  document.addEventListener('visibilitychange', function(){ if(!document.hidden) load(false); });
-  window.addEventListener('focus', function(){ load(false); });
-  setInterval(function(){ if(!document.hidden) load(true); }, 5*60e3);
+  // 기기 연동(0-26): 돌아올 때 받아 오고(15초에 한 번까지), 떠날 때 아직 안 보낸 변경이 있으면 바로 보낸다.
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ if(sync.timer) syncNow(); return; }
+    load(false); syncIfStale();
+  });
+  window.addEventListener('pagehide', function(){ if(sync.timer) syncNow(); });
+  window.addEventListener('focus', function(){ load(false); syncIfStale(); });
+  setInterval(function(){ if(!document.hidden){ load(true); if(cfg.token) syncNow(); } }, 5*60e3);
   // 1분마다 시각만 다시 보고(보고 전환·'n분 전'), 데이터는 그대로
   setInterval(function(){
     if(!D || document.hidden) return;
@@ -1891,7 +2126,9 @@ a.title:visited{color:var(--ink-900)}
     if(before !== after && veil.hidden) draw();
   }, 60e3);
 
+  syncUI();
   load(true);
+  syncNow();
 })();
 </script>
 </body></html>
