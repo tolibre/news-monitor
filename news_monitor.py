@@ -84,8 +84,6 @@ KEYWORD_ANTIPATTERNS = {
     "개인정보위": [],
     # '나이'+'영향/영업' 등이 붙어 오매칭되는 것 방지 (현재 DB에 실례는 없으나 예방).
     "나이영":   [r"나이영향", r"나이영업", r"나이영어"],
-    # '○누리호텔' 같은 업소명 예방(DB 실례 없음, 2026-10-06).
-    "누리호":   [r"누리호텔"],
 }
 
 def strip_antipatterns(text, kw):
@@ -135,11 +133,6 @@ BASE_KEYWORDS = [
     "방송미디어통신위원회", "방미통위",
     "과학기술정보통신부", "과기정통부", "과기부",
     "우주항공청",
-    # 2026-10-06 사용자 요청. '우주항공청' 검색만으로는 본문에 청 이름이 안 나오는
-    # 누리호 기사(발사 준비·민간 참여 등)를 못 잡는다. 실측: 7/16 이후 DB의 누리호
-    # 제목 992건 중 976건이 '우주항공청' 본문 매칭으로 들어온 것 — 나머지는 놓쳤다는 뜻.
-    # 우주항공청 바로 뒤에 둬야 그룹 순서(GROUP_ORDER)와 대표 키워드가 그대로다.
-    "누리호",
     "CBS",
     # CBS 사장 이름 (사용자 제공, 2026-09-18). 'CBS' 키워드는 제목에 CBS가 있어야
     # 하는 관문(KEYWORD_GATES)이 걸려 있어 사장 이름만 쓴 기사를 못 잡는다.
@@ -481,7 +474,7 @@ KEYWORD_GROUPS = {
     "과학기술정보통신부": "과기정통부", "과기정통부": "과기정통부", "과기부": "과기정통부",
     "공정거래위원회": "공정위", "공정위": "공정위",
     "방송미디어통신위원회": "방미통위", "방미통위": "방미통위",
-    "우주항공청": "우주항공청", "누리호": "우주항공청",
+    "우주항공청": "우주항공청",
     "CBS": "CBS", "나이영": "CBS",
 }
 # 당직 키워드 매핑은 활성 여부와 무관하게 항상 합쳐둔다.
@@ -919,13 +912,8 @@ TOPIC_COMMON_TOKENS = set(POLICY_SIGNALS) | {
 # **인명 키워드는 제외한다** — '나이영'은 KEYWORD_GROUPS의 키지만 부처명이 아니라
 # 사람 이름이고, 희귀해서 변별력이 매우 높다. 여기 넣으면 CBS 인사 기사가 갈라진다.
 CLUSTER_PERSON_KEYWORDS = {"나이영"}
-# **사안어 키워드도 제외한다**(2026-10-06) — '누리호'는 검색어로 넣었을 뿐 부처명이
-# 아니다. 여기 들어가면 '누리호'가 흔한 토큰 취급을 받아 누리호 기사끼리 덜 묶이고,
-# 같은 함수(significant_overlap)를 쓰는 재알림 억제도 풀려 발사일에 check 알림이
-# 같은 사안으로 거듭 울린다. 빼 두면 이 집합은 키워드 추가 전과 정확히 같다.
-CLUSTER_TOPIC_KEYWORDS = {"누리호"}
 CLUSTER_AGENCY_TOKENS = (set(KEYWORD_GROUPS.keys()) | set(KEYWORD_GROUPS.values())) \
-                        - CLUSTER_PERSON_KEYWORDS - CLUSTER_TOPIC_KEYWORDS
+                        - CLUSTER_PERSON_KEYWORDS
 
 def significant_overlap(a, b, min_overlap=2, min_ratio=0.3):
     """두 토큰 집합이 '같은 주제'로 볼 만큼 겹치는지 판정.
@@ -1296,35 +1284,6 @@ NOISE_BOTH = {
         r"공로상",
         r"(대상|최우수상|우수상)\s*수상",
     ], "부처주체"),
-    # 시사 대담·인터뷰물 (사용자 요청 2026-10-06: "출입처와 관련 없는 전문가·정치인·
-    # 시사평론가 인터뷰가 digest에 너무 많이 잡힌다"). 라디오·TV 대담 녹취는 본문에
-    # 부처명이 한 번 스치기만 해도 네이버 본문 검색에 걸려 폴백으로 들어온다.
-    # **태그 형식만** 잡는다 — 프로그램명 태그([한판승부]·[전격시사]·[뉴스UP] 등)와
-    # 인터뷰 태그([인터뷰]·[만나보니]·[이슈대담] 등). 보호장치 '출입처사안'
-    # (_is_beat_matter)이 붙어, 제목에 출입처 키워드·[단독]/[속보]·배정 그룹의 소관
-    # 어휘(강·약)가 있으면 남긴다
-    # ('[인터뷰] 카카오 "모두의 AI…"', '[만났습니다] [단독] 쿠팡 분쟁…'은 그대로).
-    # 일부러 넣지 않은 것:
-    #   [일문일답] — 대개 부처 브리핑 문답이다('[일문일답] 아시아나→대한항공 마일리지
-    #               전환 안내'는 강한 어휘가 없는데도 공정위 결합 조건 사안).
-    #   [뉴스분석]·[뉴스줌인]·[뉴스 저격]·[이슈진단+]·[뉴스 투데이] — 인터뷰가 아니라
-    #               매체의 분석·지면 브랜드.
-    # 태그 없는 인용형 제목('강찬호 "…"')은 잡지 않는다 — '인용형 제목 + 소관 어휘
-    # 없음' 규칙을 30일치로 재 보니 SK스토아 변경승인 재신청·뉴토끼 차단·숙박
-    # 오버부킹 같은 실제 출입처 사안이 대거 걸려 기각했다(2026-10-06 실측).
-    "시사대담": ([
-        r"[\[〈<【(][^\]〉>】)]{0,15}(인터뷰|템터뷰|만나보니|만났습니다|대담)"
-        r"[^\]〉>】)]{0,10}(?:[\]〉>】)]|\.\.\.|…|$)",
-        r"[\[〈<【(][^\]〉>】)]{0,10}(한판승부|뉴스쇼|오늘아침|시사자키|지지율대책회의|댓꿀쇼"
-        r"|전격시사|무등의\s*아침|뉴스UP|이슈ON|뉴스초점|뉴스프레소|정치시그널|런치정치"
-        r"|정치뷰|사사건건|온마이크|경제읽기|뉴스와이드|시선집중|뉴스하이킥|정면승부"
-        r"|뉴스파이팅|뉴스킹|뉴스톡|이슈앤피플|뉴스공장|매불쇼|강적들|돌직구쇼)"
-        r"[^\]〉>】)]{0,10}(?:[\]〉>】)]|\.\.\.|…|$)",
-        # SBS Biz '[직설]' — '[정연우의 중기직설]' 같은 칼럼명과 구별해 단독 태그만
-        r"[\[〈<【(]\s*직설\s*[\]〉>】)]",
-        r"^\s*인터뷰\s*전문",
-        r"\s인터뷰\s*$",
-    ], "출입처사안"),
 }
 
 NOISE_CHECK_ONLY = {
@@ -1366,31 +1325,7 @@ def _has_strong_scope(title):
                 return True
     return False
 
-def _is_beat_matter(title, kws=None):
-    """'시사대담' 보호장치. 제목에 출입처 키워드가 있거나, [단독]/[속보]이거나,
-    기사가 배정된 그룹의 소관 어휘(강·약 모두)가 제목에 있으면 출입처 사안으로 본다.
-
-    일부러 '배정된 그룹'의 어휘만 본다(_has_strong_scope처럼 전 그룹을 보지 않는다).
-    전 그룹을 보면 당직 출입처 어휘('유가'·'부동산')에 걸려 '[뉴스UP] 유가 100달러에
-    다급한 트럼프', '[한판승부] 김영우 "부동산·ETF는 왜 남 탓?"'이 그대로 남았다(실측).
-    약한 어휘까지 인정하는 건 digest가 누락방지용이라서다 — '[만나보니] 카카오 완결형
-    AI 승부수'(모두의 AI 사업자)가 강한 어휘가 없어 걸리던 것을 살린다.
-    kws가 없으면(호출자가 안 넘기면) 핵심 출입처 4곳의 강한 어휘로 판단한다."""
-    if matched_keywords(title) or priority_mark(title):
-        return True
-    t = clean(title or "").rsplit(" - ", 1)[0]
-    groups = display_groups(set(kws)) if kws else []
-    if groups:
-        words = []
-        for g in groups:
-            spec = GROUP_SCOPE.get(g) or {}
-            words += spec.get("strong", []) + spec.get("weak", [])
-    else:
-        words = [w for g in ("공정위", "방미통위", "과기정통부", "우주항공청")
-                 for w in GROUP_SCOPE[g]["strong"]]
-    return any(w in t for w in words)
-
-def noise_reason(title, strict=False, kws=None):
+def noise_reason(title, strict=False):
     """노이즈 필터 판정. 걸리면 사유 문자열, 통과하면 None.
 
     strict=True(digest)  → ROSTER + 우정등급 + NOISE_BOTH 까지만 적용
@@ -1418,8 +1353,6 @@ def noise_reason(title, strict=False, kws=None):
         if guard == "부처주체" and _ministry_is_subject(title):
             continue
         if guard == "강한어휘" and _has_strong_scope(title):
-            continue
-        if guard == "출입처사안" and _is_beat_matter(title, kws):
             continue
         return name
     return None
@@ -1587,8 +1520,6 @@ def pick_representative(members, get_title, get_source, get_pub):
 # 그룹별 '자기 이름' 토큰 — 그 섹션 안에서는 정보량이 없는 단어들.
 GROUP_SELF_TOKENS = {}
 for _k in set(list(KEYWORD_GROUPS.keys()) + list(KEYWORD_GROUPS.values())):
-    if _k in CLUSTER_TOPIC_KEYWORDS:
-        continue   # '누리호'는 섹션 이름이 아니라 사안어 — 빼면 억제 서명에서 사라진다
     _g = KEYWORD_GROUPS.get(_k, _k)
     GROUP_SELF_TOKENS.setdefault(_g, set()).update(topic_tokens(_k) or {_k})
 
@@ -2088,7 +2019,7 @@ def run_check():
             # 노이즈 필터 — check 전용 층까지 적용(strict=False).
             # DB 저장은 위에서 이미 끝났고 digest는 DB를 읽으므로, 여기서 걸러도
             # digest에는 자기 기준(strict=True)대로 그대로 나온다.
-            nr = noise_reason(it["title"], strict=False, kws=it["kws"])
+            nr = noise_reason(it["title"], strict=False)
             if nr:
                 noised.append((it["title"], nr))
                 continue
@@ -2381,9 +2312,7 @@ def digest_select(conn, start, end, now):
     # 노이즈 필터 — digest는 strict=True로 '순수 오탐·무정보' 층만 적용한다
     # (사용자 결정 09/18). 기업·대학·지자체 주체 기사는 check에서만 빠지고
     # digest에는 그대로 남는다 — digest의 목적은 누락방지이기 때문.
-    noise_rows = [(r, noise_reason(r[0], strict=True,
-                                   kws=(r[4].split(",") if r[4] else None)))
-                  for r in rows]
+    noise_rows = [(r, noise_reason(r[0], strict=True)) for r in rows]
     noise_rows = [(r, w) for r, w in noise_rows if w]
     _noise_set = {id(r) for r, _ in noise_rows}
     rows = [r for r in rows if id(r) not in _noise_set]
