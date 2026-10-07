@@ -1352,7 +1352,7 @@ a.title:visited{color:var(--ink-900)}
   var SEENSTORE = 'nm-live-seen-v1';
   var seenMarks = {};
   try{ seenMarks = JSON.parse(localStorage.getItem(SEENSTORE) || '{}') || {}; }catch(e){ seenMarks = {}; }
-  function saveSeen(){ seenMarks = pruneRid(seenMarks); storeLocal(); syncSoon(); }
+  function saveSeen(){ seenMarks = pruneRid(seenMarks, SEEN_KEEP_DAYS); storeLocal(); syncSoon(); }
   function seenAt(rid){ var m = seenMarks[rid]; return m && m.at ? T(m.at) : null; }
   function isNew(it){ var a = seenAt(it.rid); return a != null && !!it.q && !it.d && T(it.q) > a; }
   function newCount(r){
@@ -1394,9 +1394,12 @@ a.title:visited{color:var(--ink-900)}
     ptSet(rid, sid, key, [on ? 1 : 0, Date.now()]);
     var o = pset(rid, sid); if(on) o[key] = 1; else delete o[key];
   }
-  // 14일 지난 보고 기록은 버린다(id 앞 8자리 = 보고일).
-  function pruneRid(o){
-    var c = ymd(new Date(Date.now() - 14*864e5));
+  // 보관 기한이 지난 보고 기록은 버린다(id 앞 8자리 = 보고일).
+  // 체크(picks·pickt)는 60일 — 중요도 학습(항목 37)의 원료라서. 해제 기록 [0, 시각]도 같은 기한이어야
+  // 다른 기기의 옛 체크가 되살아나지 않는다. '여기까지 확인'(seenMarks)은 지난 보고에선 쓸 데가 없어 14일.
+  var PICK_KEEP_DAYS = 60, SEEN_KEEP_DAYS = 14;
+  function pruneRid(o, days){
+    var c = ymd(new Date(Date.now() - days*864e5));
     Object.keys(o).forEach(function(k){ if(k.slice(0,8) < c) delete o[k]; });
     return o;
   }
@@ -1407,7 +1410,7 @@ a.title:visited{color:var(--ink-900)}
       localStorage.setItem(SEENSTORE, JSON.stringify(seenMarks));
     }catch(e){}
   }
-  function savePicks(){ pruneRid(pickt); pruneRid(picks); storeLocal(); syncSoon(); }
+  function savePicks(){ pruneRid(pickt, PICK_KEEP_DAYS); pruneRid(picks, PICK_KEEP_DAYS); storeLocal(); syncSoon(); }
   function pset(rid, sid){ picks[rid] = picks[rid] || {}; picks[rid][sid] = picks[rid][sid] || {}; return picks[rid][sid]; }
   function isPicked(rid, sid, key){ return !!(picks[rid] && picks[rid][sid] && picks[rid][sid][key]); }
 
@@ -1494,7 +1497,7 @@ a.title:visited{color:var(--ink-900)}
   }
   function apply(id, rem){
     rem = rem && typeof rem === 'object' ? rem : {};
-    var mp = pruneRid(mergePickt(pickt, rem.picks)), ms = pruneRid(mergeSeen(seenMarks, rem.seen));
+    var mp = pruneRid(mergePickt(pickt, rem.picks), PICK_KEEP_DAYS), ms = pruneRid(mergeSeen(seenMarks, rem.seen), SEEN_KEEP_DAYS);
     var cp = canon(mp), cs = canon(ms);
     if(cp !== canon(pickt) || cs !== canon(seenMarks)){
       pickt = mp; seenMarks = ms; rebuildPicks(); storeLocal();
