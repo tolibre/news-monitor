@@ -1814,6 +1814,25 @@ def scope_gate(title, kws):
         return False, f"{g}|약어휘만({weak[0]})"
     return False, f"{g}|소관어휘없음"
 
+# ==================== check 단독 구제 (check 전용, 2026-10-08, 0-29) ====================
+# 소관 관문은 폴백 기사(제목에 출입처명 없음)를 그룹 어휘로만 판정해서, 출입처 사안을 다룬
+# [단독]도 어휘가 안 맞으면 떨어뜨린다 — 30일 4개 출입처 [단독] 228건 중 88건(0-29 실측).
+# 규칙(사용자 선택 (나)): 제목에 [단독] 태그(priority_mark=🔥)가 있고 POLICY_SIGNALS 중
+# 하나가 있으면 관문을 통과시킨다. 노이즈 필터·선별·재알림 억제는 그대로 적용된다.
+#
+# **scope_gate() 안에 넣지 않은 이유**: scope_gate()는 reassign_fallback_group()에서도 불리고,
+# 그 결과(kws)가 DB keywords에 저장돼 digest·라이브의 그룹 표시를 바꾼다. 여기서는 run_check가
+# 관문 탈락을 확정하는 지점에서만 판정하므로 재배정·DB 저장은 그대로다 → digest·라이브 불변.
+def exclusive_rescue(title):
+    """관문에서 떨어진 기사를 [단독]+정책 신호어로 되살릴지. 걸린 신호어(없으면 '') 반환. check 전용."""
+    if priority_mark(title) != "🔥":
+        return ""
+    t = clean(title or "").rsplit(" - ", 1)[0].strip()   # scope_gate와 같은 기준(매체명 꼬리 제거)
+    for s in POLICY_SIGNALS:
+        if s in t:
+            return s
+    return ""
+
 # ==================== 폴백 기사 그룹 재배정 (check+digest 공용, 2026-09-03) ====================
 # 문제(0-2 실측, 인수인계 문서): 폴백 기사는 "어느 키워드로 검색됐는가"만으로 그룹이
 # 정해진다. 본문이 실제로는 다른 부처 사안인데 검색어만 우연히 걸린 경우, 소관 관문도
@@ -2051,6 +2070,7 @@ def run_check():
     off_scope = []      # 소관 관문에서 걸러낸 폴백 기사 (감시용)
     reassigned = []     # 그룹 재배정된 폴백 기사 (감시용, check+digest 공용)
     noised = []         # 노이즈 필터로 걸러낸 기사 (감시용)
+    rescued = []        # 소관 관문에서 떨어졌지만 단독 구제로 통과한 기사 (감시용, 0-29)
     if cbs_candidates:
         st = cbs_stage
         print(f"[CBS] 검색 {cbs_candidates}건 → 제목에CBS없음 {st.get('no_cbs',0)} / "
@@ -2083,8 +2103,12 @@ def run_check():
             # (ok/why는 위 reassign_fallback_group()이 이미 계산해 둔 것을 그대로 씀 —
             # 재배정으로 통과했으면 ok=True, 재배정 후보가 없었으면 원래 scope_gate 결과.)
             if not ok:
-                off_scope.append((it["title"], why))
-                continue
+                # 단독 구제(0-29) — [단독]+정책 신호어면 관문만 통과시킨다(아래 노이즈·선별·억제는 그대로).
+                sig = exclusive_rescue(it["title"])
+                if not sig:
+                    off_scope.append((it["title"], why))
+                    continue
+                rescued.append((it["title"], f"{why}→단독+{sig}"))
             # 노이즈 필터 — check 전용 층까지 적용(strict=False).
             # DB 저장은 위에서 이미 끝났고 digest는 DB를 읽으므로, 여기서 걸러도
             # digest에는 자기 기준(strict=True)대로 그대로 나온다.
@@ -2110,6 +2134,12 @@ def run_check():
             print(f"  · [{why}] {t[:70]}")
         if len(off_scope) > 30:
             print(f"  … 외 {len(off_scope) - 30}건")
+
+    if rescued:
+        # 단독 구제(0-29)로 관문을 넘은 기사 — 무관 기사가 섞이는지 감시용.
+        print(f"[단독구제] 소관 관문 탈락 중 {len(rescued)}건 통과([단독]+정책신호어):")
+        for t, why in rescued[:30]:
+            print(f"  · [{why}] {t[:70]}")
 
     if noised:
         # 사유별 건수 + 제목 목록. 과필터 감시용 — 필터가 실제 기사를 삼키기
@@ -2325,6 +2355,11 @@ def run_check():
             if noised:
                 f.write("[노이즈 필터로 제외된 기사]\n")
                 for t, why in noised:
+                    f.write(f"  · [{why}] {t}\n")
+                f.write("\n")
+            if rescued:
+                f.write("[소관 관문 탈락 → 단독 구제]\n")
+                for t, why in rescued:
                     f.write(f"  · [{why}] {t}\n")
                 f.write("\n")
             if reassigned:
