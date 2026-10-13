@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>저녁 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+.masthead{padding-block:14px 10px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.window{font-size:12.5px; color:var(--muted); letter-spacing:.02em}
+.navline{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-block:10px 0}
+.navline a{
+  font-size:12px; font-weight:500; text-decoration:none;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid transparent; border-radius:999px; padding:4px 11px;
+}
+.navline a:hover{border-color:var(--accent)}
+.tallies{display:flex; flex-wrap:wrap; gap:6px 16px; margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.tallies b{font-weight:600; font-size:14px}
+.t-scoop b{color:var(--scoop)} .t-flash b{color:var(--flash)}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 10px; scrollbar-width:thin}
+.beat{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:6px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:999px; padding:5px 11px; font-size:13px; font-weight:500;
+  cursor:pointer; white-space:nowrap;
+}
+.beat:hover{border-color:var(--accent); color:var(--ink)}
+.beat .c{font-size:11.5px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.beat[aria-pressed="true"] .c{color:rgba(255,255,255,.8)}
+
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 12px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{
+  border:0; background:var(--surface); color:var(--ink-2);
+  font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{
+  flex:1 1 180px; min-width:0; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:6px 10px;
+}
+#q::placeholder{color:var(--muted)}
+#q:focus,.seg button:focus-visible,.beat:focus-visible,.more:focus-visible,
+.bar button:focus-visible,.panel button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:0 96px}
+section{margin-top:26px; scroll-margin-top:170px}
+.sec-head{
+  display:flex; align-items:baseline; gap:9px;
+  padding-bottom:7px; border-bottom:2px solid var(--ink); margin-bottom:2px;
+}
+.sec-head h2{margin:0; font-size:15.5px; font-weight:700; letter-spacing:-.005em}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{
+  background:var(--surface); border-bottom:1px solid var(--line-soft);
+  padding:9px 12px 9px 11px;
+}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{
+  flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer;
+  accent-color:var(--pick); transform:translateY(2px);
+}
+.tag{
+  flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:1.5px 6px; border-radius:4px; transform:translateY(-1px);
+}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{
+  color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45;
+  text-underline-offset:3px;
+}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{
+  flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline;
+  font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.more{
+  margin-top:5px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--accent); font-weight:500;
+}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:5px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes[hidden]{display:none}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:40px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- selection bar ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:var(--shadow);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13.5px; font-weight:600}
+.bar .count b{color:var(--pick); font-size:16px}
+.bar .spacer{margin-left:auto}
+.btn{
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  font:inherit; font-size:13px; font-weight:500; padding:7px 14px; border-radius:7px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08); color:#fff}
+
+/* ---------- report panel ---------- */
+.veil{
+  position:fixed; inset:0; z-index:40; background:var(--veil);
+  display:flex; align-items:flex-end; justify-content:center; padding:16px;
+}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{
+  background:var(--surface); border-radius:12px; width:100%; max-width:660px;
+  max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  border:1px solid var(--line);
+}
+.panel-head{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{
+  flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px;
+  border:1px solid var(--line); border-radius:8px; resize:vertical;
+  background:var(--surface-2); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8;
+}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+
+@media (max-width:560px){
+  .tallies{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+  section{scroll-margin-top:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="navline"><a href="./">‹ 지난 다이제스트</a><a href="../">↻ 최신 다이제스트</a></div>
+    <div class="masthead">
+      <h1 id="label">저녁 다이제스트</h1>
+      <span class="window mono" id="window"></span>
+      <div class="tallies">
+        <span>표시 <b class="mono" id="n-shown">0</b>건</span>
+        <span>주제 <b class="mono" id="n-topic">0</b>개</span>
+        <span class="t-scoop">단독 <b class="mono" id="n-scoop">0</b></span>
+        <span class="t-flash">속보 <b class="mono" id="n-flash">0</b></span>
+        <span>원문 <b class="mono" id="n-raw">0</b>건</span>
+      </div>
+    </div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색 (예: 담합, 연합뉴스)" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <span class="count"><b class="mono" id="n-pick">0</b>건 선택</span>
+    <span class="hint">체크한 기사만 보고 양식으로 묶습니다</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="clear">선택 해제</button>
+    <button class="btn primary" type="button" id="make">보고 양식 만들기</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="selectall">전체 선택</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"label": "저녁 다이제스트", "start": "10/13 13:30", "end": "10/13 17:30", "raw": 291, "groups": [{"name": "공정위", "clusters": [[{"t": "\"○○중 부탁드려요\"…용인·울산·영천 교복 담합, 과징금 1억", "s": "연합뉴스", "l": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE92S2EzVGhtcS0tZ3dfRGQtczRnV2VfTk5sSFpmUTJTY0dRc1lOWFhyXzVkTm9fcFhTVUlPWWdMSkZMVEtEYkxuMTh3dEJuRDNrTF9WWEdnSGdGbGfSAWBBVV95cUxORlpWZnZ6TTFKM05qV0FjbFc5bHhMaE5HdjRKZ3hhSjBIdi1ad3drS0NueFN0YXhYcEpLYmZsUHFLeWxyMVM5MDNvczhRTDd5aEs1dXZPYXBhenpsRkRjSEU?oc=5", "m": "", "p": "12:00", "n": 1}, {"t": "공정위, 담합 교복업체 10곳에 과징금 1억 원…\"입찰 가격 합의\"", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008795139&plink=ORI&cooper=NAVER", "m": "", "p": "13:28", "n": 2}, {"t": "용인·울산·영천 교복업체 10곳 담합, 과징금 1억 원", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0102_202610131329204190", "m": "", "p": "13:29", "n": 1}, {"t": "전국 3개지역 교복 담합…대리점 10곳·과징금 1억", "s": "매일경제", "l": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE10MHlaSTA4THlXZ0VnNnB1bkEzcUYtTi1uLXg4bGtYU2VjM3l1WHNUbGNRbFV6M01NLTR0WERMMHdFd1M0UHlySkh6Mk5weHRseHBoVg?oc=5", "m": "", "p": "13:35", "n": 2}, {"t": "공정위, 교복 입찰 담합 10개 대리점 제재…과징금 1억200만원", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTFBfRk9TOUJIb3BidVJHVWZtY295V1plZlI5OWVDbTExUHV1Wjl6bjR2RkNtOFJEdWVMTjNxT0N0clludnpoYm9WVUVnUURPelNIaXBpTkstcGN5NXAwOTkweUI4dEc?oc=5", "m": "", "p": "13:50", "n": 2}, {"t": "공정위, 교복 입찰 '짬짜미' 대리점 10곳 과징금 1억", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/13/2026101390173.html", "m": "", "p": "15:31", "n": 1}, {"t": "“○○중은 네가 가져가”…교복업체 10곳 ‘학교 나눠먹기’ 담합", "s": "중앙", "l": "https://www.joongang.co.kr/article/25469331", "m": "", "p": "15:40", "n": 1}, {"t": "교복 입찰 담합한 대리점 10곳 적발…과징금 1억200만원", "s": "동아", "l": "https://news.google.com/rss/articles/CBMidkFVX3lxTE04WVB6OE5ELXN6bnVmRHhFWDFDVDUwYUs4N2x6dTlaVWtNWFV1UmFnYVQ1dVpFZkhucnlyN2pXd2NGSi1uSlFPa0k3RVVSNUJuVEZiTjkyMC1qOVlCVHRmMDZZY2MxU0VkZm95eXdPelRjQk5vd2fSAWZBVV95cUxNWkRvZmdGR3JSRFNkdDJFZ3F5RWotT0NpRERDblJrZzJJUWZzUS1lYmpCSGhpa1R3N0VyQUhMdTRXcHh3dlBWR1JlZUFwem1NdUtydnNITTEtUFlEVmhKSVdKbnl2SFE?oc=5", "m": "", "p": "16:12", "n": 1}, {"t": "용인·울산·영천서 교복 입찰담합 적발…대리점 10곳 과징금 1억200만원", "s": "동아", "l": "https://www.donga.com/news/Economy/article/all/20261013/134833286/1", "m": "", "p": "16:13", "n": 1}, {"t": "與, 가격명령제 法에 명문화…담합 전으로 가격 낮춘다", "s": "서울경제", "l": "https://www.sedaily.com/article/20101062?ref=naver", "m": "", "p": "16:28", "n": 1}], [{"t": "방사청장, 한화·KAI 인수설에 \"의견 낼 단계 아냐…국익 중심 검토\"", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/13/2026101312373563865", "m": "", "p": "13:31", "n": 1}, {"t": "\"한화가 KAI 인수? 독과점 우려\"... 방사청장 \"국익 측면서 검토\"", "s": "오마이뉴스", "l": "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003274876&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news", "m": "", "p": "13:51", "n": 1}, {"t": "[2026 국정감사] \"육·해·공 방산 독점하나\"…한화 KAI 인수에 정치권서 공정 경쟁 훼손 우려 | 아주경제", "s": "아주경제", "l": "https://www.ajunews.com/view/20261013134201365", "m": "", "p": "14:08", "n": 1}, {"t": "한화의 KAI 인수 가능성에… 방사청장 “국익 측면서 살펴야”", "s": "조선비즈", "l": "https://biz.chosun.com/industry/company/2026/10/13/Q7VMG3RMONDQ5GRB6FM3ZGV4UA/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "14:29", "n": 1}, {"t": "KAI 노조, 청와대 상경투쟁 돌입… \"한화 인수 시도 중단하라 \"", "s": "쿠키뉴스", "l": "https://www.kukinews.com/article/view/kuk202610130144", "m": "", "p": "14:32", "n": 1}, {"t": "방사청장, 한화 KAI 인수 \"국가 안보, 국익 측면에서 밀도 있게 검토\"", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610131424590225", "m": "", "p": "14:42", "n": 1}, {"t": "KAI노조 ‘한화 인수 저지’ 상경 투쟁", "s": "경남", "l": "https://www.knnews.co.kr/news/articleView.php?idxno=1552683", "m": "", "p": "15:10", "n": 1}, {"t": "[2026 국감] 방사청장, 한화-KAI 인수 가능성 두고 \"국익 중심 검토해야\"", "s": "더팩트", "l": "https://news.tf.co.kr/read/economy/2375715.htm", "m": "", "p": "15:28", "n": 1}, {"t": "한화-KAI 인수 아직인데…정부는 신중론, 노조는 청와대 상경투쟁", "s": "한국경제", "l": "https://magazine.hankyung.com/business/article/202610139167b", "m": "", "p": "15:57", "n": 1}, {"t": "한화의 KAI 인수 '독과점' 우려…방사청장 “국익 중심 검토”", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=03913046645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "16:35", "n": 1}], [{"t": "호카 총판 분쟁, 조정훈 “중소기업 기여 살펴야” [PS]", "s": "동아", "l": "https://sports.donga.com/economy/article/all/20261013/134832622/1", "m": "", "p": "13:48", "n": 1}, {"t": "호카 국내 총판 교체 논란…조정훈 \"중소기업 기여도 평가해야\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2014453", "m": "", "p": "14:42", "n": 1}, {"t": "조정훈 의원 \"호카 총판권 분쟁, 중소기업 권익·거래 적정성 살펴야”", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261013155137", "m": "", "p": "15:52", "n": 1}], [{"t": "국힘 \"주병기, 대기업 편향 인식 우려…공정위원장 사퇴해야\"", "s": "뉴스1", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTFBQamlISTg0SDNKV25OT2hTQ0owRmtsd0FFVVoxVE9kVTl6QXRxLWdtQW9KQ3BXZ3RVYURDLVNVaGhoM3Q0c19QcWtqNXJjMDRQLXdWNE9iV0NCQQ?oc=5", "m": "", "p": "10:24", "n": 1}, {"t": "‘재벌 착취’ 발언 후폭풍…국힘 “주병기 공정위원장 사퇴 요구”", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12088808?ref=naver", "m": "", "p": "15:28", "n": 1}], [{"t": "[일지] 중앙행정기관·공공기관 지방이전 주요 일지", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261013105400530?input=1195m", "m": "", "p": "14:01", "n": 1}], [{"t": "구글·메타 법인세 소송서 연패…김태년 \"범정부 협의체로 제도 개선해야\"", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/13/2026101310543415692", "m": "", "p": "14:21", "n": 1}], [{"t": "주병기發 정무위 파행 일단락…\"한성숙 국감 부르자\" 野 공세 고조", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/13/2026101313382791659", "m": "", "p": "14:23", "n": 1}], [{"t": "‘호카’ 총판 놓고 조이웍스·데커스 국제중재…국회도 거래과정 주목", "s": "문화", "l": "https://www.munhwa.com/article/11623157?ref=naver", "m": "", "p": "14:37", "n": 1}], [{"t": "유웨이 “수시 먹통 OS 업그레이드 버그 탓”…부하 테스트는 안 했다", "s": "조선", "l": "https://edu.chosun.com/site/data/html_dir/2026/10/13/2026101380138.html", "m": "", "p": "14:56", "n": 1}], [{"t": "김병주, 방산 M&A에 ‘국가안보 거부권’ 추진", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10901194?ref=naver", "m": "", "p": "15:27", "n": 1}], [{"t": "野 \"李 정부 부동산 정책 실패\"…국조실장 \"국민 모두 노력해야\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824175", "m": "", "p": "15:32", "n": 1}], [{"t": "금융위·법무부 떠나는 서울·과천 정부청사…'빈자리' 누가 채우나", "s": "뉴스1", "l": "https://www.news1.kr/local/moi/6318485", "m": "", "p": "15:38", "n": 1}], [{"t": "쿠팡, '역대 최대' 6247억 과징금 2년간 6번 나눠 낸다", "s": "한국경제", "l": "https://www.hankyung.com/article/202610139250i", "m": "", "p": "16:20", "n": 1}], [{"t": "이엠텍, KT&G 상대 3000억원 배상 청구", "s": "전자", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE95LVFlWnhhSVd3aEFlVGZyNXc2eGRGSTNiTHhyLWhIZWpncG5DUmt3X1k0Y25BaUVkTkNkdXdoS2NsU2oxZmd3dGtMbF9pUQ?oc=5", "m": "", "p": "13:56", "n": 2}], [{"t": "‘반도체 착시’에 숨은 한국 경제의 경고…5년 뒤 다가올 현실", "s": "서울경제", "l": "https://www.sedaily.com/article/20100942?ref=naver", "m": "", "p": "13:51", "n": 1}], [{"t": "[국감 26] '조사 거부 아닌 권리구제'…쿠팡, 국감서 정면 해명 나선 이유", "s": "테크M", "l": "https://www.techm.kr/news/articleView.html?idxno=156042", "m": "", "p": "14:30", "n": 1}], [{"t": "본지 ‘아틀라스’, 광고주 선정 올해의 기획보도상", "s": "서울경제", "l": "https://www.sedaily.com/article/20100770?ref=naver", "m": "", "p": "14:37", "n": 1}], [{"t": "산자위, 김종화 SK에너지 대표·송명준 HD현대오일뱅크 대표 22일 국감 증인 채택", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026101314370554211", "m": "", "p": "14:43", "n": 1}], [{"t": "[한화의 KAI 대기표]① 3조 넘은 지분 못 파는 수출입은행", "s": "블로터", "l": "https://www.bloter.net/news/articleView.html?idxno=675532", "m": "", "p": "15:22", "n": 1}], [{"t": "[김동선의 뉴한화] 다음은 호텔…한화M&S, 지주 요건 정리 '진행형'", "s": "블로터", "l": "https://www.bloter.net/news/articleView.html?idxno=675529", "m": "", "p": "15:53", "n": 1}]], "n": 41}, {"name": "방미통위", "clusters": [[{"t": "[단독]위고비 열풍에 건강기능식품 부당광고 기승…관리·감독은 구멍[2026국감]", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026101315221185499", "m": "🔥", "p": "15:28", "n": 1}], [{"t": "[속보] 방미통위·개보위 등 6곳 내년 상반기 세종 이전…금융위는 하반기", "s": "뉴스1", "l": "https://www.news1.kr/local/moi/6318245", "m": "⚡", "p": "14:00", "n": 1}, {"t": "[속보] 금융위도 세종 간다... 내년, 27개 중앙행정기관 우선 이전", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026101311520002148?did=NA", "m": "⚡", "p": "14:00", "n": 1}, {"t": "[속보]금융위원회 등 44개 행정기관 세종으로 단계적 이전", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610131359519720", "m": "⚡", "p": "14:02", "n": 1}, {"t": "[속보] 외교·통일·국방 등 44개 정부기관, 2031년까지 세종 이전", "s": "한겨레", "l": "https://www.hani.co.kr/arti/area/capital/1282121.html", "m": "⚡", "p": "14:02", "n": 1}, {"t": "[속보]윤호중 \"방미통위·개보위 등 6곳 내년 상반기 세종 이전\"", "s": "파이낸셜뉴스", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE1ETGlWeU5qeHkyLVZSVGFCaWZsWUlEQ2w0all0WERxb19zeG5FbVVlbkkxMnRTdG9nQWJ3UmpjMDBtNHo4WXNyY2lkU2RpR0pwZ05BMnRldmhDdw?oc=5", "m": "⚡", "p": "14:02", "n": 2}, {"t": "[속보] 외교부·국방부도 세종 간다…중앙행정기관 44개, 2031년 세종 이전", "s": "서울", "l": "https://www.seoul.co.kr/news/society/2026/10/13/20261013500144?wlog_tag3=naver", "m": "⚡", "p": "14:05", "n": 1}, {"t": "[속보]중앙행정기관 44곳 1만 명 이전…법무부·금융위도 세종으로", "s": "서울경제", "l": "https://www.sedaily.com/article/20100957?ref=naver", "m": "⚡", "p": "14:07", "n": 2}, {"t": "[속보] 정부 \"내년 27개 정부 기관 세종 이전‥금융위·방미통위 등 대상\"", "s": "MBC 뉴스", "l": "https://news.google.com/rss/articles/CBMieEFVX3lxTE1uZkYxTWdsVGdxV2E5V0d4emhzenA5X01RLXE4UEh4ZXE1LWZNVFdfTnZzUnQ0TjdCa1QwMXZ5VXhIQ2FBcmYwQ1R2VGJDenM5WkRBVXEtbDRYTkRYVFdQaDdoQmFSTFN5Yjk5VmV3VHltYVpoUG5lRtIBeEFVX3lxTE80c3ZRQktDVnY4V2RFZl9JWVdNdW1VTjdaNldoU1lOLVdoTjE5YlpiYk9hemFoVVRyMjZHMHIxWnVQMm9EcW9JZHVmSGlWX05IdVlQMGFFV256RngtMGI0WnpjdUZudWZTSldBaHZXdlpPTlhCSERtcg?oc=5", "m": "⚡", "p": "14:07", "n": 2}, {"t": "[속보]외교·국방·통일부 등 17곳 청사 신축 후 2031년 이전", "s": "국민", "l": "https://www.kmib.co.kr/article/view.asp?arcid=9000022099&cp=nv", "m": "⚡", "p": "14:10", "n": 1}, {"t": "[속보] 방미통위·개보위 등 44개 기관 세종 이전", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE9pbEVHaFJWanRWajFrN1BSTzdTN1JJNkhNMGpOTXpNM1Y2dGZTRTAxT1BabXp6SlFDSVNSUThkcFRqVDl3WExkSHh6QQ?oc=5", "m": "⚡", "p": "14:10", "n": 2}, {"t": "법무·성평등부·금융위 2027년 세종으로…공무원 1만명 대이동", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261013101800530?input=1195m", "m": "", "p": "14:00", "n": 3}, {"t": "\"내년 상반기라니\"…정부기관 세종 이전에 관가 술렁", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261013121200017?input=1195m", "m": "", "p": "14:46", "n": 1}, {"t": "금융위·국방부·개보위 등 44개 기관 세종 이전 확정…공무원 9929명", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003823807", "m": "", "p": "14:02", "n": 1}, {"t": "\"로펌에 뺏길라\"…개인정보위·방미통위, 내년 상반기 세종 이전 소식에 '뒤숭숭'", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824090", "m": "", "p": "15:09", "n": 2}, {"t": "금융위 등 44곳, 내년부터 세종행…중수청은 청사신축 후(종합)", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824140", "m": "", "p": "16:42", "n": 1}, {"t": "윤호중 \"금융위·방미통위 등 27개 기관 내년부터 세종 이전\"", "s": "뉴스1", "l": "https://www.news1.kr/local/moi/6318271", "m": "", "p": "14:00", "n": 2}, {"t": "수도권 44개 행정기관 세종行…금융위·방미통위 내년 순차 이전", "s": "뉴스1", "l": "https://www.news1.kr/local/moi/6318258", "m": "", "p": "14:00", "n": 2}, {"t": "방미통위, 과천 떠나 세종 이전…세부 계획은 행안부와 협의", "s": "뉴스1", "l": "https://www.news1.kr/it-science/cc-newmedia/6318352", "m": "", "p": "14:38", "n": 2}, {"t": "개보위, 출범 16년 만에 세종 이전", "s": "뉴스1", "l": "https://www.news1.kr/it-science/security-hacking/6318391", "m": "", "p": "14:53", "n": 1}, {"t": "원안위, 내년 상반기 세종 이전…출범 16년 만", "s": "뉴스1", "l": "https://www.news1.kr/it-science/general-science/6318443", "m": "", "p": "15:14", "n": 1}, {"t": "44개 중앙행정기관 세종 이전…\"역사적 결단\" 지역 일제히 환영", "s": "뉴스1", "l": "https://www.news1.kr/local/sejong-chungbuk/6318528", "m": "", "p": "15:58", "n": 1}, {"t": "중앙부처 모두 세종으로…금감원·국책은행 연말 이전 여부 발표", "s": "뉴스1", "l": "https://www.news1.kr/local/moi/6318562", "m": "", "p": "16:05", "n": 1}, {"t": "방미통위·개보위·원안위 등 6개 기관 내년 상반기 세종 이전 우선 추진", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8684318&ref=A", "m": "", "p": "14:00", "n": 2}, {"t": "법무부·성평등부·외교부·통일부 등 세종 이전…6개 기관 내년 상반기 우선 추진", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8684319&ref=A", "m": "", "p": "14:00", "n": 1}, {"t": "금융위·방미통위 내년 세종으로…외교·안보 부처도 이전 추진", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxOWlJYQVFpUDhNWXZ6dHVBZmRtQmJjb0pzT2gyWGRacXR0VUJYYzZyLXNmTnd5bHl0X1dVcWMzVjBmYXhoUDdkVjkycWZzWkNKQUotLXNFbzhiejM3ejdLOXVIbEwxNmRLWk9DM3E1S1VwWWRmUFJzaHdsUEFPbVFuZQ?oc=5", "m": "", "p": "14:00", "n": 3}, {"t": "금융위원회 내년에 세종으로…법무부·성평등부도 지방 이전", "s": "중앙", "l": "https://www.joongang.co.kr/article/25469292", "m": "", "p": "14:01", "n": 1}, {"t": "방미통위·인권위 ‘내년 상반기’ 감사원·중수청 ‘2031년까지’···44개 기관 ‘세종 이전’ 확정", "s": "경향", "l": "https://www.khan.co.kr/article/202610131401001", "m": "", "p": "14:01", "n": 2}, {"t": "외교·통일·국방부도 세종시로…정부부처 세종에 다 모은다", "s": "부산", "l": "https://www.busan.com/view/busan/view.php?code=2026101313531330086", "m": "", "p": "14:01", "n": 1}, {"t": "중앙행정기관 44곳 세종 2차 이전…외교·국방·경찰청 포함", "s": "매일", "l": "https://www.imaeil.com/page/view/2026101313380608627", "m": "", "p": "14:01", "n": 1}, {"t": "“금융위도 국방부도 세종으로”…44개 기관·1만명 대이동", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=03211126645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "14:02", "n": 1}, {"t": "금융위·방미통위 내년 세종 간다…중앙행정기관 44곳 이전 추진", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000339664?division=NAVER", "m": "", "p": "14:03", "n": 1}, {"t": "'국방부·외교부 등' 수도권 중앙부처 44곳 세종行…27곳은 내년 중 이전", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610131343387921", "m": "", "p": "14:03", "n": 1}, {"t": "금융위·법무·성평등부 내년 세종으로…공무원 1만명 대이동", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12088773?ref=naver", "m": "", "p": "14:05", "n": 1}, {"t": "금융위 내년 세종으로…법무·외교·국방부도 옮긴다", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610131342327752", "m": "", "p": "14:06", "n": 1}, {"t": "중앙행정기관 44곳·1만명 세종 이전…금융위 내년, 외교·국방부 2031년까지 [상보]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2635141", "m": "", "p": "14:06", "n": 1}, {"t": "법무·외교·통일·국방부도 세종 간다…정부부처 다 모은다", "s": "동아", "l": "https://www.donga.com/news/Politics/article/all/20261013/134832880/1", "m": "", "p": "14:07", "n": 1}, {"t": "중앙행정기관 44곳·공무원 9929명 세종 이전...금융위도 포함", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261013000623", "m": "", "p": "14:07", "n": 1}, {"t": "수도권 행정기관 44곳 세종으로…금융위 등 내년 순차 이전", "s": "매일경제", "l": "https://www.mk.co.kr/article/12174380", "m": "", "p": "14:08", "n": 1}, {"t": "금융위, 2027년 하반기 세종 이전", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610131356428386", "m": "", "p": "14:10", "n": 1}, {"t": "법무·외교·국방부도 세종 간다…1만명 2031년까지 '대이동'", "s": "한국경제", "l": "https://www.hankyung.com/article/2026101387827", "m": "", "p": "14:11", "n": 1}, {"t": "“서울 짐 싸서 세종으로”…법무·성평등부·금융위 1만명 2027년 대이동", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12088775?ref=naver", "m": "", "p": "14:12", "n": 1}, {"t": "금융위·개보위 세종 이전 확정…44개 기관·9929명 옮긴다", "s": "머니투데이", "l": "https://www.mt.co.kr/policy/2026/10/13/2026101312120348492", "m": "", "p": "14:12", "n": 1}, {"t": "44개 기관·공무원 1만 명 세종 간다…내년에만 27곳 이전", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590611?utm_source=naver&utm_medium=article&utm_campaign=20261013021535", "m": "", "p": "14:16", "n": 1}, {"t": "44개 행정기관 1만여명, '세종'으로…내년 법무부·성평등가족부·금융위 등 27곳 우선 이전", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026101314170032307", "m": "", "p": "14:16", "n": 1}, {"t": "법무·외교·국방부도 세종 간다…공무원 1만명 대이동", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/13/2026101390145.html", "m": "", "p": "14:23", "n": 1}, {"t": "법무·외교·국방부 등 44개 기관 세종 이전…공무원 1만명 이동", "s": "조선", "l": "http://weekly.chosun.com/news/articleView.html?idxno=56115", "m": "", "p": "14:25", "n": 1}, {"t": "“행정수도 완성에 큰 진전”…세종, 행정기관 이전 방침에 “환영”", "s": "중앙", "l": "https://www.joongang.co.kr/article/25469303", "m": "", "p": "14:25", "n": 1}, {"t": "[현장연결] 금융위 등 44개 기관 세종으로…내년부터 이전 시작", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/MYH20261013142449me0", "m": "", "p": "14:25", "n": 1}, {"t": "2차 중앙행정기관 이전 계획 브리핑", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590644?utm_source=naver&utm_medium=article&utm_campaign=20261013023136", "m": "", "p": "14:32", "n": 1}, {"t": "금융위·법무·성평등부 등 44개 행정기관 1만명 세종으로", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10901078?ref=naver", "m": "", "p": "14:32", "n": 1}, {"t": "정부, '27개 기관 내년 이전 추진'", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590646?utm_source=naver&utm_medium=article&utm_campaign=20261013023136", "m": "", "p": "14:32", "n": 1}, {"t": "정부, 2차 중앙행정기관 이전 계획 발표", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590649?utm_source=naver&utm_medium=article&utm_campaign=20261013023136", "m": "", "p": "14:32", "n": 1}, {"t": "정부, '중앙행정기관 44곳 1만 명 이전'", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590640?utm_source=naver&utm_medium=article&utm_campaign=20261013023136", "m": "", "p": "14:32", "n": 1}, {"t": "정부, '독립청사 필요한 17기관 31년까지 신축 이전'", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590645?utm_source=naver&utm_medium=article&utm_campaign=20261013023136", "m": "", "p": "14:32", "n": 1}, {"t": "공무원 9929명 짐싼다…금융위·법무부 등 44곳 세종 이전", "s": "쿠키뉴스", "l": "https://www.kukinews.com/article/view/kuk202610130142", "m": "", "p": "14:36", "n": 1}, {"t": "수도권 44개 중앙행정기관, 27년부터 세종으로[노컷네컷]", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590661?utm_source=naver&utm_medium=article&utm_campaign=20261013023835", "m": "", "p": "14:39", "n": 1}, {"t": "금융위·개보위 내년 세종행…44개 기관·공무원 1만명 이전 추진", "s": "한국경제", "l": "https://www.hankyung.com/article/202610138916i", "m": "", "p": "14:45", "n": 1}, {"t": "금융위, 내년 하반기 세종行… 금융정책 중심축 이동", "s": "IT조선", "l": "https://it.chosun.com/news/articleView.html?idxno=2023092171911", "m": "", "p": "14:46", "n": 1}, {"t": "44개 중앙행정기관 1만명 세종행…청사 신축에 3조 투입", "s": "전자", "l": "https://www.etnews.com/20261013000295", "m": "", "p": "14:51", "n": 1}, {"t": "중앙행정기관 1만명 세종행…3.1조원 청사 건립·법 개정 등 과제 산적 [종합]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2635236", "m": "", "p": "14:52", "n": 1}, {"t": "중앙행정기관 44개 세종 이전…법무부·성평등부·금융위도", "s": "더팩트", "l": "https://news.tf.co.kr/read/life/2375696.htm", "m": "", "p": "14:53", "n": 1}, {"t": "개보위, 내년 상반기 세종으로 이전한다…임차청사 활용해 6개 기관 '우선' 이전", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026101314481542882", "m": "", "p": "14:56", "n": 1}, {"t": "수도권 중앙행정기관 44곳 세종 이전…내년 27곳 먼저 옮긴다", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1700921/?sc=Naver", "m": "", "p": "14:57", "n": 1}, {"t": "“중앙부처 이전 속도” 44곳 세종행", "s": "한국경제", "l": "https://magazine.hankyung.com/business/article/202610138965b", "m": "", "p": "14:59", "n": 1}, {"t": "금융위, 내년 하반기 세종으로⋯중앙행정기관 44곳 단계적 이전", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2014465", "m": "", "p": "15:06", "n": 1}, {"t": "44개 기관, 내년부터 세종으로 순차 이전", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8684352&ref=A", "m": "", "p": "15:09", "n": 1}, {"t": "금융위·개보위 등 44곳 세종행...정부 \"중앙부처 모두 이전 원칙\"", "s": "머니투데이", "l": "https://www.mt.co.kr/policy/2026/10/13/2026101314442578567", "m": "", "p": "15:09", "n": 1}, {"t": "법무·성평등부 등 세종行, 2031년까지 1만명 이동…\"이전 효과는 추후 검토\"(종합)", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026101315145105677", "m": "", "p": "15:14", "n": 1}, {"t": "수도권 44개 행정기관 세종 이전…금융위·방미통위 내년 먼저 옮긴다", "s": "아주경제", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE1mRTUwdmdxQTFvVm02LU9CQmYzZlQxeU9EcDhNdjdhdERvU0lNV0IwclhXbnN3VUZoNU9sNVFma1BTTjR1Q1c3dUFqdkZobzF5MmM3U0JjOTNZd9IBWEFVX3lxTE9TdUVLVkcyTktuSXoyUHBsTXRId1dPVWZDLTZZbXN1aGlJc0VHQ3RmMUV3OWo2WDFVb2FsWElDT0JyWlQxb1NyNlk4Z0t3c3NJVzJqelM1MXo?oc=5", "m": "", "p": "15:15", "n": 2}, {"t": "외교·국방부도 세종 간다… 정부기관 44곳·공무원 약 1만명 대이동", "s": "세계", "l": "https://www.segye.com/newsView/20261013516204?OutUrl=naver", "m": "", "p": "15:17", "n": 1}, {"t": "금융위 내년에 세종으로…44개 기관·공무원 1만명 이전 추진", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/13/2026101390167.html", "m": "", "p": "15:17", "n": 1}, {"t": "세종 이전 대상된 법무부 직원들 “주거가 가장 큰 문제…퇴직자 나올 수도”", "s": "경향", "l": "https://www.khan.co.kr/article/202610131518001", "m": "", "p": "15:18", "n": 1}, {"t": "\"행정기관 내년부터 세종 이전…경제·행정 2수도 시대 앞당길 것\"", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590721?utm_source=naver&utm_medium=article&utm_campaign=20261013031835", "m": "", "p": "15:19", "n": 1}, {"t": "내년 금융위·방미통위 등 27개 정부 기관 세종 이전", "s": "MBC", "l": "https://imnews.imbc.com/replay/2026/nw1400/article/6857607_36974.html", "m": "", "p": "15:23", "n": 2}, {"t": "정부 부처 등 수도권 소재 중앙행정기관 세종시 대거 이전에 세종시 ‘반색’", "s": "프레시안", "l": "https://www.pressian.com/pages/articles/2026101315284794812?utm_source=naver&utm_medium=search", "m": "", "p": "15:34", "n": 1}, {"t": "방미통위, 광화문 → 과천 거쳐 '세종 시대'...2008년 출범 후 두 번 이사", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE1GWkZXOUIwY29NbzFJN2dVLUVrLW14MkNQMnA2NmZBbGtsbC05TmR0Rzd1RVVZaHc4ZFJSaUJpWW1pVVhlU1pvYTN1NA?oc=5", "m": "", "p": "15:39", "n": 2}, {"t": "세종시의회 \"중앙행정기관 2차 이전 본격화 환영\"", "s": "아시아투데이", "l": "https://www.asiatoday.co.kr/kn/view.php?key=20261013010003854", "m": "", "p": "15:40", "n": 1}, {"t": "수도권 1만 공무원, 내년부터 세종으로 옮긴다", "s": "매일경제", "l": "http://mbn.mk.co.kr/pages/news/newsView.php?category=mbn00006&news_seq_no=5224592", "m": "", "p": "15:45", "n": 1}, {"t": "현판도 못 단 방미통위, 내년 세종 청사 이전…정책 연속성 우려", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE55cEVjdUVhMUozYlhmVVc4UXpVTlVMeWtUWUpldGl4SU5icldFcV9fc2lIV0VXQmZQN1FxVFBKdFlmX3pxMnpCQXg1QXNPRTRSX3NVTGJHbjFLRG9fUW1CaHljOWs?oc=5", "m": "", "p": "16:06", "n": 2}, {"t": "중수청·경찰청 등 정부기관 44곳 '세종 이전'…서울서만 36곳 빠져", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/13/2026101390190.html", "m": "", "p": "16:11", "n": 1}, {"t": "공무원 약 1만명 세종 간다…금융 시장 대응 약화·이주 부담 문제 우려", "s": "아주경제", "l": "https://www.ajunews.com/view/20261013153605866", "m": "", "p": "16:14", "n": 1}, {"t": "44개 기관 세종으로…금융위 등 내년부터 이전 시작", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/MYH20261013161640bs4", "m": "", "p": "16:17", "n": 1}, {"t": "원자력안전위원회 2027년 상반기 세종 이전…출범 15년만", "s": "동아사이언스", "l": "https://www.dongascience.com/news/view/80313", "m": "", "p": "16:18", "n": 1}, {"t": "금융위도 세종으로…수도권 44개 기관 옮긴다 [중앙행정기관 이전-Q&A]", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1701019/?sc=Naver", "m": "", "p": "16:22", "n": 1}, {"t": "금융위, 내년 하반기 세종 이전 확정…금감원은 지방행 ‘별도 검토’", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026101316233364473", "m": "", "p": "16:30", "n": 1}, {"t": "2031년까지 공무원 1만명 세종 간다⋯금융위 내년 하반기 이전 [종합]", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2014513", "m": "", "p": "16:30", "n": 1}, {"t": "\"당장 내년 상반기에?\" 방미통위, 세종 이전 계획에 술렁", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026101314530002564?did=NA", "m": "", "p": "16:30", "n": 1}, {"t": "금융위 내년 하반기 세종행…금감원·한은·국책은행 이전도 검토", "s": "쿠키뉴스", "l": "https://www.kukinews.com/article/view/kuk202610130195", "m": "", "p": "16:56", "n": 1}], [{"t": "경영난 겪는 중소 방송채널에 제작 지원…법적 근거 마련", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261013137000017?input=1195m", "m": "", "p": "15:40", "n": 2}, {"t": "중소 PP 지원 '방송법 개정안' 국무회의 통과…내년 4월 본격 시행", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824123", "m": "", "p": "16:30", "n": 1}, {"t": "중소방송 지원할 길 열린다…내년 4월 시행", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590752?utm_source=naver&utm_medium=article&utm_campaign=20261013034636", "m": "", "p": "15:47", "n": 1}, {"t": "방미통위 \"중소 방송채널사용사업자 제작 지원 근거 마련\"", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000339683?division=NAVER", "m": "", "p": "15:54", "n": 1}, {"t": "내년 4월부터 중소PP 콘텐츠 제작 지원 이뤄진다", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261013162814", "m": "", "p": "16:29", "n": 1}], [{"t": "정부 \"2031년 이후 대부분 기관 세종에…경제효과 추후 검토\"(종합)", "s": "뉴스1", "l": "https://www.news1.kr/local/moi/6318475", "m": "", "p": "15:37", "n": 1}, {"t": "외교부·통일부·국방부... 44개 기관 세종시로 이전", "s": "조선", "l": "https://www.chosun.com/national/national_general/2026/10/13/WCKE3BUIJBBLDP4Y43BHWOFVA4/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news", "m": "", "p": "14:07", "n": 1}, {"t": "윤호중 \"이전 대상은 총 44개 기관...공무원 9,929명 규모\" [현장영상+]", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0115_202610131412115547", "m": "", "p": "14:12", "n": 1}, {"t": "법무·성평등부·금융위 27년 세종으로…44개 정부기관 대이동", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/AKR20261013141327BUt", "m": "", "p": "14:14", "n": 1}, {"t": "방미통위·개인정보위 등 44개 기관 내년부터 단계적 이전", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0115_202610131432011376", "m": "", "p": "14:32", "n": 1}, {"t": "44개 기관 세종行…국가 행정축이 움직인다", "s": "대전", "l": "https://www.daejonilbo.com/news/articleView.html?idxno=2306699", "m": "", "p": "16:57", "n": 1}], [{"t": "과방위, 이진숙 제척 與 주도 의결…국힘 \"권한쟁의심판 청구\"(종합)", "s": "연합뉴스", "l": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFBfVXN1RjVHMzh2bFoyNW5Ia3NsU2xIa1QzRDRlZjh4cF93b3I3dXpJQUlmTC0weW40YVF2TE8zRWF0TFBQTTRoZDdEQXo2c09OcjhXR1RHQ1VtZW_SAWBBVV95cUxNWl9SRmczbEpWMjU3b0Z3QV9EbnlCMDJRQU1DV2c1TEN5ZWNpakI1WDJEWExYVlhkUThTX0kyLW5UWE55U2F3SUZoX1YxT2kyNTAxUWhEM2JOZ2UzWVFxZmg?oc=5", "m": "", "p": "18:18", "n": 1}, {"t": "‘이해충돌’로 이진숙 국감 제척…국힘, 권한쟁의·효력정지 추진", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12088770?ref=naver", "m": "", "p": "13:36", "n": 1}], [{"t": "앱 이어 웹사이트까지…FIU, 미신고 코인업체 27곳 국내 접속 차단", "s": "뉴스1", "l": "https://www.news1.kr/finance/blockchain-fintech/6318520", "m": "", "p": "15:43", "n": 1}, {"t": "FIU, BTCC 등 불법거래소 27곳 차단", "s": "서울경제", "l": "https://www.sedaily.com/article/20101027?ref=naver", "m": "", "p": "15:44", "n": 1}], [{"t": "[스코어보드-과방위]지역방송 숫자로 파고, 감사TF 끝까지 추적…제척 공방 속 송곳질의", "s": "머니투데이", "l": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9rd0dZWWtjVWNmRzRTa0NZT0gyTHJyYlZxRlYzUDMwVnJVVHpyb0RfdXNqWmx5OHZWdjhHb2pwY1BQbTFTOWI3WXZ2VkF3SUx3d3pJNjc1WFlMdEJpQXJ5cWJKamg2dy00ZHRDYdIBckFVX3lxTFBfX0szYXlOLXh3Z29VbHNkMGo0ZmVIbTBUVXBRSDdkbmRVWUZMaExZTFhZd1cwRF9FZDNQNWxEZUFvdmxYYnQ3ZGVseUhyeUlOdVctY2pVSzI5VnBvNjVEZTV2TmYxQVJrRGFzMXZQWkdCZw?oc=5", "m": "", "p": "00:23", "n": 1}], [{"t": "이훈기 의원, 과방위 국감에서 방송 사유화 질타…\"방송은 사유물 아냐\"", "s": "JTBC", "l": "https://news.jtbc.co.kr/article/NB12322750?influxDiv=NAVER", "m": "", "p": "15:36", "n": 1}], [{"t": "공무원 1만명 세종간다…어느 부처, 언제 가나? [지금뉴스]", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8684379&ref=A", "m": "", "p": "15:39", "n": 1}], [{"t": "김현 사과 요구에…KT, 통일TV 송출중단 3년만에 \"진심으로 사과\"", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/13/2026101315445313312", "m": "", "p": "15:55", "n": 1}], [{"t": "불법촬영 신상 유출한 구글, ‘사흘 뒤 차단’하고선 “24시간 내” 주장", "s": "한겨레", "l": "https://www.hani.co.kr/arti/society/media/1282173.html", "m": "", "p": "16:42", "n": 1}], [{"t": "불법 복권 사이트 신고 1.3만 건…심의는 9개월·2000건 대기", "s": "뉴스1", "l": "https://www.news1.kr/economy/trend/6318581", "m": "", "p": "16:47", "n": 1}], [{"t": "방미심위, 불법 가상자산 영업 홈페이지 27개 접속 차단", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026101316000004363?did=NA", "m": "", "p": "16:54", "n": 1}], [{"t": "방미통위, 개인정보·플랫폼 규제 도마…여야 정쟁에 검증 발목 [국감2026]", "s": "IT조선", "l": "https://news.google.com/rss/articles/CBMicEFVX3lxTE1LaUZhNDVBeFBZakxvNkc3Qm11QTk2Y055NjAxaFNyQ1JIWXJRdjVoUERycjIwTlhGU3ctQVQtUTRJRnpQdzduSE5kT0VFcUh5TkVPYVIwNmxqWjZLMmEyRlNOeWxtNXdvMk1WUU5sR0c?oc=5", "m": "", "p": "20:58", "n": 1}], [{"t": "국힘 \"이진숙 '국감제척'은 야당 의원 '입틀막'⋯법적 대응\"", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE5sSlN2NXlrRnpfcXJVSGRsdFFxOEZ2OGE2ZzF0a0lPdGNOYUFHN1JFQnpjOFJsZmxrTXJQZDIyNE1wS05rRVpMaW1DRQ?oc=5", "m": "", "p": "10:26", "n": 1}], [{"t": "전국 가맹망으로 덩치 키운 '휴대폰 성지'…우회개통 등 불법행위도 조직화", "s": "전자", "l": "https://www.etnews.com/20261013000250", "m": "", "p": "14:10", "n": 1}], [{"t": "뮤직비디오 '자체등급분류' 도입…음악산업법 개정안 국무회의 의결", "s": "전자", "l": "https://www.etnews.com/20261013000256", "m": "", "p": "14:16", "n": 1}], [{"t": "문체부, MV 사전 등급심사 의무 완화…자체등급분류 허용", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261013150313", "m": "", "p": "15:04", "n": 1}], [{"t": "\"미디어진흥원 안에 지역방송 전담조직 포함해야\"", "s": "한국기자협회", "l": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE9PaWR0Mkh4NUROOEZQYWF1WXZVcnJ1ZUZEQ3VKWDFTTmNvNVFkU2dRdDg4TXMwRXVqOENCQjJqOTBZd296V1BEMFZ4a216YjM1VGpYcUFtN3lTMEI0VjktcU13?oc=5", "m": "", "p": "15:09", "n": 1}]], "n": 117}, {"name": "과기정통부", "clusters": [[{"t": "[단독]ISMS 인증 받아도 보안 구멍…인증 효과도 ‘깜깜이’", "s": "뉴스1", "l": "https://www.news1.kr/it-science/security-hacking/6317749", "m": "🔥", "p": "14:57", "n": 1}], [{"t": "국가가 만든 AI학습데이터 접근 쉬워진다…새 AI기본법 국무회의 통과", "s": "머니투데이", "l": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE1KX2NlNXRUQ0NkZGxyeW4zMm9ZYmNLQXU3NUZ6ZEM5TUhQcGNONjYtdHMteVdpTmVhWU9kMWVyNHpwZ1FPTTVGdHhmWW83cGc0RkpYV1NNdkFxbUZfb1NZUWgxcHFqSTTSAWxBVV95cUxNS0NpbFBjLWlfLVFSaGVWNE5yTnlfeWxxTGgtMXhUb2w3ZzdVR3FaNjlWVmVxT0UxOTk4QmszRkVmVHJhdTNDVGVqdGlpQW9yWTRKR2hwdHZhUHdBNHVtWUhlQU5DaTdrRmFheVI?oc=5", "m": "", "p": "13:21", "n": 1}, {"t": "정부가 만든 AI 학습데이터, 'AI허브'로 모인다…내년 4월 시행", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=03138966645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "13:27", "n": 1}, {"t": "'AI 데이터의 확보·제공 확대' AI기본법·데이터산업법 개정안 통과", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610121553157671", "m": "", "p": "14:14", "n": 1}, {"t": "정부사업으로 만든 AI 데이터 개방 확대…국무회의 통과", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261013143530", "m": "", "p": "14:36", "n": 1}, {"t": "\"정부가 만든 AI 데이터, 한곳에 모아 개방\"…AI기본법·데이터산업법 개정안 국무회의 통과", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026101214475902426", "m": "", "p": "14:40", "n": 2}, {"t": "AI기본법·데이터산업법 개정안 통과…“정부가 만든 AI 데이터 'AI허브'로”", "s": "전자", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE8tSi1fNlZLc3BtNmxoaVE1ZVR3b3VXeWN0eDhsMXUtZzViOGVrT05sRlgxcHhlS0xxTGpMMjZFNjdsdHdlUkNtQ1k1UUNPZw?oc=5", "m": "", "p": "14:43", "n": 2}, {"t": "정부 예산으로 만든 AI 학습 데이터, ‘AI 허브’에 모은다", "s": "조선비즈", "l": "https://biz.chosun.com/it-science/ict/2026/10/13/37E4IL4FGFHQZATL3EBSKFJI5Q/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "15:02", "n": 1}, {"t": "정부사업 AI 학습데이터, 'AI허브' 연계 의무화… 내년 4월 시행", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026101314180842094", "m": "", "p": "15:09", "n": 1}, {"t": "정부 사업 AI 데이터, 'AI 허브'에 모으고 누구나 활용한다", "s": "한국", "l": "https://news.google.com/rss/articles/CBMibkFVX3lxTE5sSXBBMG9YbDkwSkxyODA3R0pwQXcxb0dYUEVVUzVWZFQwN0lEeFRiVlZtb0cxSEd6bE9vT2d4amdSbDI0SGs5eWRtQjBUVmtCMzRfeGRBZkhzWnVFcGRRd0dNblZDNllrYWl1dTNR0gFzQVVfeXFMTmFBXzBMM1YwQkRYQk9nbVBrX0Z0UlEzOHJYMzVsTDB0NU1QeExGSGtsZFVybHdnNUwxQmRzbllrQzZsTWdCZXRIZmQtalVpcUpCMTdqZnA4X2taME1abUU4a2x1czlGMzgwdHlUM093LS1uUQ?oc=5", "m": "", "p": "16:14", "n": 2}, {"t": "정부 사업 AI 학습데이터, 'AI허브' 제공 의무화…내년 4월 시행", "s": "블로터", "l": "https://www.bloter.net/news/articleView.html?idxno=675559", "m": "", "p": "16:29", "n": 1}], [{"t": "\"中 로봇 무섭게 달린다\"…배 부총리 \"피지컬 AI, 3년 뒤 후회 없을 목표 세워야\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824337", "m": "", "p": "16:36", "n": 1}, {"t": "배경훈 부총리 \"피지컬AI 글로벌 1강 도약…실증·사업화 지원 강화\"", "s": "뉴스1", "l": "https://www.news1.kr/it-science/internet-platform/6317987", "m": "", "p": "15:00", "n": 2}, {"t": "엔비디아·인텔, 피지컬 AI 거점으로 韓 주목", "s": "조선비즈", "l": "https://biz.chosun.com/it-science/ict/2026/10/13/NUOIKMYDHFFWHATNDNES4D5KCU/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "14:57", "n": 1}, {"t": "배경훈 \"피지컬 AI, 논의 넘어 성과 낼 때…글로벌 1강 도약 가능\"", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/13/2026101309065590624", "m": "", "p": "15:00", "n": 2}, {"t": "과기정통부, 피지컬 AI 얼라이언스 성과 점검·현장 간담회", "s": "데일리안", "l": "https://news.google.com/rss/articles/CBMijgJBVV95cUxQWENkbUduVWlrSjJSYTVBcGhnWTBNYUlDUUFrcUFZMXlVeUpNVzVJdFVXM2ZodTF6cENwaG9nYlBucS1XZmlvSmlucUFsaXVHbW9KNEQ1VmcyNUNPZ290UmZFbkh6U1VSSG41enFjZmJObEJnbGt1QWRpbWZPS0RIUFZRTDNZUjUxdzgtU2ZVXzBzNFJxVktDcF8yM2dfSXFXcF9TY2thYXpOSEdOUWpBNnl1VlhTSmlUa0pEYi1tXzNkZG9HRlRZbFdpem9DX2U5ZzFweEthRU5QMXNtcEtNeVZzWFY0bkktTzBtWmNVSG50Q01JY05hMFBhUk9OWHhlWW1oRkpEWXhkaFgwT3c?oc=5", "m": "", "p": "15:00", "n": 2}, {"t": "배경훈 \"피지컬 AI 글로벌 1강 도약⋯실증·사업화 적극 지원\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2014239", "m": "", "p": "15:01", "n": 1}, {"t": "과기정통부, 피지컬 AI 투자 본격화…실증·연구개발에 1210억원 투입", "s": "아주경제", "l": "https://www.ajunews.com/view/20261013133005324", "m": "", "p": "15:02", "n": 1}, {"t": "배경훈 부총리, 피지컬 AI 얼라이언스 추진성과 점검…현장 중심 성과 강조 | 아주경제", "s": "아주경제", "l": "https://www.ajunews.com/view/20261013113844175", "m": "", "p": "15:02", "n": 1}, {"t": "엔비디아 \"피지컬 AI 승부처는 시뮬레이션\"…정부도 실증 지원", "s": "한국경제", "l": "https://www.hankyung.com/article/202610138832i", "m": "", "p": "15:02", "n": 1}, {"t": "배경훈 \"피지컬AI, 이제 성과 보여줘야\"…실증·사업화 본격화", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPOE1sQWRNbVg1Y2hYNUUxYUNndzhJZXZfY3NGc2dISTFuZ3lWUGp2b3NyU1Uxc00yd1Z2R3FzV01odEM1ZzNRYk5wWTRvRWhUMmJ2VWtUMk5UeWpLMGtRWEx3dmU3M0hZN05Cb1lnWFU1WlRZdjRsTjNDQUZUVkJKUQ?oc=5", "m": "", "p": "15:18", "n": 2}, {"t": "배경훈 “피지컬 AI 체감 성과 창출해야”…피지컬 AI 얼라이언스 한 자리에", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2635196", "m": "", "p": "15:38", "n": 1}, {"t": "‘피지컬 AI Tech Week’ 로봇 둘러보는 배경훈 부총리", "s": "국민", "l": "https://www.kmib.co.kr/article/view.asp?arcid=9000022144&cp=nv", "m": "", "p": "15:40", "n": 2}, {"t": "배경훈 \"현장서 실질 성과로 피지컬 AI 1강 도약 나설 때\"", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026101316164710493", "m": "", "p": "16:19", "n": 1}, {"t": "피지컬 AI 세상은 통신망부터...산업 현장서 AI기지국 실증", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261013155215", "m": "", "p": "16:21", "n": 1}, {"t": "배경훈 \"피지컬 AI, 전 세계 제패할 수 있을 만큼 준비해야\"", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026101316243837041", "m": "", "p": "16:26", "n": 1}, {"t": "배경훈 \"피지컬 AI 계획 충분한지 고민…후회 없도록 목표 세워야\"", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/13/2026101316171734451", "m": "", "p": "16:34", "n": 1}, {"t": "배경훈 “피지컬 AI, 이제 체감할 성과 보여줄 때”", "s": "조선비즈", "l": "https://biz.chosun.com/it-science/ict/2026/10/13/FKCRCKWFIJEXRFGQ34J25FRWYM/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "16:34", "n": 1}], [{"t": "\"보안은 국정원·과기부\"…개인정보위 \"사전 예방 투자 땐 처분 감경\"", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/13/2026101314541312264", "m": "", "p": "15:04", "n": 2}, {"t": "AI 활용 해킹에 대책 안 보인다…“예방 투자 기업엔 과징금 최대 40% 감경” [2026 국감]", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026101315105563271", "m": "", "p": "15:21", "n": 1}], [{"t": "부산시 '블록체인·AI 디지털금융 혁신 연구센터' 개소", "s": "뉴스1", "l": "https://www.news1.kr/local/busan-gyeongnam/6318415", "m": "", "p": "15:00", "n": 1}, {"t": "부산 전국 첫 블록체인·AI디지털금융 연구센터 문 열어", "s": "머니투데이", "l": "https://www.mt.co.kr/policy/2026/10/13/2026101314043794776", "m": "", "p": "14:12", "n": 1}], [{"t": "AI가 표적 찾고 해킹 공격까지…정부 대응체계는 '미흡'", "s": "뉴스1", "l": "https://www.news1.kr/it-science/cc-newmedia/6318521", "m": "", "p": "16:35", "n": 1}, {"t": "해커 여러 명 몫 하는 AI… 개인정보위 대응체계는 '미흡' [국감2026]", "s": "IT조선", "l": "https://it.chosun.com/news/articleView.html?idxno=2023092171915", "m": "", "p": "15:40", "n": 1}], [{"t": "경남도의회 경남과고 UNIST 부설 영재학교 선정 촉구", "s": "머니투데이", "l": "https://www.mt.co.kr/policy/2026/10/13/2026101315535493382", "m": "", "p": "16:05", "n": 1}, {"t": "경남도의회 교육위 \"경남과학고. UNIST 부설 영재학교로 선정해 달라\"", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261013001175", "m": "", "p": "16:50", "n": 1}], [{"t": "현대바이오 “치료제 없던 SFTS 치료제 개발 추진…임상 2상 신속 진입”", "s": "문화", "l": "https://www.munhwa.com/article/11623148?ref=naver", "m": "", "p": "13:37", "n": 1}], [{"t": "비드래프트, 퍼플렉시티·클라우드플레어·메타 제치고 ‘디시전 AI’ 글로벌 벤치마크 1위", "s": "조선비즈", "l": "https://biz.chosun.com/industry/business_info/2026/10/13/RV5RAIFATNFE3PYKQEJDN2RVOA/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "14:05", "n": 1}], [{"t": "\"공공·민간 AI 데이터 한곳서 척척\"…정부, 데이터 개방 통합 포털 연다", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261012_0003822465", "m": "", "p": "14:39", "n": 1}], [{"t": "‘몸’ 얻은 AI, 일상 속으로...“한국, 피지컬 AI 강국 성장 가능성”", "s": "조선", "l": "https://www.chosun.com/economy/tech_it/2026/10/13/GWCX5JTKBVAIBFKXR5ZAOT5V4I/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news", "m": "", "p": "14:39", "n": 1}], [{"t": "서울 비우고 행정수도 세종으로…일극체제 넘어 균형발전 이룰까", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261013147500530?input=1195m", "m": "", "p": "16:25", "n": 1}], [{"t": "금융권 유출 사고 신고 어디에? '우왕좌왕'…원스톱 신고체계 구축 목소...", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824390", "m": "", "p": "16:52", "n": 1}], [{"t": "아크릴, 과기정통부서 본사 방문…피지컬 AI 기술·사업 현황 점검", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxQMGZidXNzMmpoaEV2MHQwUXRTX1VXN2VhZTRqLUwxamd6SDFKQjZBU2RZakQ5UGxxbW1vWEVxakFUWndjMy16bk1CQ25FcEtBMnVQZ3RwUXVTdDBpNWdnT2h6amowUUJsRS01UXVjOGMxTXVqdll4eU1tb0RzYks2Sw?oc=5", "m": "", "p": "10:22", "n": 1}], [{"t": "정부, 내년 피지컬 AI 확 키운다…9천억→2조 1000억", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261013140428", "m": "", "p": "14:11", "n": 1}], [{"t": "“AI발 기술패권 경쟁 시대, 국가 연구개발 새 판 짜야”…제2차 과학기술 미래포럼", "s": "전자", "l": "https://www.etnews.com/20261013000268", "m": "", "p": "14:28", "n": 1}], [{"t": "인텔 \"실험실에선 잘 움직이는 로봇, 실제 현장은 다르다\"", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261013143300", "m": "", "p": "14:35", "n": 1}], [{"t": "인천대 AI, 폭염 산업재해 막는다…삼성전자와 기술 개발", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1700916/?sc=Naver", "m": "", "p": "15:00", "n": 1}], [{"t": "[수도권 주요 뉴스]경기도, 글로벌 AI 허브 유치 지원단 출범", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6590434?utm_source=naver&utm_medium=article&utm_campaign=20261013030035", "m": "", "p": "15:01", "n": 1}], [{"t": "李대통령, 14일 인구전략 비전 선포…'인구의 판' 바꾼다", "s": "아주경제", "l": "https://www.ajunews.com/view/20261013142613546", "m": "", "p": "15:02", "n": 1}], [{"t": "해킹에 단통법 폐지까지…통신3사 마케팅비 늘렸는데 휴대폰 가입자 13만명 줄었다", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=03437446645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "15:02", "n": 1}], [{"t": "한국서 13개국 '퀀텀개발그룹' 회의…양자 상용화·공급망 협력 논의", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=03512886645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "15:13", "n": 1}], [{"t": "[2026 국감]송경희 “韓 개인정보 유출 취약…IT 발전 대비 보안 투자 부족”", "s": "전자", "l": "https://www.etnews.com/20261013000325", "m": "", "p": "15:19", "n": 1}], [{"t": "천안시 C-STAR 기업들, 미래산업 분야서 두각", "s": "대전", "l": "https://www.daejonilbo.com/news/articleView.html?idxno=2306608", "m": "", "p": "15:57", "n": 1}], [{"t": "[2026 The NEXT AI] 스마트팩토리에서 피지컬 AI까지…경남이 이끄는 제조...", "s": "전자", "l": "https://www.etnews.com/20261013000065", "m": "", "p": "16:01", "n": 1}], [{"t": "[2026 The NEXT AI] 오픈AI·팔란티어가 경남을 주목한 이유는", "s": "전자", "l": "https://www.etnews.com/20261013000068", "m": "", "p": "16:01", "n": 1}], [{"t": "[미래포럼] 공공 개인정보보호, 분산된 소관과 공백의 책임", "s": "전자", "l": "https://www.etnews.com/20261013000087", "m": "", "p": "16:01", "n": 1}], [{"t": "정부 지원 끝나자 사용 '뚝'…비용 부담에 막힌 지역·중소병원 의료AI", "s": "전자", "l": "https://www.etnews.com/20261013000214", "m": "", "p": "16:01", "n": 1}], [{"t": "AI 에이전트 시대, 다음 과제는…'실행 권한·책임 주체'", "s": "아시아투데이", "l": "https://www.asiatoday.co.kr/kn/view.php?key=20261013010003739", "m": "", "p": "16:40", "n": 1}], [{"t": "경남 영재교육 대상 5358명…道의회 “경남과학고 영재학교로”", "s": "서울경제", "l": "https://www.sedaily.com/article/20101076?ref=naver", "m": "", "p": "16:44", "n": 1}]], "n": 59}, {"name": "우주항공청", "clusters": [[{"t": "조선대 개발 참여 큐브위성 우주에서 응답…\"교신 성공\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824398", "m": "", "p": "16:47", "n": 1}, {"t": "누리호 5차, 부탑재위성 9기 모두 교신 성공", "s": "SBS 뉴스", "l": "https://news.google.com/rss/articles/CBMiakFVX3lxTFBZY2dNVmdJb3B4M1RoRHZmY0hWMnplM1JacnZzUEcxOGdlUGFxRUF6Y1lFaUR4aWREVjNfR1E5dy1wWDh6eGxOeS1YeVFXR0lPUDJTLWgzczdhUk43S1JESndCNUFKZ01FQnc?oc=5", "m": "", "p": "11:03", "n": 1}, {"t": "‘누리호 5차’ 부탑재 위성 9기 교신 성공", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8684326&ref=A", "m": "", "p": "14:09", "n": 1}, {"t": "누리호 5차 발사 부탑재위성 9기 모두 교신 성공…본격 임무 준비", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/13/2026101390153.html", "m": "", "p": "15:00", "n": 1}, {"t": "누리호 큐브위성 9기 모두 교신 성공", "s": "대전", "l": "https://news.google.com/rss/articles/CBMib0FVX3lxTE8xN3YyZzlDTm9DY0J6VGZaNWtmNWRyT1NZTGt3ejBSNFB6alRlcndibGlVNEZTUnBOcWVYeTc5dUNSZzRYWldLTWJVWGNYMm5jb3dZRVZ5eEhfU0dFQzhocGRoNzk4SktNYlUtYWxjd9IBc0FVX3lxTFA1aU1xSlg3Y2FtTEtVWlJ1eWVoSk5iMjJqQWstRmNVM3JDMmd6Z2ZVOC1nTjdoX1Jtdml0SlRRVDUtMWxsODc1aGNpc1pQbWxXdDZ3YVZmeGxFelVXWXkzS0thczlQbUdQYXNETVVocnVOM0U?oc=5", "m": "", "p": "15:22", "n": 1}, {"t": "누리호 5호 탑재 위성 14기 ‘이상 무’", "s": "서울", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxQS2NmSklHR1AzSXdZbFV1MjVETEF0RHlySzdaaERteU9DNHJwdnNrQlAtZnhTVDVEVlJwMWdYa0JxeGFpSS1PSjNURWZYZTEwVzNfQ2R5d0N2VjYxUmRqOWNwdXpKd0FfSWVXS0R5RmIwWGUyRHZ4MXNvWTI0aXhpUA?oc=5", "m": "", "p": "15:34", "n": 2}], [{"t": "김현 \"누리호 年1회론 부족\" 지적에…우주청 \"2030년 최소 2회\"", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/13/2026101314103555763", "m": "", "p": "14:13", "n": 2}], [{"t": "[2026국감]\"직원이 만든 업체에 수백억 계약\"…항우연·천문연 감사서 비위 의혹", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261013_0003824189", "m": "", "p": "16:29", "n": 1}], [{"t": "세계는 치열하게 경쟁 중인데…“한국 우주AI데이터센터 기술발전 너무 느리다” 지적", "s": "경향", "l": "https://www.khan.co.kr/article/202610131334001", "m": "", "p": "13:34", "n": 1}], [{"t": "[전국 주요 신문 사설](13일 석간)", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261013105500011?input=1195m", "m": "", "p": "14:00", "n": 1}], [{"t": "우주청장 \"독자 저궤도 위성통신망의 가장 큰 병목은 발사체\"", "s": "뉴스1", "l": "https://www.news1.kr/it-science/general-science/6318168", "m": "", "p": "14:39", "n": 1}], [{"t": "우주청 개청 2년여 만에 17명 이탈… 퇴직 원인 분석은 ‘0건’", "s": "조선비즈", "l": "https://biz.chosun.com/science-chosun/science/2026/10/13/SKSLR724HNCXLIRAZISAS5ZM74/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "14:59", "n": 1}], [{"t": "우주청 임기제 공무원 올해 퇴직자 12명, 지난해 3배", "s": "서울경제", "l": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE5RTXZoQVMyRWZDQ0pBTUVsS1dTUEdkQzRfdVJodVZXWTZtRU1WNFM3NmFLT18xT3Rkci1HLWpoUmg4aXhXNHRZSG5HcXVodVFybVHSAVNBVV95cUxOS2VOTjBRVjJoV1hFYlpvSEV2b2JZVzhEanNQSHJNZVZDVTMzelJpUnl5U3YwQjdhRXNTU1M2bkVBZWtJQ1BaUFZ6WXVSWjJ6Q0xQVQ?oc=5", "m": "", "p": "14:32", "n": 2}], [{"t": "우주데이터센터 경쟁 치열한데 韓 예산 부족···\"궤도 실증 시급\"", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPemxBcGtza09kQ2UwaXd0SHJJSnNXSWRMbGxtb2M5ZVg5YlgyeXRHNUk2bHhCYU9qUzJ0Mk9GamlXOFZ3am9uN09vNGZKbnRCUG9jNmNqUkxkWUQ0ZlNYWnpMMC12ajZmWGUxQllteXF0UjAyRXBwNUs1NU13d2lCQg?oc=5", "m": "", "p": "15:32", "n": 2}], [{"t": "제2우주센터 건립 후보지 공모 논란···국감서 형식적 절차 지적", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=03339046645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "14:34", "n": 1}], [{"t": "[2026 국감]“국산 부품 우주 실증 시급한데, 내년 예산은 지상 실증 21억...", "s": "전자", "l": "https://www.etnews.com/20261013000291", "m": "", "p": "14:47", "n": 1}], [{"t": "[2026 국감] '특례청'된 우주청, 홍보·법무 등에 혈세 펑펑", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE0yZGpKSk1ZRXBfUlM1VE9FZDNETXoxb2x5UXRicjFFX0xsMDNRTWQwbWlLQkVLQS0xVndUaHV3TTl4cmtFNGswM3JYVQ?oc=5", "m": "", "p": "14:54", "n": 1}], [{"t": "오태석 우주청장 \"국가우주위원회 역할 부족 인정…상설 사무국 추진\"", "s": "아주경제", "l": "https://www.ajunews.com/view/20261013163859198", "m": "", "p": "16:48", "n": 1}], [{"t": "[2026 국감] 항우연, 부적정 행위 적발 뒤에도 관련 기업과 또 계약", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiTEFVX3lxTE93dTBaY0l0TjhrVkJuQ2pnMDA2NXlNSFhxcHlnRmp4Z19VbGNZT0R0YXFxU0dfVUs4STluS21LbzU2VUVQUjViQUdudXQ?oc=5", "m": "", "p": "16:50", "n": 1}]], "n": 19}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var main = document.getElementById('main');
+  var state = {beat:null, filter:'all', q:''};
+  var picked = new Set();
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+
+  // stable ids + flat index
+  var ALL = {};
+  D.groups.forEach(function(g, gi){
+    g.clusters.forEach(function(c, ci){
+      c.forEach(function(it, ii){
+        it.id = gi+'-'+ci+'-'+ii;
+        it.g = g.name;
+        it.ord = gi*100000 + ci*100 + ii;
+        ALL[it.id] = it;
+      });
+    });
+  });
+
+  document.getElementById('label').textContent = D.label;
+  document.getElementById('window').textContent = D.start + ' — ' + D.end;
+  document.getElementById('n-raw').textContent = D.raw.toLocaleString();
+
+  var scoop=0, flash=0, topics=0;
+  D.groups.forEach(function(g){
+    g.clusters.forEach(function(c){
+      topics++;
+      c.forEach(function(it){ if(it.m===SCOOP) scoop++; else if(it.m===FLASH) flash++; });
+    });
+  });
+  document.getElementById('n-topic').textContent = topics;
+  document.getElementById('n-scoop').textContent = scoop;
+  document.getElementById('n-flash').textContent = flash;
+
+  var beats = document.getElementById('beats');
+  D.groups.forEach(function(g){
+    var b = document.createElement('button');
+    b.className='beat'; b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span>'+g.name+'</span><span class="c mono">'+g.n+'</span>';
+    b.addEventListener('click', function(){
+      state.beat = (state.beat===g.name) ? null : g.name;
+      [].forEach.call(beats.children, function(el,i){
+        el.setAttribute('aria-pressed', String(D.groups[i].name===state.beat));
+      });
+      render();
+    });
+    beats.appendChild(b);
+  });
+
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){
+        b.setAttribute('aria-pressed', String(b===btn));
+      });
+      render();
+    });
+  });
+
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ state.q = q.value.trim().toLowerCase(); render(); }, 120);
+  });
+
+  function keep(it){
+    if(state.filter==='mark' && !it.m) return false;
+    if(state.filter==='spread' && it.n < 2) return false;
+    if(state.filter==='picked' && !picked.has(it.id)) return false;
+    if(state.q && (it.t+' '+it.s).toLowerCase().indexOf(state.q) === -1) return false;
+    return true;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function itemRow(it){
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>'
+            : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(picked.has(it.id)?' on':'')+'" data-id="'+it.id+'">' +
+      '<input class="pick" type="checkbox" id="p'+it.id+'" '+(picked.has(it.id)?'checked':'')+
+      ' aria-label="보고에 포함">' + tag +
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>' +
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>' +
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '') + '</span></div>';
+  }
+
+  // 큰 묶음(30건 이상)은 접어도 몇 건인지 보이게 하고 기본 펼침으로 둔다.
+  // (C 세션(0-14) 결과 — 접기 자체는 안전하나 53건짜리 묶음이 여전히 나오므로
+  //  대표 1건 뒤에 대량이 숨는 화면을 피하기 위한 D 세션 자체 판단)
+  var AUTO_EXPAND = 30;
+
+  function render(){
+    var html = '', shown = 0;
+    D.groups.forEach(function(g){
+      if(state.beat && g.name !== state.beat) return;
+      var blocks = '', gcount = 0;
+      g.clusters.forEach(function(c, ci){
+        var items = c.filter(keep);
+        if(!items.length) return;
+        gcount += items.length; shown += items.length;
+        var lead = items[0], rest = items.slice(1);
+        var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+        var body = itemRow(lead);
+        if(rest.length){
+          var id = 'c'+g.name.replace(/\s/g,'')+ci;
+          var bigCluster = items.length >= AUTO_EXPAND;
+          body += '<button class="more" type="button" aria-expanded="'+(bigCluster?'true':'false')+'" aria-controls="'+id+'">'+
+                  (bigCluster ? '접기 (' : '+') + rest.length + '건 같은 사안' + (bigCluster ? ')' : '') + '</button>'+
+                  '<div class="dupes" id="'+id+'"'+(bigCluster?'':' hidden')+'>'+rest.map(itemRow).join('')+'</div>';
+        }
+        blocks += '<div class="'+cls+'">'+body+'</div>';
+      });
+      if(!gcount) return;
+      html += '<section id="sec-'+g.name+'"><div class="sec-head"><h2>'+g.name+'</h2>'+
+              '<span class="n mono">'+gcount+'건</span></div>'+blocks+'</section>';
+    });
+    main.innerHTML = html || '<p class="empty">조건에 맞는 기사가 없습니다.</p>';
+    document.getElementById('n-shown').textContent = shown;
+
+    [].forEach.call(main.querySelectorAll('.more'), function(btn){
+      btn.addEventListener('click', function(){
+        var box = document.getElementById(btn.getAttribute('aria-controls'));
+        var open = box.hidden;
+        box.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+      });
+    });
+  }
+
+  // one delegated handler for checkboxes
+  main.addEventListener('change', function(e){
+    var cb = e.target;
+    if(!cb.classList || !cb.classList.contains('pick')) return;
+    var row = cb.closest('.row'), id = row.getAttribute('data-id');
+    if(cb.checked){ picked.add(id); row.classList.add('on'); }
+    else { picked.delete(id); row.classList.remove('on'); }
+    syncBar();
+  });
+
+  function syncBar(){
+    var n = picked.size;
+    document.getElementById('n-pick').textContent = n;
+    document.getElementById('bar').hidden = (n === 0);
+  }
+
+  function buildReport(){
+    // 속보도 고를 수 있게 둔다 — 판정이 제목 말머리 기반이라 보고감이 섞인다.
+    // 쓸지 말지는 고르는 단계에서 정한다.
+    var items = [];
+    picked.forEach(function(id){ if(ALL[id]) items.push(ALL[id]); });
+    var rank = function(name){
+      var i = REPORT_ORDER.indexOf(name);
+      return i === -1 ? REPORT_ORDER.length : i;
+    };
+    items.sort(function(a,b){
+      // 1) 단독 먼저  2) 출입처순  3) 중요도순
+      var sa = (a.m === SCOOP) ? 0 : 1, sb = (b.m === SCOOP) ? 0 : 1;
+      if(sa !== sb) return sa - sb;
+      var ra = rank(a.g), rb = rank(b.g);
+      if(ra !== rb) return ra - rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil');
+  var report = document.getElementById('report');
+  var hint = document.getElementById('copyhint');
+  var hintDefault = hint.textContent;
+
+  function openPanel(){
+    var r = buildReport();
+    report.value = r.text;
+    document.getElementById('psub').textContent = r.n + '건 · 단독 상단 · 출입처순';
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false;
+    report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  document.getElementById('make').addEventListener('click', openPanel);
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+
+  document.getElementById('clear').addEventListener('click', function(){
+    picked.clear(); syncBar(); render();
+  });
+  document.getElementById('selectall').addEventListener('click', function(){
+    report.focus(); report.select();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){
+      report.focus(); report.select();
+      hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 ⌘C로 복사하세요.';
+      hint.classList.remove('ok');
+    };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report.value).then(done, fail);
+      } else { fail(); }
+    }catch(err){ fail(); }
+  });
+
+  render(); syncBar();
+})();
+</script>
+
+</body></html>
