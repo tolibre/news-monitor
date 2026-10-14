@@ -3027,6 +3027,9 @@ BYLINE_NAME = "김광일"
 # 여러 기자(팀) 기사를 모을 땐 이 목록에 이름을 더한다(0-32 — 동료용 국회판이 팀원 8명으로 씀).
 # 이름이 둘 이상이면 섹션 기사마다 쓴 기자 이름(w)을 실어 <기처리>에 '제목(이름)'으로 낸다.
 BYLINE_NAMES = [BYLINE_NAME]
+# True면 author 메타가 있는데 이름이 없을 때 본문 문구로 판정하지 않는다(0-32). 팀 모드에선 방송 녹취 기사
+# 본문의 'CBS ○○○ 기자를 스튜디오에' 같은 출연 문구가 오탐이 된다(국회판 첫 실행 실측). 원본 기본값 False = 동작 그대로.
+BYLINE_TRUST_META = False
 BYLINE_SECTION = "김광일 기자"
 BYLINE_DOMAINS = ("nocutnews.co.kr",)
 BYLINE_FROM = {"am": _T(0, 0), "pm": _T(8, 0)}
@@ -3082,6 +3085,8 @@ def byline_in_html(raw):
     for a in authors:
         if byline_names_in(a):
             return True, f"meta:{a[:30]}"
+    if BYLINE_TRUST_META and authors:
+        return False, f"바이라인 추정:{authors[0][:30]}"
     body = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", txt, flags=re.S | re.I)
     body = html.unescape(re.sub(r"<[^>]+>", " ", body))
     body = re.sub(r"\s+", " ", body)
