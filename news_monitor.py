@@ -2922,7 +2922,25 @@ def live_select(conn, start, end, now):
     return out
 
 
-def live_merge_sections(seg_sections, seg_groups):
+# 라이브 '전체' 탭 매체 가산(0-32) — 보고 종류별로 특정 매체가 보도한 묶음을 위로 올린다.
+# {"*": [(매체명 집합, 점수), ...], "am": [...], "pm": [...]} — 묶음에 그 매체가 하나라도 있으면
+# 규칙마다 한 번 가산(digest_cluster_rank 점수에 더함). **비어 있으면(원본 기본값) 정렬 불변.**
+# 매체명은 media_name() 결과(예: '동아일보', 'JTBC'). 동료용 변형판(국회판)이 채워 쓴다.
+LIVE_MEDIA_BOOST = {}
+
+
+def live_cluster_rank(clu, kind=None):
+    """'전체' 탭 묶음 정렬 키 — digest_cluster_rank + LIVE_MEDIA_BOOST(보고 종류별)."""
+    base = digest_cluster_rank(clu)
+    rules = LIVE_MEDIA_BOOST.get("*", []) + LIVE_MEDIA_BOOST.get(kind, [])
+    if not rules:
+        return base
+    names = {media_name(s) for _, sources in clu for s in sources}
+    extra = sum(w for media, w in rules if names & media)
+    return (base[0] - extra, base[1])
+
+
+def live_merge_sections(seg_sections, seg_groups, kind=None):
     """'전체' 탭용 — 보고의 구간들을 출입처 → 기사묶음으로 합친 구조. (0-22)
 
     seg_sections: [(구간 인덱스 si, digest_page_sections() 결과), ...] — 시작된 구간만.
@@ -2959,7 +2977,7 @@ def live_merge_sections(seg_sections, seg_groups):
         if not items:
             continue
         clusters = cluster_by_topic(items, lambda x: x[1][0][0])
-        clusters.sort(key=lambda c: digest_cluster_rank([gs for _, gs in c]))
+        clusters.sort(key=lambda c: live_cluster_rank([gs for _, gs in c], kind))
         c_out = []
         for c in clusters:
             c.sort(key=lambda x: article_rank(x[1][0][0], x[1][0][2], x[1][0][3]))
@@ -3006,13 +3024,28 @@ def live_merge_sections(seg_sections, seg_groups):
 # 창: 발행 시각 기준. 09:00 보고 = 보고일 00:00~, 14:00 보고 = 보고일 08:00~, 끝은
 #   지금(보고 화면이 넘어가면 그 시각에서 멈춘다).
 BYLINE_NAME = "김광일"
+# 여러 기자(팀) 기사를 모을 땐 이 목록에 이름을 더한다(0-32 — 동료용 국회판이 팀원 8명으로 씀).
+# 이름이 둘 이상이면 섹션 기사마다 쓴 기자 이름(w)을 실어 <기처리>에 '제목(이름)'으로 낸다.
+BYLINE_NAMES = [BYLINE_NAME]
 BYLINE_SECTION = "김광일 기자"
 BYLINE_DOMAINS = ("nocutnews.co.kr",)
 BYLINE_FROM = {"am": _T(0, 0), "pm": _T(8, 0)}
 BYLINE_KEEP_DAYS = 14
 BYLINE_LOOKBACK_HOURS = 36     # 이만큼 전까지 수집된 노컷 기사를 확인 대상으로
 BYLINE_MAX_FETCH = 40          # 한 번에 여는 원문 페이지 상한(첫 실행 몰림 대비)
-_BYLINE_RE = re.compile(r"(?<![가-힣])" + BYLINE_NAME + r"\s*(?:CBS\s*)?기자")
+_BYLINE_RE = re.compile(r"(?<![가-힣])(?:" + "|".join(map(re.escape, BYLINE_NAMES))
+                        + r")\s*(?:CBS\s*)?기자")
+
+
+def byline_names_in(text):
+    """text에 나오는 BYLINE_NAMES — 앞뒤가 다른 한글에 붙지 않은 것만('박인영'에서 '박인' 오탐 방지).
+    '김광일기자'처럼 '기자'가 바로 붙은 건 인정. 나온 순서대로."""
+    hits = []
+    for n in BYLINE_NAMES:
+        m = re.search(r"(?<![가-힣])" + re.escape(n) + r"(?:(?![가-힣])|(?=기자))", text or "")
+        if m:
+            hits.append((m.start(), n))
+    return [n for _, n in sorted(hits)]
 # 제목 끝 [태그] 중 라디오·유튜브 프로그램만(노컷 연재 태그 '[이런일이]' 등은 해당 없음).
 BYLINE_PROGRAM_TAGS = ("한판승부", "뉴스쇼", "오늘아침", "지지율대책회의", "시사자키", "뉴스톡",
                        "댓꿀쇼", "박지환의", "친절한 두 기자", "기자수첩K")
@@ -3047,7 +3080,7 @@ def byline_in_html(raw):
         if key and val and "author" in key.group(1).lower():
             authors.append(html.unescape(val.group(1)).strip())
     for a in authors:
-        if BYLINE_NAME in a:
+        if byline_names_in(a):
             return True, f"meta:{a[:30]}"
     body = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", txt, flags=re.S | re.I)
     body = html.unescape(re.sub(r"<[^>]+>", " ", body))
@@ -3181,6 +3214,16 @@ def byline_section(conn, spec, now):
                            WHERE pub_dt >= ? AND pub_dt < ? ORDER BY pub_dt""",
                         (start.isoformat(), min(now, end).isoformat())).fetchall()
     groups = render_page.build_groups_data([(BYLINE_SECTION, [[(r, [r[2]])] for r in rows])])
+    if len(BYLINE_NAMES) > 1:
+        # 팀 모드(0-32): 기사마다 쓴 기자 — 원문 확인 때 남긴 근거(byline_checked.note)에서 뽑는다.
+        notes = dict(conn.execute("""SELECT b.link, c.note FROM byline_articles b
+                                     JOIN byline_checked c ON c.id = b.id"""))
+        for g in groups:
+            for clu in g["clusters"]:
+                for it in clu:
+                    who = byline_names_in(notes.get(it["l"], ""))
+                    if who:
+                        it["w"] = "·".join(who)
     sec.update(raw=len(rows), n=sum(g["n"] for g in groups), groups=groups)
     return sec
 
@@ -3229,7 +3272,7 @@ def build_live_data(conn, now):
             "display_from": spec["display_from"].isoformat(),
             "display_until": spec["display_until"].isoformat(),
             "segments": segs_out,
-            "all": live_merge_sections(seg_sections, seg_groups),
+            "all": live_merge_sections(seg_sections, seg_groups, spec["kind"]),
             "byline": byline_section(conn, spec, now),
         })
     last_seen = conn.execute("SELECT MAX(seen_dt) FROM articles").fetchone()[0]
