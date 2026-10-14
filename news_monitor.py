@@ -2940,6 +2940,62 @@ def live_cluster_rank(clu, kind=None):
     return (base[0] - extra, base[1])
 
 
+# 라이브 사안 단위 섹션 합치기(0-33) — 여기 적은 그룹들 사이에서는 **같은 사안 묶음이 여러 섹션에
+# 걸치면 기사가 가장 많은 섹션 하나로 모은다**(동수면 섹션 순서가 앞선 쪽). 섹션은 기사마다
+# '제목에서 KEYWORDS 순서상 먼저 걸린 검색어'로 정해지므로, 같은 사안이라도 제목 단어에 따라
+# 갈린다 — 국회판에서 '北 지뢰 규탄 결의안' 27건이 제목에 與가 있느냐로 민주당 13·국민의힘 14로
+# 나뉘었다. 판정은 보고 전체(시작된 구간 전부)를 한 번에 묶은 결과라 구간 탭·'전체' 탭·칩 건수·
+# 보고 양식 순서가 모두 같은 섹션을 쓴다. **비어 있으면(원본 기본값) 아무 일도 안 한다.**
+LIVE_STORY_MERGE_GROUPS = []
+
+
+def live_story_moves(seg_rows):
+    """seg_rows: 보고의 시작된 구간별 rows 목록. 반환 {group_key(제목): 옮겨 갈 그룹}.
+    LIVE_STORY_MERGE_GROUPS가 비었거나 걸친 사안이 없으면 {}."""
+    eligible = set(LIVE_STORY_MERGE_GROUPS)
+    if not eligible:
+        return {}
+    pool = []   # (그룹, 전재 묶음 대표, 매체 목록)
+    for rows in seg_rows:
+        by_group = digest_by_group(rows)
+        for g in effective_group_order(by_group.keys()):
+            if g in eligible:
+                for rep, srcs in dedup_group(by_group.get(g, [])):
+                    pool.append((g, rep, srcs))
+    order = {g: i for i, g in enumerate(effective_group_order({x[0] for x in pool}))}
+    moves = {}
+    for clu in cluster_by_topic(pool, lambda x: x[1][0]):
+        count = {}
+        for g, rep, srcs in clu:
+            count[g] = count.get(g, 0) + max(1, len(srcs))
+        if len(count) < 2:
+            continue
+        target = min(count, key=lambda g: (-count[g], order[g]))
+        for g, rep, srcs in clu:
+            if g != target:
+                moves[group_key(rep[0])] = target
+    return moves
+
+
+def live_apply_moves(by_group, moves):
+    """digest_by_group() 결과에서 moves(제목 키 → 그룹)에 해당하는 기사를 옮긴다(원래 순서 유지)."""
+    if not moves:
+        return by_group
+    eligible = set(LIVE_STORY_MERGE_GROUPS)
+    out = {g: [] for g in by_group}
+    gained = set()
+    for g, arts in by_group.items():
+        for r in arts:
+            t = moves.get(group_key(r[0])) if g in eligible else None
+            if t and t != g:
+                gained.add(t)
+            out.setdefault(t or g, []).append(r)
+    # 옮겨 받은 섹션만 digest_select와 같은 발행순으로 다시 놓는다(안정 정렬).
+    for g in gained:
+        out[g].sort(key=lambda r: r[3])
+    return out
+
+
 def live_merge_sections(seg_sections, seg_groups, kind=None):
     """'전체' 탭용 — 보고의 구간들을 출입처 → 기사묶음으로 합친 구조. (0-22)
 
@@ -3244,6 +3300,18 @@ def build_live_data(conn, now):
         segs_out = []
         seg_sections = []   # '전체' 탭 합치기용(0-22) — 시작된 구간의 섹션 원본
         seg_groups = {}
+        # 사안 단위 섹션 합치기(0-33)는 보고 전체를 한 번에 봐야 하므로 구간 선별을 먼저 끝낸다.
+        picked = {}
+        for si, (start, end) in enumerate(spec["segments"]):
+            if now >= start:
+                # 신선도 기준 = 구간 끝(이미 끝난 구간) 또는 지금(진행 중 구간) —
+                # 그 구간 digest가 제때 돌았을 때와 같은 결과.
+                # 휴일 구간(24시간)은 live_select()가 digest 슬롯 단위로 쪼개 고른다(0-21).
+                rows, photo, junk, noise = live_select(conn, start, end, now)
+                n_own = len(rows)
+                rows = [r for r in rows if not is_own_article(r, own)]
+                picked[si] = (rows, photo, junk, noise, n_own - len(rows))
+        moves = live_story_moves([p[0] for p in picked.values()])
         for si, (start, end) in enumerate(spec["segments"]):
             seg = {
                 "id": f"{start:%Y%m%d%H%M}",
@@ -3254,14 +3322,8 @@ def build_live_data(conn, now):
                 "raw": 0, "n": 0, "dup": 0, "x": 0, "groups": [],
             }
             if now >= start:
-                # 신선도 기준 = 구간 끝(이미 끝난 구간) 또는 지금(진행 중 구간) —
-                # 그 구간 digest가 제때 돌았을 때와 같은 결과.
-                # 휴일 구간(24시간)은 live_select()가 digest 슬롯 단위로 쪼개 고른다(0-21).
-                rows, photo, junk, noise = live_select(conn, start, end, now)
-                n_own = len(rows)
-                rows = [r for r in rows if not is_own_article(r, own)]
-                n_own -= len(rows)
-                sections = digest_page_sections(digest_by_group(rows))
+                rows, photo, junk, noise, n_own = picked[si]
+                sections = digest_page_sections(live_apply_moves(digest_by_group(rows), moves))
                 groups = render_page.build_groups_data(sections)
                 dup = _mark_live_repeats(conn, start, groups)
                 _attach_seen(conn, start, end, groups)
