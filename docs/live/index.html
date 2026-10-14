@@ -973,11 +973,11 @@ a.title:visited{color:var(--ink-900)}
   // 체크했든 <기처리>로 보낸다. 링크가 같거나, 제목(공백·문장부호 뺀 것)이 같으면 같은 기사.
   function tnorm(t){ return String(t).replace(/[^0-9A-Za-z가-힣]/g, ''); }
   function bylineIndex(rep){
-    var m = {links:{}, titles:{}, tag:''}, b = rep.byline;
+    var m = {links:{}, titles:{}, tag:'', w:{}}, b = rep.byline;
     if(!b) return m;
     m.tag = String(b.name || '').replace(/\s*기자$/, '');
     (b.groups[0] ? b.groups[0].clusters : []).forEach(function(c, ci){
-      c.forEach(function(it){ if(it.l) m.links[it.l] = ci; m.titles[tnorm(it.t)] = ci; });
+      c.forEach(function(it){ if(it.l) m.links[it.l] = ci; m.titles[tnorm(it.t)] = ci; if(it.w) m.w[ci] = it.w; });
     });
     return m;
   }
@@ -1013,7 +1013,8 @@ a.title:visited{color:var(--ink-900)}
       mine.sort(function(a,b){ return a.bi - b.bi; });
       if(lines.length) lines.push('');
       lines.push('<기처리>');
-      mine.forEach(function(it){ lines.push(it.t + '(' + bx.tag + ')'); });
+      // 팀 모드(0-32)면 기사마다 쓴 기자 이름(w), 아니면 섹션 이름
+      mine.forEach(function(it){ lines.push(it.t + '(' + (bx.w[it.bi] || bx.tag) + ')'); });
     }
     return {text: lines.join('\n'), n: items.length + mine.length};
   }
