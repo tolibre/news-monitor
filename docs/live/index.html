@@ -135,6 +135,7 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .beat .c{font-size:11px; font-weight:500; font-variant-numeric:tabular-nums}
 .beat:hover{border-color:var(--og)}
 .beat[aria-pressed="true"]{background:var(--og); border-color:var(--og); color:var(--on-org)}
+.beat.ball{--og:var(--ink-900); --ob:var(--surf-0); border-color:var(--line-300)}
 .controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 8px; align-items:center}
 .seg{display:flex; border:1px solid var(--line-300); border-radius:2px; overflow:hidden; background:var(--surf-0)}
 .seg button{height:30px; border:0; background:var(--surf-0); color:var(--ink-700); font:inherit; font-size:13px; padding:0 12px; cursor:pointer; border-right:1px solid var(--line-300)}
@@ -789,7 +790,12 @@ a.title:visited{color:var(--ink-900)}
     segs.forEach(function(x){ x.seg.groups.forEach(function(g){ if(!(g.name in gcount)){ gcount[g.name]=0; gorder.push(g.name); } gcount[g.name]+=g.n; }); });
     if(t.all && t.rep.byline && segState(t.rep.byline, now) !== 'future'){ gcount[t.rep.byline.name] = t.rep.byline.n; gorder.push(t.rep.byline.name); }
     if(ui.beat && !(ui.beat in gcount)) ui.beat = null;
-    document.getElementById('beats').innerHTML = gorder.map(function(g){
+    // '전체' 칩(10/14): 출입처 칩은 다시 누르면 풀리는 토글이었지만 화면에 드러나지 않아
+    // 새로고침 말고는 돌아갈 길이 없어 보였다. 맨 앞에 두고, 고른 출입처가 없을 때 눌린 상태.
+    var gtotal = gorder.reduce(function(a, g){ return a + gcount[g]; }, 0);
+    document.getElementById('beats').innerHTML =
+      '<button class="beat ball" type="button" data-b="" aria-pressed="'+(!ui.beat)+'"><span>전체</span><span class="c mono">'+gtotal+'</span></button>' +
+      gorder.map(function(g){
       return '<button class="beat" type="button" data-b="'+esc(g)+'" aria-pressed="'+(g===ui.beat)+'"><span>'+esc(g)+'</span><span class="c mono">'+gcount[g]+'</span></button>';
     }).join('');
 
@@ -1049,7 +1055,7 @@ a.title:visited{color:var(--ink-900)}
   });
   document.getElementById('beats').addEventListener('click', function(e){
     var b = e.target.closest('button[data-b]'); if(!b) return;
-    var g = b.getAttribute('data-b'); ui.beat = (ui.beat === g) ? null : g; draw();
+    var g = b.getAttribute('data-b'); ui.beat = (!g || ui.beat === g) ? null : g; draw();
   });
   [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
     btn.addEventListener('click', function(){
