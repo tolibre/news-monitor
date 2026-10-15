@@ -1485,6 +1485,30 @@ def is_caption_like(title, strict=False):
     #   check의 목표는 '선별'이므로 노이즈를 좀 더 적극적으로 걷어낸다.
     return (s2 and s3) if strict else (s2 or s3)
 
+# 캡션형 제목 추가 규칙(0-36) — 변형판이 채운다. **비어 있으면(원본 기본값) 동작 불변.**
+# [(정규식, 최대 길이, 원제목에 적용?)]. 원제목 규칙은 그대로 검사(「M포토」 같은 낫표 태그 — 위 PHOTO_TAGS 괄호에 없다).
+# 나머지는 태그·매체 꼬리·끝 따옴표를 뗀 제목에 적용하되, 큰따옴표·말줄임표·물음표·느낌표가 있거나 ARTICLE_ENDINGS가
+# 있거나 최대 길이를 넘으면 기사로 본다. 국회판: '물 마시는 정점식 국민의힘 원내대표'·'텅 빈 국민의힘 의원 자리'처럼
+# CAPTION_VERBS(닫힌 목록)에 없는 관형어로 시작하는 사진 설명이 빠져나갔다.
+CAPTION_EXTRA = []
+
+
+def _caption_extra(title):
+    raw = title or ""
+    s = strip_media_tail(clean(raw))
+    s = re.sub(r"\[[^\]]*\]|「[^」]*」", "", s).strip().rstrip("'’\" ")
+    for pat, maxlen, on_raw in CAPTION_EXTRA:
+        if on_raw:
+            if pat.search(raw):
+                return True
+            continue
+        if not s or len(s) > maxlen or re.search(r"[\"“”…?!]|\.\.\.", s) or re.search(ARTICLE_ENDINGS, s):
+            continue
+        if pat.search(s):
+            return True
+    return False
+
+
 def is_photo_article(title, link="", strict=False):
     """사진/그래픽 기사 판별. 세 갈래로 확인:
       A. [포토]/[사진]/[헤럴드pic] 등 대괄호 태그
@@ -1510,6 +1534,8 @@ def is_photo_article(title, link="", strict=False):
         return True
 
     # C. 캡션형 제목 (A/B는 태그·URL 기반 고신뢰 신호라 strict와 무관하게 적용)
+    if CAPTION_EXTRA and _caption_extra(t):
+        return True
     if is_caption_like(t, strict=strict):
         return True
 
