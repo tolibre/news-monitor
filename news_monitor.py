@@ -2425,14 +2425,23 @@ def digest_select(conn, start, end, now):
     return rows, photo_rows, junk_rows, noise_rows
 
 
+# 그룹 배정 보조(0-34) — 변형판이 채운다. 함수(제목, keywords 목록) → 그룹 이름 또는 None.
+# None을 돌려주면 아래 원본 규칙(KEYWORDS 순서상 대표 키워드)대로 간다. **None(원본 기본값)이면 동작 불변.**
+# 국회판: 발언·행위 주체 정당으로 배정 — 원본 규칙은 '국힘 정점식 "민주당 … 압수수색해야"'를 민주당에 넣는다.
+# 이 함수가 그룹을 정한 기사는 사안 단위 합치기(LIVE_STORY_MERGE_GROUPS)가 옮기지 않는다.
+GROUP_ASSIGN_HOOK = None
+
+
 def digest_by_group(rows):
     """기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)."""
     by_group = {g: [] for g in GROUP_ORDER}
     for r in rows:
         kws = r[4].split(",") if r[4] else []
-        # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로
-        rep_kw = next((k for k in KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
-        g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
+        g = GROUP_ASSIGN_HOOK(r[0], kws) if GROUP_ASSIGN_HOOK else None
+        if not g:
+            # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로
+            rep_kw = next((k for k in KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
+            g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
         by_group.setdefault(g, []).append(r)
     return by_group
 
@@ -2972,9 +2981,15 @@ def live_story_moves(seg_rows):
             continue
         target = min(count, key=lambda g: (-count[g], order[g]))
         for g, rep, srcs in clu:
-            if g != target:
+            # 그룹 배정 보조(0-34)가 주체를 정한 기사는 그 자리에 둔다.
+            if g != target and not _assigned_by_hook(rep):
                 moves[group_key(rep[0])] = target
     return moves
+
+
+def _assigned_by_hook(r):
+    """GROUP_ASSIGN_HOOK이 이 기사(row)의 그룹을 정했는가(0-34)."""
+    return bool(GROUP_ASSIGN_HOOK and GROUP_ASSIGN_HOOK(r[0], r[4].split(",") if r[4] else []))
 
 
 def live_apply_moves(by_group, moves):
@@ -2986,7 +3001,7 @@ def live_apply_moves(by_group, moves):
     gained = set()
     for g, arts in by_group.items():
         for r in arts:
-            t = moves.get(group_key(r[0])) if g in eligible else None
+            t = moves.get(group_key(r[0])) if g in eligible and not _assigned_by_hook(r) else None
             if t and t != g:
                 gained.add(t)
             out.setdefault(t or g, []).append(r)
