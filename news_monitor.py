@@ -2499,6 +2499,9 @@ GROUP_ASSIGN_HOOK = None
 ACTOR_ASSIGN = True
 LIVE_ACTOR_BONUS = 2.0
 ACTOR_ALIASES = {"우주청": "우주항공청"}
+# 기관장 이름 씨앗(0-38) — DB 학습 전에 깔아 두는 {이름: 그룹}. DB 학습 결과가 있으면 그쪽이 이긴다.
+# 원본은 90일 DB로 충분해 비워 둔다. 새로 만든 변형판(DB가 며칠치뿐)이 생성기로 채운다.
+ACTOR_PEOPLE_SEED = {}
 _ACTOR_POS = r"(?:제?[12]차관|부총리|장관|차관|부위원장|위원장|원장|상임위원|청장|차장|처장|실장|본부장|국장|대변인)"
 _ACTOR_OBJ_RE = re.compile(r"[ \t]*(?:을|를|에게|에는|에(?!서)|겨냥|향해|향한|상대로|비판|직격|저격|때리|맹폭|공격|공세|탓)")
 _ACTOR_SUBJ_RE = re.compile(r"[ \t]*(?:[,◇]|(?:은|는|이|가|도)(?![가-힣])|" + _ACTOR_POS + r")")
@@ -2525,7 +2528,7 @@ def _actor_people():
     꼴을 익힌다(서로 다른 제목 2건 이상, 한 그룹 80% 이상). 프로세스당 한 번."""
     if "people" in _actor_cache:
         return _actor_cache["people"]
-    people = {}
+    people = dict(ACTOR_PEOPLE_SEED)
     try:
         cre, cues = _actor_cues()
         alt = cre.pattern[len("(?<![가-힣A-Za-z])("):-1]
@@ -2618,7 +2621,9 @@ def beat_actor(title, strict=False):
 
 def actor_group(title, kws):
     """섹션 배정용 — 주체 출입처가 이 기사의 keywords 그룹 중 하나면 그 그룹, 아니면 None."""
-    groups = {KEYWORD_GROUPS.get(k, k) for k in kws}
+    # 후보는 지금 출입처(GROUP_ORDER)인 그룹만 — 저장된 keywords에 다른 판·당직의 그룹(예: 산업부판 DB의
+    # '방미통위')이 섞여 있어도 새 섹션이 생기지 않게(0-38).
+    groups = {KEYWORD_GROUPS.get(k, k) for k in kws} & set(GROUP_ORDER)
     if len(groups) < 2:
         return None                                         # 후보가 하나면 원본 규칙과 같다
     g = beat_actor(title)
