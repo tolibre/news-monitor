@@ -2431,6 +2431,146 @@ def digest_select(conn, start, end, now):
 # 이 함수가 그룹을 정한 기사는 사안 단위 합치기(LIVE_STORY_MERGE_GROUPS)가 옮기지 않는다.
 GROUP_ASSIGN_HOOK = None
 
+# ==================== 주체 출입처 판정 (0-35) ====================
+# 사용자 결정(2026-10-15): "발화자나 행동한 쪽 기관을 우선시하고, 해당 출입처가 직접 메시지를 냈거나
+# 행동했다면 그 출입처가 대상이 됐을 때보다 중요도 가점을 더 부여하자."
+#  - 섹션 배정(ACTOR_ASSIGN): 제목에 출입처가 둘 이상이면 KEYWORDS 순서(공정위가 늘 먼저) 대신 주체 출입처로.
+#    후보는 그 기사의 keywords가 가리키는 그룹뿐이라(당직이 아닌 날의 산업부 등이 새 섹션으로 생기지 않는다)
+#    제목에 출입처가 하나뿐인 기사는 그대로다. digest_by_group 공용 — digest 페이지·라이브 모두.
+#  - '전체' 탭 가점(LIVE_ACTOR_BONUS): 묶음 기사 절반 이상에서 그 섹션 출입처가 주어·화자면 가산.
+#    주어·화자로 보는 것: 제목 맨 앞 출입처('공정위, …'·'과기정통부 "…"'), 맨 앞 기관장(DB 제목에서 익힌
+#    '공정위원장 주병기'류 이름), 쉼표·따옴표·은/는/이/가·직함이 바로 뒤에 붙은 출입처.
+#    '쿠팡, 공정위 제재에 불복'의 공정위는 대상이다(가점 없음).
+# 판정 순서(앞에서 정해지면 끝): ①맨 앞 출입처 ②맨 앞 사람(이름 + 직함 또는 이름 + 출입처 + 직함) ③따옴표 안을
+# 지운 제목의 출입처 — 배정은 '대상'(을·를·에·겨냥·향해…)이 아닌 첫 출입처, 가점은 주어·화자 표지가 붙은 것만.
+ACTOR_ASSIGN = True
+LIVE_ACTOR_BONUS = 2.0
+ACTOR_ALIASES = {"우주청": "우주항공청"}
+_ACTOR_POS = r"(?:제?[12]차관|부총리|장관|차관|부위원장|위원장|원장|상임위원|청장|차장|처장|실장|본부장|국장|대변인)"
+_ACTOR_OBJ_RE = re.compile(r"[ \t]*(?:을|를|에게|에는|에(?!서)|겨냥|향해|향한|상대로|비판|직격|저격|때리|맹폭|공격|공세|탓)")
+_ACTOR_SUBJ_RE = re.compile(r"[ \t]*(?:[,◇]|(?:은|는|이|가|도)(?![가-힣])|" + _ACTOR_POS + r")")
+# 큰따옴표 = 발언(◇, 화자 표지), 작은따옴표·낫표 = 용어·사업명(◆) — '과기부 ‘스마트빌리지 사업’ 선정'의
+# 과기부는 화자가 아니다.
+_ACTOR_QUOTES = {"\"": ("\"", "◇"), "“": ("”", "◇"), "'": ("'", "◆"), "‘": ("’", "◆"), "「": ("」", "◆")}
+_ACTOR_SUR = set("김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁어은편용예봉경")
+_actor_cache = {}
+
+
+def _actor_cues():
+    """(정규식, {표기: 그룹}) — KEYWORD_GROUPS의 기관명(인명·사안어 키워드 제외) + 별칭, 긴 것부터."""
+    if "cues" not in _actor_cache:
+        cues = {k: g for k, g in KEYWORD_GROUPS.items()
+                if k not in CLUSTER_PERSON_KEYWORDS | CLUSTER_TOPIC_KEYWORDS}
+        cues.update(ACTOR_ALIASES)
+        alt = "|".join(re.escape(k) for k in sorted(cues, key=len, reverse=True))
+        _actor_cache["cues"] = (re.compile(r"(?<![가-힣A-Za-z])(" + alt + r")"), cues)
+    return _actor_cache["cues"]
+
+
+def _actor_people():
+    """기관장 등 이름 → 그룹. DB 제목에서 '공정위원장 주병기'·'배경훈 과기정통부 장관'·'과기정통부 배경훈 장관'
+    꼴을 익힌다(서로 다른 제목 2건 이상, 한 그룹 80% 이상). 프로세스당 한 번."""
+    if "people" in _actor_cache:
+        return _actor_cache["people"]
+    people = {}
+    try:
+        cre, cues = _actor_cues()
+        alt = cre.pattern[len("(?<![가-힣A-Za-z])("):-1]
+        pats = [re.compile(r"(?<![가-힣A-Za-z])(" + alt + r")\s*([가-힣]{3})(?![가-힣])\s*" + _ACTOR_POS),
+                re.compile(r"(?<![가-힣])([가-힣]{3})(?![가-힣])\s*(" + alt + r")\s*" + _ACTOR_POS),
+                re.compile(r"(?<![가-힣A-Za-z])(" + alt + r")\s*" + _ACTOR_POS + r"\s*([가-힣]{3})(?![가-힣])")]
+        # 이름 바로 뒤에 직함이 붙은 적('주병기 위원장'·'배경훈 장관')이 있어야 사람으로 본다 —
+        # '방미통위원장 인사말'·'장관 어워드' 같은 단어가 걸리지 않게.
+        direct_re = re.compile(r"(?<![가-힣])([가-힣]{3})\s*" + _ACTOR_POS + r"(?![가-힣])")
+        seen, direct = {}, set()
+        conn = sqlite3.connect(DB_PATH)
+        for (t,) in conn.execute("SELECT title FROM articles"):
+            for m in direct_re.finditer(t or ""):
+                direct.add(m.group(1))
+            for i, p in enumerate(pats):
+                for m in p.finditer(t or ""):
+                    a, b = m.group(1), m.group(2)
+                    cue, name = (b, a) if i == 1 else (a, b)
+                    if name[0] in _ACTOR_SUR:
+                        seen.setdefault(name, {}).setdefault(cues[cue], set()).add(t)
+        conn.close()
+        for name, by in seen.items():
+            if name not in direct:
+                continue
+            n = {g: len(ts) for g, ts in by.items()}
+            g = max(n, key=n.get)
+            if n[g] >= 2 and n[g] / sum(n.values()) >= 0.8:
+                people[name] = g
+    except Exception as e:
+        print(f"[warn] 기관장 이름 학습 실패: {e}")
+    _actor_cache["people"] = people
+    return people
+
+
+def _actor_dequote(s):
+    """따옴표 안을 지운다 — 큰따옴표는 ◇, 작은따옴표는 ◆ 하나로. 닫히지 않은 따옴표는 끝까지 지운다."""
+    out, i = [], 0
+    while i < len(s):
+        q = _ACTOR_QUOTES.get(s[i])
+        if q is None:
+            out.append(s[i])
+            i += 1
+            continue
+        j = s.find(q[0], i + 1)
+        if j == -1:
+            break
+        out.append(q[1])
+        i = j + 1
+    return "".join(out)
+
+
+def beat_actor(title, strict=False):
+    """제목의 주체 출입처(그룹 이름) 또는 None. strict=True면 주어·화자로 쓰인 것만(가점용)."""
+    cre, cues = _actor_cues()
+    s = strip_media_tail(clean(title or ""))
+    s = re.sub(r"^\s*(?:[\[\(<【][^\]\)>】]{0,20}[\]\)>】]\s*)+", "", s).strip()
+    if not s:
+        return None
+    d = _actor_dequote(s)
+    # 제목이 발언으로 시작하면('"현장조사 거부 못하도록" 주병기 위원장, …') 그 뒤를 맨 앞으로 본다.
+    head = re.sub(r"^[◇◆\s,…·]+", "", d) if d[:1] in "◇◆" else s
+    m = cre.match(head)                                     # ① 맨 앞 출입처
+    if m:
+        return cues[m.group(1)]
+    people = _actor_people()
+    m = re.match(r"([가-힣]{2,4})(\s*" + _ACTOR_POS + r")?\s*", head)   # ② 맨 앞 사람
+    if m:
+        rest = head[m.end():]
+        m2 = cre.match(rest)
+        if m2 and re.match(r"\s*" + _ACTOR_POS, rest[m2.end():]):
+            return cues[m2.group(1)]                        # '배경훈 과기정통부 장관 "…"'
+        if rest[:1] in ",\"“'‘◇◆-–—:…" or m.group(2):
+            g = people.get(m.group(1))
+            if g:
+                return g
+    # ③ 따옴표 밖 출입처(가점용은 주어·화자 표지가 붙은 것만) — 가점용은 기관장 이름 + 발언·직함도 본다
+    #    ('野 "독파모 표류" vs 배경훈 "AI 3위 성과"').
+    found = [(m.start(), cues[m.group(1)], m.end(), True) for m in cre.finditer(d)]
+    if strict and people:
+        for m in re.finditer(r"(?<![가-힣])(" + "|".join(map(re.escape, people)) + r")(?![가-힣])", d):
+            found.append((m.start(), people[m.group(1)], m.end(), False))
+    for _, g, end, is_cue in sorted(found):
+        if strict:
+            if _ACTOR_SUBJ_RE.match(d, end) if is_cue else re.match(r"[ \t]*(?:◇|" + _ACTOR_POS + r")", d[end:]):
+                return g
+        elif not _ACTOR_OBJ_RE.match(d, end):
+            return g
+    return None
+
+
+def actor_group(title, kws):
+    """섹션 배정용 — 주체 출입처가 이 기사의 keywords 그룹 중 하나면 그 그룹, 아니면 None."""
+    groups = {KEYWORD_GROUPS.get(k, k) for k in kws}
+    if len(groups) < 2:
+        return None                                         # 후보가 하나면 원본 규칙과 같다
+    g = beat_actor(title)
+    return g if g in groups else None
+
 
 def digest_by_group(rows):
     """기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)."""
@@ -2438,6 +2578,8 @@ def digest_by_group(rows):
     for r in rows:
         kws = r[4].split(",") if r[4] else []
         g = GROUP_ASSIGN_HOOK(r[0], kws) if GROUP_ASSIGN_HOOK else None
+        if not g and ACTOR_ASSIGN:
+            g = actor_group(r[0], kws)
         if not g:
             # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로
             rep_kw = next((k for k in KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
@@ -2935,17 +3077,36 @@ def live_select(conn, start, end, now):
 # {"*": [(매체명 집합, 점수), ...], "am": [...], "pm": [...]} — 묶음에 그 매체가 하나라도 있으면
 # 규칙마다 한 번 가산(digest_cluster_rank 점수에 더함). **비어 있으면(원본 기본값) 정렬 불변.**
 # 매체명은 media_name() 결과(예: '동아일보', 'JTBC'). 동료용 변형판(국회판)이 채워 쓴다.
-LIVE_MEDIA_BOOST = {}
+# 원본 값(0-35, 사용자 결정 2026-10-15): 주요 일간지·석간·방송사·통신 3사가 보도한 묶음에 +1.
+# 국회판(조간 종합지·석간에 보고별 +3, 기본 +1.5)보다 작게, 보고 종류 구분 없이. 석간 내일신문은 원본
+# 화이트리스트에 없어 빠져 있다. 경제지·IT 전문지는 넣지 않았다.
+LIVE_MEDIA_MAJOR = {
+    "조선일보", "중앙일보", "동아일보", "한국일보", "경향신문", "한겨레", "국민일보", "서울신문", "세계일보",   # 주요 일간지
+    "문화일보", "헤럴드경제",                                                                              # 석간
+    "KBS", "KBS 뉴스", "MBC", "MBC 뉴스", "SBS", "SBS 뉴스",                                            # 지상파
+    "JTBC", "JTBC뉴스", "TV조선", "채널A", "채널A 뉴스", "MBN", "YTN", "연합뉴스TV",                     # 종편·보도PP
+    "연합뉴스", "뉴시스", "뉴스1",                                                                        # 통신 3사
+}
+LIVE_MEDIA_BOOST = {"*": [(LIVE_MEDIA_MAJOR, 1.0)]}
 
 
-def live_cluster_rank(clu, kind=None):
-    """'전체' 탭 묶음 정렬 키 — digest_cluster_rank + LIVE_MEDIA_BOOST(보고 종류별)."""
+def live_cluster_rank(clu, kind=None, group=None):
+    """'전체' 탭 묶음 정렬 키 — digest_cluster_rank + LIVE_MEDIA_BOOST(보고 종류별)
+    + LIVE_ACTOR_BONUS(묶음 기사 절반 이상에서 그 섹션 출입처가 주어·화자일 때, 0-35)."""
     base = digest_cluster_rank(clu)
+    extra = 0
     rules = LIVE_MEDIA_BOOST.get("*", []) + LIVE_MEDIA_BOOST.get(kind, [])
-    if not rules:
+    if rules:
+        names = {media_name(s) for _, sources in clu for s in sources}
+        extra += sum(w for media, w in rules if names & media)
+    if LIVE_ACTOR_BONUS and group:
+        total = sum(max(1, len(sources)) for _, sources in clu)
+        mine = sum(max(1, len(sources)) for rep, sources in clu
+                   if beat_actor(rep[0], strict=True) == group)
+        if mine * 2 >= total:
+            extra += LIVE_ACTOR_BONUS
+    if not extra:
         return base
-    names = {media_name(s) for _, sources in clu for s in sources}
-    extra = sum(w for media, w in rules if names & media)
     return (base[0] - extra, base[1])
 
 
@@ -3048,7 +3209,7 @@ def live_merge_sections(seg_sections, seg_groups, kind=None):
         if not items:
             continue
         clusters = cluster_by_topic(items, lambda x: x[1][0][0])
-        clusters.sort(key=lambda c: live_cluster_rank([gs for _, gs in c], kind))
+        clusters.sort(key=lambda c: live_cluster_rank([gs for _, gs in c], kind, g))
         c_out = []
         for c in clusters:
             c.sort(key=lambda x: article_rank(x[1][0][0], x[1][0][2], x[1][0][3]))
