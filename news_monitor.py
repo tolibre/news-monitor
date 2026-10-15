@@ -1485,26 +1485,53 @@ def is_caption_like(title, strict=False):
     #   check의 목표는 '선별'이므로 노이즈를 좀 더 적극적으로 걷어낸다.
     return (s2 and s3) if strict else (s2 or s3)
 
-# 캡션형 제목 추가 규칙(0-36) — 변형판이 채운다. **비어 있으면(원본 기본값) 동작 불변.**
-# [(정규식, 최대 길이, 원제목에 적용?)]. 원제목 규칙은 그대로 검사(「M포토」 같은 낫표 태그 — 위 PHOTO_TAGS 괄호에 없다).
-# 나머지는 태그·매체 꼬리·끝 따옴표를 뗀 제목에 적용하되, 큰따옴표·말줄임표·물음표·느낌표가 있거나 ARTICLE_ENDINGS가
-# 있거나 최대 길이를 넘으면 기사로 본다. 국회판: '물 마시는 정점식 국민의힘 원내대표'·'텅 빈 국민의힘 의원 자리'처럼
-# CAPTION_VERBS(닫힌 목록)에 없는 관형어로 시작하는 사진 설명이 빠져나갔다.
-CAPTION_EXTRA = []
+# 캡션형 제목 추가 규칙(0-36·0-37) — [(정규식, 최대 길이, 원제목에 적용?)].
+# 원제목 규칙은 그대로 검사(「M포토」·[한 컷] 같은 태그 — 위 PHOTO_TAGS 괄호에 없다). 나머지는 태그·매체 꼬리·끝 따옴표를 뗀
+# 제목에 적용하되, 아래면 기사로 보고 건너뛴다(일반 기사를 거르지 않기 위한 안전장치):
+#  - 큰따옴표·말줄임표·물음표·느낌표 / ARTICLE_ENDINGS / 최대 길이 초과
+#  - 사진 태그가 아닌 대괄호 코너명([사설]·[칼럼]·[기획①]·[CEO 라운지] 등 — 칼럼·기획 제목이 캡션처럼 생겼다)
+#  - 정책브리핑(korea.kr) — '제39차 방송미디어통신위원회 전체회의 브리핑'은 사진이 아니라 정부 브리핑 원문
+#  - 하마평 어휘(후보군·하마평·물망·거론) — '중기부 장관 후보군 오르내리는 김한규 의원'
+# 원본(0-37, 사용자 결정 2026-10-15 "김광일 페이지에도 반영, 일반기사가 걸리지 않도록"):
+#  R1 '…하는/참석한·방문한·찾은·출석한 등 + 이름 + (기관) + 직함'으로 끝 — 관형어는 '-는'이거나 장면 동사(닫힌 목록)여야 하고
+#     이름(성씨로 시작하는 2~3자)이 있어야 한다. '45년간 … 키운 김승연 한화 회장'(키운)·'… 압박한 국토부 장관'(이름 없음)·
+#     '치킨값까지 챙긴다는 李대통령'(한자 성)은 통과.
+#  R2 '…브리핑/발언/인사말/개회사/환영사/기념촬영'으로 끝 + 제목에 '이름 + (기관) + 직함' — '노경원 우주항공청 차장, … 브리핑'.
+#     이름 없는 '정부, 주한 외교단 대상 … 합동 브리핑'·'제37차 방미통위 전체회의 브리핑'(정책브리핑)은 통과,
+#     "'2080 대화'"·'장고 끝에 악수'는 목록에 없음.
+#  R3 「…포토|사진|pic…」, R4 [한 컷].
+# 국회판은 생성기가 정당용 목록으로 바꾼다. 빈 목록이면 이 단계는 동작하지 않는다.
+_CAP_SUR = "[김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁어은편용예봉경]"
+_CAP_POS = ("부총리|장관|차관|위원장|부위원장|상임위원|청장|차장|처장|원장|실장|국장|본부장|대변인|후보자|"
+            "대표|의원|의장|대통령|총리|시장|지사|이사장|사장|회장|총장|대사|부사장")
+_CAP_SCENE_PAST = ("참석한|방문한|찾은|출석한|마친|귀국한|긴장한|퇴장한|입장한|제출한|선서한|도착한|자리한|등장한|"
+                   "만난|나선|앉은|선|들어선")
+CAPTION_EXTRA = [
+    (re.compile(r"(?:^|(?<!에)\s)(?:[가-힣]*는|" + _CAP_SCENE_PAST + r")\s(?:\S+\s+){0,3}" + _CAP_SUR
+                + r"[가-힣]{1,2}(?:·" + _CAP_SUR + r"[가-힣]{1,2})*\s(?:\S+\s+){0,3}\S*(?:" + _CAP_POS + r")들?$"), 45, False),
+    (re.compile(r"^(?=.*" + _CAP_SUR + r"[가-힣]{1,2}\s(?:\S+\s+){0,2}\S*(?:" + _CAP_POS + r")(?=[\s,·]|$))"
+                r"(?!제\d+차).*\s(?:브리핑|발언|모두발언|인사말|개회사|환영사|기념촬영)$"), 40, False),
+    (re.compile(r"「[^」]*(?:포토|사진|pic)[^」]*」", re.I), 0, True),
+    (re.compile(r"\[\s*한\s?컷\s*\]"), 0, True),
+]
+_CAP_SKIP_RE = re.compile(r"후보군|하마평|물망|거론")
 
 
-def _caption_extra(title):
+def _caption_extra(title, link=""):
     raw = title or ""
-    s = strip_media_tail(clean(raw))
-    s = re.sub(r"\[[^\]]*\]|「[^」]*」", "", s).strip().rstrip("'’\" ")
     for pat, maxlen, on_raw in CAPTION_EXTRA:
-        if on_raw:
-            if pat.search(raw):
-                return True
-            continue
-        if not s or len(s) > maxlen or re.search(r"[\"“”…?!]|\.\.\.", s) or re.search(ARTICLE_ENDINGS, s):
-            continue
-        if pat.search(s):
+        if on_raw and pat.search(raw):
+            return True
+    if "korea.kr" in (link or "") or "정책브리핑" in raw:
+        return False
+    s = strip_media_tail(clean(raw))
+    if re.search(r"\[[^\]]*\]", s) or _CAP_SKIP_RE.search(s):
+        return False                                     # 코너명 달린 칼럼·기획, 하마평
+    s = re.sub(r"「[^」]*」", "", s).strip().rstrip("'’\" ")
+    if not s or re.search(r"[\"“”…?!]|\.\.\.", s) or re.search(ARTICLE_ENDINGS, s):
+        return False
+    for pat, maxlen, on_raw in CAPTION_EXTRA:
+        if not on_raw and len(s) <= maxlen and pat.search(s):
             return True
     return False
 
@@ -1534,7 +1561,7 @@ def is_photo_article(title, link="", strict=False):
         return True
 
     # C. 캡션형 제목 (A/B는 태그·URL 기반 고신뢰 신호라 strict와 무관하게 적용)
-    if CAPTION_EXTRA and _caption_extra(t):
+    if CAPTION_EXTRA and _caption_extra(t, link):
         return True
     if is_caption_like(t, strict=strict):
         return True
