@@ -1489,7 +1489,8 @@ def is_caption_like(title, strict=False):
 # 원제목 규칙은 그대로 검사(「M포토」·[한 컷] 같은 태그 — 위 PHOTO_TAGS 괄호에 없다). 나머지는 태그·매체 꼬리·끝 따옴표를 뗀
 # 제목에 적용하되, 아래면 기사로 보고 건너뛴다(일반 기사를 거르지 않기 위한 안전장치):
 #  - 큰따옴표·말줄임표·물음표·느낌표 / ARTICLE_ENDINGS / 최대 길이 초과
-#  - 사진 태그가 아닌 대괄호 코너명([사설]·[칼럼]·[기획①]·[CEO 라운지] 등 — 칼럼·기획 제목이 캡션처럼 생겼다)
+#  - 사진 태그가 아닌 대괄호 코너명([사설]·[칼럼]·[기획①]·[CEO 라운지] 등 — 칼럼·기획 제목이 캡션처럼 생겼다).
+#    [국감]·[2026 국감]·[국정감사]는 코너명이 아니라 예외(0-39).
 #  - 정책브리핑(korea.kr) — '제39차 방송미디어통신위원회 전체회의 브리핑'은 사진이 아니라 정부 브리핑 원문
 #  - 하마평 어휘(후보군·하마평·물망·거론) — '중기부 장관 후보군 오르내리는 김한규 의원'
 # 원본(0-37, 사용자 결정 2026-10-15 "김광일 페이지에도 반영, 일반기사가 걸리지 않도록"):
@@ -1515,6 +1516,8 @@ CAPTION_EXTRA = [
     (re.compile(r"\[\s*한\s?컷\s*\]"), 0, True),
 ]
 _CAP_SKIP_RE = re.compile(r"후보군|하마평|물망|거론")
+# 대괄호여도 코너명이 아닌 것 — '[국감] 답변하는 이종욱 관세청장'(0-39)
+_CAP_NEUTRAL_TAG_RE = re.compile(r"^\s*(?:20\d\d\s*)?(?:국감|국정감사)(?:\s*20\d\d)?\s*$")
 
 
 def _caption_extra(title, link=""):
@@ -1525,9 +1528,10 @@ def _caption_extra(title, link=""):
     if "korea.kr" in (link or "") or "정책브리핑" in raw:
         return False
     s = strip_media_tail(clean(raw))
-    if re.search(r"\[[^\]]*\]", s) or _CAP_SKIP_RE.search(s):
+    tags = re.findall(r"\[([^\]]*)\]", s)
+    if any(not _CAP_NEUTRAL_TAG_RE.match(x) for x in tags) or _CAP_SKIP_RE.search(s):
         return False                                     # 코너명 달린 칼럼·기획, 하마평
-    s = re.sub(r"「[^」]*」", "", s).strip().rstrip("'’\" ")
+    s = re.sub(r"\[[^\]]*\]|「[^」]*」", "", s).strip().rstrip("'’\" ")
     if not s or re.search(r"[\"“”…?!]|\.\.\.", s) or re.search(ARTICLE_ENDINGS, s):
         return False
     for pat, maxlen, on_raw in CAPTION_EXTRA:
