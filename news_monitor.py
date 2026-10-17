@@ -1861,24 +1861,31 @@ def scope_gate(title, kws):
         return False, f"{g}|약어휘만({weak[0]})"
     return False, f"{g}|소관어휘없음"
 
-# ==================== check 단독 구제 (check 전용, 2026-10-08, 0-29) ====================
+# ==================== check 단독 구제 (check 전용, 2026-10-08, 0-29 / 2026-10-17, 0-43) ====================
 # 소관 관문은 폴백 기사(제목에 출입처명 없음)를 그룹 어휘로만 판정해서, 출입처 사안을 다룬
 # [단독]도 어휘가 안 맞으면 떨어뜨린다 — 30일 4개 출입처 [단독] 228건 중 88건(0-29 실측).
-# 규칙(사용자 선택 (나)): 제목에 [단독] 태그(priority_mark=🔥)가 있고 POLICY_SIGNALS 중
-# 하나가 있으면 관문을 통과시킨다. 노이즈 필터·선별·재알림 억제는 그대로 적용된다.
+# 0-29 규칙(사용자 선택 (나)): [단독] + POLICY_SIGNALS 중 하나면 관문 통과.
+# **0-43(사용자 결정 10/17 23:04): [단독]이면 신호어 없이도 관문 통과.** 9/22~10/15 보고 24개에서
+# 뉴스레이다에 뜬 단독 묶음 158개 중 41개가 여전히 관문에서 잘렸고 그중 9개가 사용자가 고른 기사였다
+# ('노랑통닭 매각 착수', 'IT 신입채용 반토막', '키오스크 장애인 접근성', '강원랜드 사칭 도박' 등 —
+# 사용자 관심이 소관 어휘보다 넓다). 재생(10/7~10/15 check 156회): 알림 264→286, 메시지 94→98,
+# 늘어난 23건 중 약 3분의 1은 무관(인구위 박수현, 펄어비스, 국민연금 운용사 등) — 사용자 수용.
+# 신호어는 로그용으로만 남긴다(걸린 신호어, 없으면 '단독').
+# 노이즈 필터·선별·재알림 억제는 그대로 적용된다.
 #
 # **scope_gate() 안에 넣지 않은 이유**: scope_gate()는 reassign_fallback_group()에서도 불리고,
 # 그 결과(kws)가 DB keywords에 저장돼 digest·라이브의 그룹 표시를 바꾼다. 여기서는 run_check가
 # 관문 탈락을 확정하는 지점에서만 판정하므로 재배정·DB 저장은 그대로다 → digest·라이브 불변.
 def exclusive_rescue(title):
-    """관문에서 떨어진 기사를 [단독]+정책 신호어로 되살릴지. 걸린 신호어(없으면 '') 반환. check 전용."""
+    """관문에서 떨어진 기사를 되살릴지. [단독]이면 걸린 정책 신호어(없으면 '단독'), 아니면 '' 반환. check 전용.
+    0-43부터 [단독]이면 신호어와 무관하게 되살린다 — 신호어는 감시 로그용."""
     if priority_mark(title) != "🔥":
         return ""
     t = clean(title or "").rsplit(" - ", 1)[0].strip()   # scope_gate와 같은 기준(매체명 꼬리 제거)
     for s in POLICY_SIGNALS:
         if s in t:
             return s
-    return ""
+    return "단독"
 
 # ==================== 폴백 기사 그룹 재배정 (check+digest 공용, 2026-09-03) ====================
 # 문제(0-2 실측, 인수인계 문서): 폴백 기사는 "어느 키워드로 검색됐는가"만으로 그룹이
@@ -2062,10 +2069,86 @@ def notify(text, target="check", parse_mode="HTML"):
             print(f"[warn] telegram: {e}")
     print(text)
 
+# ==================== 밤사이 단독 묶음 (check 전용, 2026-10-17, 0-43) ====================
+# 23:00~05:59 check는 텔레그램을 보내지 않지만(quiet_hours) 알릴 사안은 alerted_topics에 '알림 보냄'으로
+# 기록된다 → 아침에 같은 사안의 후속·전재는 '이미 알린 주제'로 12시간 억제돼 조간 단독이 텔레그램으로
+# 끝내 안 왔다(재생: 10/7~10/15 평시 단독 3~4건, 9/26 당직일 단독 5건 — 그날 알릴 사안 29건 중 18건이 야간 기록).
+# 사용자 결정(10/17 23:04): 아침에 **단독만** 한 통으로 모아 보낸다(큰 사안은 뉴스레이다로 충분).
+#  - 대상: 전날 23:00 ~ 오늘 06:00에 처음 기록된 alerted_topics 중 tier 0(단독). 야간 기록 자체는 그대로 둔다
+#    (기록을 안 하면 06시에 기사가 이미 DB에 있어 새 기사로 다시 잡히지 않는다 — 기록이 이 묶음의 원료다).
+#  - 언제: 06:00~09:59 check 중 그날 아직 안 보냈을 때 한 번(06:00 실행이 러너 미배정으로 빠져도 07시가 보냄 — 10/6 사례).
+#    보낸 기록은 api_calls에 'YYYY-MM-DD#밤사이' 행으로(merge_db가 MAX로 보존, prune_old가 날짜 기준으로 정리).
+#  - 링크: 기록 시각(first_dt) = 그 배치 기사의 seen_dt라 articles에서 제목으로 찾는다. retitle이 밤사이 잘린 제목을
+#    고쳤으면 group_key·앞부분으로 다시 찾고, 그래도 없으면 제목만 낸다.
+OVERNIGHT_FROM_HOUR = 23      # 전날 이 시각부터
+OVERNIGHT_UNTIL_HOUR = 6      # 오늘 이 시각 전까지 (quiet_hours와 같은 경계)
+OVERNIGHT_SEND_BY_HOUR = 10   # 이 시각 전 check에서만 보낸다
+
+def overnight_exclusives(conn, now):
+    """보낼 밤사이 단독 [(그룹, 제목, 링크|None, 매체|None, 발행 HH:MM|None)] — 기록 순."""
+    end = now.replace(hour=OVERNIGHT_UNTIL_HOUR, minute=0, second=0, microsecond=0)
+    start = (end - datetime.timedelta(days=1)).replace(hour=OVERNIGHT_FROM_HOUR)
+    out = []
+    for key, title, first_dt in conn.execute(
+            "SELECT key, title, first_dt FROM alerted_topics WHERE tier=0 AND first_dt>=? AND first_dt<? "
+            "ORDER BY first_dt", (start.isoformat(), end.isoformat())):
+        g = key.split("|", 1)[0]
+        cands = conn.execute("SELECT title, link, source, pub_dt FROM articles WHERE seen_dt=?",
+                             (first_dt,)).fetchall()
+        hit = next((c for c in cands if c[0] == title), None)
+        if hit is None:
+            gk = group_key(title)
+            hit = next((c for c in cands if group_key(c[0]) == gk), None)
+        if hit is None:
+            stem = re.sub(r"[.…\s]+$", "", title or "")[:20]
+            hit = next((c for c in cands if stem and c[0].startswith(stem)), None)
+        if hit:
+            pub = _parse_dt(hit[3] or "")
+            # 어제 이전 발행분(당직 키워드가 켜지며 거슬러 수집된 것 등)은 날짜까지 — 시각만 보면 오늘 기사로 읽힌다.
+            hm = None
+            if pub:
+                pub = pub.astimezone(KST)
+                hm = pub.strftime("%H:%M") if pub.date() == now.date() else f"{pub.month}/{pub.day} {pub:%H:%M}"
+            out.append((g, hit[0], hit[1], hit[2], hm))
+        else:
+            out.append((g, title, None, None, None))
+    return out
+
+def send_overnight_exclusives(conn, now):
+    """06:00~09:59 check에서 그날 한 번 '밤사이 단독' 묶음을 보낸다. 보낸 건수(없으면 0) 반환."""
+    if not (OVERNIGHT_UNTIL_HOUR <= now.hour < OVERNIGHT_SEND_BY_HOUR):
+        return 0
+    mark = now.strftime("%Y-%m-%d") + "#밤사이"
+    if conn.execute("SELECT 1 FROM api_calls WHERE day=?", (mark,)).fetchone():
+        return 0
+    items = overnight_exclusives(conn, now)
+    if items:
+        lines = [f"🌙 <b>밤사이 단독 {len(items)}건</b> (어젯밤 23시~오늘 6시, 야간이라 못 보낸 것)"]
+        prev_g = None
+        for g, title, link, src, hm in items:
+            if g != prev_g:
+                lines.append(f"\n■ <b>{tg_escape(g)}</b>")
+                prev_g = g
+            tail = f" [{hm}|{tg_escape(media_name(src))}]" if src else ""
+            body = (f'<a href="{tg_escape(link)}">{tg_escape(title)}</a>' if link else tg_escape(title))
+            lines.append(f"🔥 · {body}{tail}")
+        notify("\n".join(lines))
+        print(f"[밤사이] 야간 기록 단독 {len(items)}건 묶어 발송")
+    else:
+        print("[밤사이] 야간 기록 단독 없음")
+    conn.execute("INSERT OR REPLACE INTO api_calls(day, cnt) VALUES(?, ?)", (mark, len(items)))
+    conn.commit()
+    return len(items)
+
 # ==================== check 모드 ====================
 def run_check():
     conn = db()
     now = datetime.datetime.now(KST)
+    # 밤사이 단독 묶음(0-43) — 이번 실행의 새 알림보다 먼저(시간순). 실패해도 check는 계속.
+    try:
+        send_overnight_exclusives(conn, now)
+    except Exception as e:
+        print(f"[warn] 밤사이 단독 묶음: {e}")
     known = set(r[0] for r in conn.execute("SELECT id FROM articles"))
     collected = {}  # aid -> item(+keywords set)
     # 게이트 키워드(CBS) 관측용 카운터. 관문이 너무 좁은지 로그로 감시한다.
@@ -2184,7 +2267,7 @@ def run_check():
 
     if rescued:
         # 단독 구제(0-29)로 관문을 넘은 기사 — 무관 기사가 섞이는지 감시용.
-        print(f"[단독구제] 소관 관문 탈락 중 {len(rescued)}건 통과([단독]+정책신호어):")
+        print(f"[단독구제] 소관 관문 탈락 중 {len(rescued)}건 통과([단독] 관문 면제, 0-43):")
         for t, why in rescued[:30]:
             print(f"  · [{why}] {t[:70]}")
 
