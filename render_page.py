@@ -1109,6 +1109,10 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .seg button:last-child{border-right:0}
 .seg button:hover{background:var(--blue-50)}
 .seg button[aria-pressed="true"]{background:var(--blue-100); color:var(--blue-700); font-weight:600; box-shadow:inset 0 0 0 1px var(--blue-500)}
+/* 당직 출입처 스위치(0-44) — 보기 범위 옆. 꺼짐 = 점선, 켬 = 눌린 상태 */
+.btn.dsw{border-style:dashed; color:var(--ink-500)}
+.btn.dsw .c{font-size:11px; font-variant-numeric:tabular-nums}
+.btn.dsw[aria-pressed="true"]{border-style:solid; border-color:var(--blue-500); background:var(--blue-100); color:var(--blue-700); font-weight:600}
 #q{flex:1 1 160px; min-width:0; height:32px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:13px; padding:0 12px}
 #q::placeholder{color:var(--ink-500)}
 #q:focus{outline:none; border-color:var(--blue-600); box-shadow:0 0 0 2px var(--blue-100)}
@@ -1250,6 +1254,7 @@ a.title:visited{color:var(--ink-900)}
         <button data-f="picked" aria-pressed="false">선택분</button>
         <button data-f="new" aria-pressed="false" id="f-new" hidden>새 기사</button>
       </div>
+      <button class="btn dsw" type="button" id="dsw" aria-pressed="false" hidden></button>
       <input id="q" type="search" placeholder="제목·매체 검색" autocomplete="off">
     </div>
   </div>
@@ -1304,7 +1309,8 @@ a.title:visited{color:var(--ink-900)}
   var TAB_KEEP_MS = 3*3600e3;        // 3시간 넘게 지난 기억은 무시(다음 날 아침엔 새 구간으로)
   var AUTO_EXPAND = 30;
 
-  var D = null;               // data.json
+  var D = null;               // 화면이 쓰는 데이터 — data.json(RAW)에서 '당직' 스위치에 따라 당직 섹션을 걷어 낸 것(0-44)
+  var RAW = null;             // data.json 그대로
   var ui = {rep:null, tab:null, beat:null, filter:'all', q:''};
   var repManual = false;      // 사용자가 보고를 직접 골랐으면 자동 전환하지 않는다
   var tabManual = false;
@@ -1316,6 +1322,64 @@ a.title:visited{color:var(--ink-900)}
   var segOpen = false;
   try{ segOpen = localStorage.getItem(SEGSTORE) === '1'; }catch(e){}
   function tabShown(t){ return segOpen || t.all || t.over; }
+
+  // ---------- 당직 출입처 스위치 (0-44) ----------
+  // data.json의 duty(당직 전용 그룹 이름들) 섹션은 서버가 늘 싣는다(당직 출입처는 날마다 수집, 알림 없음).
+  // 스위치가 꺼져 있으면 화면용 D에서 그 섹션을 걷어 낸다 — 구간 건수·'전체' 탭·칩·새 기사 수가 전부
+  // 당직이 없는 화면과 같아진다. 기억은 이 기기(브라우저)에만 — 기기 연동 대상이 아니다.
+  // 저장키는 STORE에서 만든다(변형판 생성기가 저장키 접두어를 바꿀 때 같이 바뀌게).
+  var DUTYSTORE = STORE.replace('-picks-', '-duty-');
+  var dutyOn = false;
+  try{ dutyOn = localStorage.getItem(DUTYSTORE) === '1'; }catch(e){}
+  function dutyNames(){ var o = {}; ((RAW && RAW.duty) || []).forEach(function(g){ o[g] = 1; }); return o; }
+  function copyObj(o){ var x = {}; Object.keys(o).forEach(function(k){ x[k] = o[k]; }); return x; }
+  function view(raw){
+    var ds = dutyNames();
+    if(dutyOn || !raw.duty || !raw.duty.length) return raw;
+    var out = copyObj(raw);
+    out.reports = raw.reports.map(function(r){
+      var maps = [], r2 = copyObj(r);
+      r2.segments = r.segments.map(function(s, si){
+        var m = {}, groups = [], n = 0, dup = 0;
+        (s.groups || []).forEach(function(g, gi){
+          if(ds[g.name]) return;
+          m[gi] = groups.length; groups.push(g); n += g.n; dup += (g.dup || 0);
+        });
+        maps[si] = m;
+        var s2 = copyObj(s);
+        s2.groups = groups; s2.n = n; s2.dup = dup; s2.raw = groups.length ? s.raw : 0;
+        return s2;
+      });
+      // '전체' 탭 참조 [si, gi, ci, ii]의 gi를 걷어 낸 뒤 순번으로 바꾼다(당직 섹션은 원래 맨 뒤라 보통 그대로).
+      if(r.all) r2.all = r.all.filter(function(mg){ return !ds[mg.name]; }).map(function(mg){
+        return {name: mg.name, c: mg.c.map(function(refs){
+          return refs.map(function(ref){
+            var g = maps[ref[0]] && maps[ref[0]][ref[1]];
+            return g == null ? null : [ref[0], g, ref[2], ref[3]];
+          }).filter(Boolean);
+        }).filter(function(refs){ return refs.length; })};
+      });
+      return r2;
+    });
+    return out;
+  }
+  // 보고 양식은 걷어 내기 전 데이터에서 찾는다 — 스위치를 켜고 체크한 당직 기사는 꺼도 양식에 남는다(탭 ✓ 숫자와 같게).
+  function rawOf(rep, seg){
+    var rr = RAW && RAW.reports.filter(function(x){ return x.id === rep.id; })[0];
+    if(!rr) return seg;
+    if(rr.byline && rr.byline.id === seg.id) return rr.byline;
+    return rr.segments.filter(function(x){ return x.id === seg.id; })[0] || seg;
+  }
+  // 지금 탭에서 당직 섹션 기사 수(스위치 옆 숫자) — 걷어 내기 전 데이터로 센다.
+  function dutyCount(t){
+    var ds = dutyNames(), n = 0;
+    var segs = t.all ? t.rep.segments : [t.seg];
+    segs.forEach(function(s){ (rawOf(t.rep, s).groups || []).forEach(function(g){ if(ds[g.name]) n += g.n; }); });
+    return n;
+  }
+  function dutyNote(){
+    return RAW && RAW.duty && RAW.duty.length ? '보기 범위 옆 <b>당직</b> 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림은 없음, 켜고 끈 상태는 이 기기에 기억). ' : '';
+  }
 
   // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용. 기기 연동을 켜면 다른 기기와 맞춘다 — 0-26) ----------
   // {보고id: {at: 확인 시점의 마지막 수집 시각, prev: 그 전 확인 시각(되돌리기용), t: 누른 시각}}
@@ -1569,7 +1633,7 @@ a.title:visited{color:var(--ink-900)}
     fetch('data.json?t=' + Date.now(), {cache:'no-store'}).then(function(r){
       if(!r.ok) throw new Error(r.status);
       return r.json();
-    }).then(function(d){ var y = D ? window.scrollY : 0; D = d; pickDefaults(); draw(); window.scrollTo(0, y); })
+    }).then(function(d){ var y = D ? window.scrollY : 0; RAW = d; D = view(d); pickDefaults(); draw(); window.scrollTo(0, y); })
       .catch(function(e){
         if(!D){ document.getElementById('main').innerHTML = '<p class="empty">데이터를 불러오지 못했습니다 ('+esc(e.message)+'). 새로고침을 눌러 주세요.</p>'; }
         document.getElementById('fresh').textContent = '불러오기 실패';
@@ -1760,11 +1824,20 @@ a.title:visited{color:var(--ink-900)}
     // '전체' 칩(10/14): 출입처 칩은 다시 누르면 풀리는 토글이었지만 화면에 드러나지 않아
     // 새로고침 말고는 돌아갈 길이 없어 보였다. 맨 앞에 두고, 고른 출입처가 없을 때 눌린 상태.
     var gtotal = gorder.reduce(function(a, g){ return a + gcount[g]; }, 0);
+    var chip = function(g){
+      return '<button class="beat" type="button" data-b="'+esc(g)+'" aria-pressed="'+(g===ui.beat)+'"><span>'+esc(g)+'</span><span class="c mono">'+gcount[g]+'</span></button>';
+    };
     document.getElementById('beats').innerHTML =
       '<button class="beat ball" type="button" data-b="" aria-pressed="'+(!ui.beat)+'"><span>전체</span><span class="c mono">'+gtotal+'</span></button>' +
-      gorder.map(function(g){
-      return '<button class="beat" type="button" data-b="'+esc(g)+'" aria-pressed="'+(g===ui.beat)+'"><span>'+esc(g)+'</span><span class="c mono">'+gcount[g]+'</span></button>';
-    }).join('');
+      gorder.map(chip).join('');
+    // 당직 출입처 스위치(0-44) — 보기 범위 옆. 숫자 = 지금 탭의 당직 섹션 기사 수(켜면 칩 줄 맨 뒤에 당직 칩이 붙는다)
+    var dsw = document.getElementById('dsw');
+    dsw.hidden = !(RAW && RAW.duty && RAW.duty.length);
+    if(!dsw.hidden){
+      dsw.setAttribute('aria-pressed', String(dutyOn));
+      dsw.title = '경제정책팀 당직 출입처('+RAW.duty.join('·')+') 섹션 '+(dutyOn ? '숨기기' : '보기');
+      dsw.innerHTML = (dutyOn ? '✓ ' : '+ ') + '당직 <span class="c mono">'+dutyCount(t)+'</span>';
+    }
 
     var html = '';
     if(t.over){
@@ -1797,7 +1870,7 @@ a.title:visited{color:var(--ink-900)}
       html += part;
     });
     if(t.all && !MERGED) html += drawByline(t.rep, now).html;
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. 체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. '+dutyNote()+'체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
     document.getElementById('main').innerHTML = html;
     syncBar();
   }
@@ -1953,7 +2026,7 @@ a.title:visited{color:var(--ink-900)}
     segs.forEach(function(seg, si){
       var o = picks[rep.id] && picks[rep.id][seg.id]; if(!o) return;
       Object.keys(o).forEach(function(k){
-        var it = findItem(rep, seg, k); if(!it) return;
+        var it = findItem(rep, rawOf(rep, seg), k); if(!it) return;
         var bi = (it.l && it.l in bx.links) ? bx.links[it.l] : bx.titles[tnorm(it.t)];
         if(bi != null){
           // 같은 기사를 과기정통부 섹션과 김광일 섹션에서 둘 다 체크해도 한 줄
@@ -2024,6 +2097,12 @@ a.title:visited{color:var(--ink-900)}
   document.getElementById('beats').addEventListener('click', function(e){
     var b = e.target.closest('button[data-b]'); if(!b) return;
     var g = b.getAttribute('data-b'); ui.beat = (!g || ui.beat === g) ? null : g; draw();
+  });
+  document.getElementById('dsw').addEventListener('click', function(){
+    dutyOn = !dutyOn;
+    try{ localStorage.setItem(DUTYSTORE, dutyOn ? '1' : '0'); }catch(err){}
+    if(!dutyOn && ui.beat && dutyNames()[ui.beat]) ui.beat = null;
+    D = view(RAW); draw();
   });
   [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
     btn.addEventListener('click', function(){

@@ -20,35 +20,23 @@ import sys, os, re, html, sqlite3, hashlib, datetime, urllib.parse, urllib.reque
 import xml.etree.ElementTree as ET
 import json
 
-# 임포트 시점에 duty_active()가 사용하므로 최상단에 둔다.
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # ==================== 설정 ====================
-# ==================== 당직 모드 ====================
-# 휴일 당직 때, 또는 동료 공백(휴가 등)으로 특정 기간 추가로 볼 출입처가 생겼을 때
-# 쓴다. 아래 DUTY_DATES에 날짜를 넣으면 그날만 활성화되고 다음 날 자동으로
-# 원복된다. 끄는 걸 잊어도 문제가 생기지 않게 날짜 기준으로 만들었다.
-# (환경변수 DUTY_MODE=1로도 강제 활성화 가능 — 급할 때 workflow_dispatch에서 주입)
-#
-# 2026-09-11~09-19: 산업부 담당 기자 휴가로 2진 출입처(산업부·중기부·개인정보위)
-# 임시 커버(사용자 요청). 09-20 하루는 경제정책팀 전체 출입처 커버로 범위가 더
-# 넓어져 None(8개 후보 전체)으로 처리 — 09-21부터는 기본 출입처만 보면 된다고
-# 사용자가 확인. 지난 당직일(08-17/21/26/27)은 전부 지난 날짜라 이미 비활성
-# 상태였던 것을 정리했다.
-DUTY_DATES = {
-    "2026-09-11": ["산업부", "중기부", "개인정보위"],
-    "2026-09-12": ["산업부", "중기부", "개인정보위"],
-    "2026-09-13": ["산업부", "중기부", "개인정보위"],
-    "2026-09-14": ["산업부", "중기부", "개인정보위"],
-    "2026-09-15": ["산업부", "중기부", "개인정보위"],
-    "2026-09-16": ["산업부", "중기부", "개인정보위"],
-    "2026-09-17": ["산업부", "중기부", "개인정보위"],
-    "2026-09-18": ["산업부", "중기부", "개인정보위"],
-    "2026-09-19": ["산업부", "중기부", "개인정보위"],
-    "2026-09-20": None,  # 경제정책팀 전체 출입처(8개 후보 전체) 커버
-    "2026-09-26": None,  # 추석 연휴 당직(09~18시 근무, 사용자 요청) — 8개 후보 전체
-    "2026-10-18": None,  # 일요일 휴일 특근 — 경제정책팀 출입처 전체(사용자 요청 10/17, 9/20과 같은 범위)
-}
+# ==================== 당직 출입처 — 상시 수집, 알림 없음 (0-44, 2026-10-18) ====================
+# 휴일 특근·동료 공백 때 보는 2진 출입처(경제정책팀 8곳). 예전(~0-43)엔 DUTY_DATES에 날짜를 넣어야
+# 그날만 검색어에 붙었다 — 사용자가 매번 미리 알려 줘야 했고, 통보를 빠뜨리거나 갑자기 당직이 잡히면
+# 그날 데이터가 아예 없었다(backfill.py가 생긴 이유). 사용자 결정(10/18 00:00):
+#   "뉴스레이다 안의 스위치로 가자. 당직 출입처 알림은 끄고."
+#   - 수집: 날마다 늘 한다(run_check의 '당직 수집' 단계 — 본 출입처 수집이 끝난 뒤 따로).
+#     본 출입처 검색으로 이미 잡힌 기사는 건드리지 않는다 → 본 출입처 기사·섹션·check 알림은 예전 평일과 같다.
+#   - 알림: 없다(check 텔레그램·밤사이 단독 모두). DB에만 쌓는다.
+#   - 화면: 뉴스레이다(/live/)에만, 페이지의 '당직' 스위치를 켰을 때(기본 꺼짐, 기기별 기억).
+#     digest 페이지(/·/archive/)와 excluded_log에는 넣지 않는다 — 비상용 백업은 본 출입처 그대로.
+#   - 보관: DUTY_RETENTION_DAYS일(당직 전용 기사만). 하루 수천 건이라 90일 보관이면 DB가 GitHub 파일 한도(100MB)를 넘는다.
+# 동료용 변형판은 생성기가 DUTY_COLLECT = False로 바꾼다(재경부판은 이 그룹들이 곧 본 출입처).
+DUTY_COLLECT = True
+DUTY_RETENTION_DAYS = 5        # 월요일 09:00 보고(금 13:30~)·연휴 하루 낀 보고까지 덮는 길이
 DUTY_KEYWORDS = [
     "재정경제부", "재경부",
     "국가데이터처", "데이터처",
@@ -101,31 +89,6 @@ for _k in DUTY_KEYWORDS:
     _g = DUTY_KEYWORD_GROUPS[_k]
     if _g not in DUTY_ALL_GROUPS:
         DUTY_ALL_GROUPS.append(_g)
-def duty_groups():
-    """오늘 활성화할 당직 그룹명 목록. 비당직이면 []. 날짜는 KST 기준.
-    모르는 그룹명은 경고를 낸다 — 오타로 빈 목록이 되면 그날 수집이 통째로
-    조용히 사라지는데, 이게 이 시스템에서 가장 위험한 실패 양상이다."""
-    env = os.environ.get("DUTY_MODE", "").strip()
-    if env in ("1", "true", "True", "yes", "all", "ALL"):
-        return list(DUTY_ALL_GROUPS)
-    if env:
-        want = {x.strip() for x in re.split(r"[,\s]+", env) if x.strip()}
-        unknown = want - set(DUTY_ALL_GROUPS)
-        if unknown:
-            print(f"[warn] DUTY_MODE에 모르는 그룹: {', '.join(sorted(unknown))}")
-        return [g for g in DUTY_ALL_GROUPS if g in want]
-    today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
-    if today not in DUTY_DATES:
-        return []
-    sel = DUTY_DATES[today]
-    if sel is None:
-        return list(DUTY_ALL_GROUPS)
-    unknown = set(sel) - set(DUTY_ALL_GROUPS)
-    if unknown:
-        print(f"[warn] DUTY_DATES[{today}]에 모르는 그룹: {', '.join(sorted(unknown))}")
-    return [g for g in DUTY_ALL_GROUPS if g in sel]
-def duty_active():
-    return bool(duty_groups())
 
 # 표시 순서는 이 리스트 순서를 그대로 따른다.
 # GROUP_ORDER 생성, check의 display_groups(), digest의 rep_kw 선정이 모두
@@ -172,12 +135,9 @@ _TEMP_KW_ON = active_temp_keywords()
 # digest는 이 목록과 무관하게 항상 전부 담는다 — run_check() 하단 선별 참조.)
 CHECK_EXCLUSIVE_ONLY_GROUPS = {"대미투자"}
 
-# 당직일/임시 키워드는 기존 출입처 **뒤에** 붙는다 (평소 출입처가 항상 상단).
-_DUTY_ON = duty_groups()
-KEYWORDS = BASE_KEYWORDS + [k for k in DUTY_KEYWORDS
-                            if DUTY_KEYWORD_GROUPS[k] in _DUTY_ON] + _TEMP_KW_ON
-if _DUTY_ON:
-    print(f"[duty] 당직 출입처 활성: {', '.join(_DUTY_ON)}")
+# 임시 키워드는 기존 출입처 **뒤에** 붙는다 (평소 출입처가 항상 상단).
+# 당직 키워드는 여기 넣지 않는다(0-44) — run_check가 본 출입처 수집 뒤에 따로 모은다(DUTY_ONLY_KEYWORDS).
+KEYWORDS = BASE_KEYWORDS + _TEMP_KW_ON
 if _TEMP_KW_ON:
     print(f"[temp-kw] 임시 키워드 활성: {', '.join(_TEMP_KW_ON)}")
 
@@ -327,6 +287,7 @@ GROUP_SCOPE = {
         "weak": ["항공", "로켓", "궤도", "탐사", "천문", "드론", "사천"],
     },
     # ===== 당직 출입처 (실데이터 표본이 얇다 — 당직 때 로그를 보고 다듬을 것) =====
+    # (0-44부터 당직 수집 기사는 check 알림 단계를 거치지 않아 아래 어휘는 쓰이지 않는다 — 다시 알림을 켤 때를 위해 둔다.)
     "산업부": {
         "strong": [
             "통상", "관세", "수출", "수입규제", "FTA", "무역", "산업정책", "제조업",
@@ -485,10 +446,8 @@ KEYWORD_GROUPS = {
     "우주항공청": "우주항공청", "누리호": "우주항공청",
     "CBS": "CBS", "나이영": "CBS",
 }
-# 당직 키워드 매핑은 활성 여부와 무관하게 항상 합쳐둔다.
-# 당직일 17:30·22:00 다이제스트, 그리고 당직 다음 날 06:00 다이제스트(전날 22:00~
-# 금일 06:00 구간)가 당직 시간대 기사를 나눠 커버하는데, 그때 duty_active()는
-# 이미(또는 아직) False인 경우가 있다. 매핑이 없으면 그 기사들의 그룹을 못 찾는다.
+# 당직 키워드 매핑도 항상 합쳐둔다 — 당직 수집 기사(0-44)와 옛 당직일 기사의 그룹을 찾고,
+# 클러스터링의 출입처명 토큰(CLUSTER_AGENCY_TOKENS)에도 들어가야 해서.
 KEYWORD_GROUPS.update(DUTY_KEYWORD_GROUPS)
 # 다이제스트 섹션 표시 순서 (그룹명 기준, 중복 제거)
 GROUP_ORDER = []
@@ -505,16 +464,31 @@ for _k in KEYWORDS:
     _g = KEYWORD_GROUPS.get(_k, _k)
     REP_KEYWORD_FOR_GROUP.setdefault(_g, _k)
 
-# 당직 다음 날처럼 duty_active()가 꺼진 상태에서 당직 시간대 기사를 렌더할 때,
-# GROUP_ORDER에 없는 그룹이 데이터에만 존재할 수 있다. 그대로 두면 렌더 루프가
-# GROUP_ORDER만 돌기 때문에 그 기사들이 **조용히 사라진다**.
-# 데이터에 실제로 있는 그룹을 뒤에 덧붙여 누락을 막는다.
+# ===== 당직 전용 그룹·검색어 (0-44) =====
+# 본 출입처(GROUP_ORDER)에 없는 당직 그룹만. 변형판(DUTY_COLLECT=False)은 비어 있다 —
+# 재경부판처럼 당직 그룹이 곧 본 출입처인 판에서 그 기사를 '당직'으로 숨기거나 지우면 안 되므로
+# 아래 판정·정리·화면 표시는 전부 이 목록만 본다.
+DUTY_ONLY_GROUPS = [g for g in DUTY_ALL_GROUPS if g not in GROUP_ORDER] if DUTY_COLLECT else []
+DUTY_ONLY_KEYWORDS = [k for k in DUTY_KEYWORDS if DUTY_KEYWORD_GROUPS[k] in DUTY_ONLY_GROUPS]
+_DUTY_ONLY_KWSET = set(DUTY_ONLY_KEYWORDS)
+
+
+def is_duty_only(kws):
+    """저장된 keywords(목록·집합 또는 쉼표 문자열)가 전부 당직 전용 검색어인가 — 당직 수집으로만 들어온 기사."""
+    if isinstance(kws, str):
+        kws = kws.split(",") if kws else []
+    return bool(kws) and _DUTY_ONLY_KWSET.issuperset(kws)
+
+
+# GROUP_ORDER에 없는 그룹이 데이터에만 있을 수 있다(당직 수집 기사, 만료된 임시 키워드의 옛 기사 등).
+# 그대로 두면 렌더 루프가 GROUP_ORDER만 돌기 때문에 그 기사들이 **조용히 사라진다** —
+# 데이터에 실제로 있는 그룹을 뒤에 덧붙여 누락을 막는다. 당직 그룹은 맨 뒤, DUTY_ALL_GROUPS 순서로(0-44) —
+# 뉴스레이다가 당직 스위치를 끄면 맨 뒤 섹션들을 걷어 내므로 본 출입처 섹션 순서는 스위치와 무관하다.
 def effective_group_order(present):
     order = [g for g in GROUP_ORDER]
-    for g in present:
-        if g not in order:
-            order.append(g)
-    return order
+    extra = [g for g in present if g not in order]
+    duty = [g for g in DUTY_ALL_GROUPS if g in extra]
+    return order + [g for g in extra if g not in duty] + duty
 
 def display_groups(kws):
     """매칭된 키워드 집합(kws)을 표시용 그룹명 리스트로 축약.
@@ -731,7 +705,7 @@ MAX_PAGES_PER_KEYWORD = 5      # 네이버: 키워드당 최대 5페이지(500�
 DAILY_CALL_SOFT_LIMIT = 20000  # 일일 호출 안전장치 (한도 25,000의 80%)
 RETENTION_DAYS = 90            # DB 보관 기간(일). 이보다 오래된 기사는 자동 삭제. 0이면 삭제 안 함.
 
-# KST는 파일 상단(설정부 앞)으로 옮김 — duty_active()가 임포트 시점에 쓰기 때문
+# KST는 파일 상단(설정부 앞)에 있다 — 임시 키워드(active_temp_keywords)가 임포트 시점에 쓴다
 
 # ==================== DB ====================
 def db():
@@ -789,6 +763,15 @@ def prune_old(conn):
     cutoff = (now - datetime.timedelta(days=RETENTION_DAYS)).isoformat()
     cur = conn.execute("DELETE FROM articles WHERE seen_dt < ?", (cutoff,))
     deleted = cur.rowcount
+    # 당직 수집 기사(keywords가 당직 전용 검색어뿐)는 DUTY_RETENTION_DAYS일만(0-44). 옛 당직일 기사도 같은 규칙이다.
+    if DUTY_ONLY_KEYWORDS and DUTY_RETENTION_DAYS > 0:
+        dcut = (now - datetime.timedelta(days=DUTY_RETENTION_DAYS)).isoformat()
+        ids = [(i,) for i, kws in conn.execute("SELECT id, keywords FROM articles WHERE seen_dt < ?", (dcut,))
+               if is_duty_only(kws)]
+        conn.executemany("DELETE FROM articles WHERE id = ?", ids)
+        if ids:
+            print(f"[정리] 당직 수집 기사 {DUTY_RETENTION_DAYS}일 초과 {len(ids)}건 삭제")
+        deleted += len(ids)
     day_cutoff = (now - datetime.timedelta(days=RETENTION_DAYS)).strftime("%Y-%m-%d")
     conn.execute("DELETE FROM api_calls WHERE day < ?", (day_cutoff,))
     conn.commit()
@@ -1807,6 +1790,16 @@ def matched_keywords(title):
         out.append(k)
     return out
 
+
+def duty_matched_keywords(title):
+    """matched_keywords()의 당직 전용판(0-44) — 제목에 걸린 당직 전용 검색어(DUTY_ONLY_KEYWORDS 순서).
+    오탐 표현(KEYWORD_ANTIPATTERNS)·제외어는 같은 규칙. 본 출입처 판정(matched_keywords)과 섞지 않으려고 따로 둔다 —
+    섞으면 '산업부'가 제목에 있는 공정위 본문 매칭 기사가 산업부 기사가 돼 본 출입처 섹션에서 빠진다."""
+    if is_excluded(title):
+        return []
+    t = clean(title or "").rsplit(" - ", 1)[0].strip()
+    return [k for k in DUTY_ONLY_KEYWORDS if k in strip_antipatterns(t, k)]
+
 # ==================== 그룹별 관문 강도 (2026-09-18, 사용자 결정) ====================
 # 출입처마다 "얼마나 보고 싶은가"가 다르다. 사용자 요청:
 #   "방미통위와 관련한 기사들은 필터를 조금 더 느슨하게 해줘. 기사 조금 더 많이 봐도
@@ -2196,6 +2189,31 @@ def run_check():
             it["kws"] = kws
             collected[aid] = it
 
+    # ===== 당직 수집(0-44) — 본 출입처 수집이 끝난 뒤, 알림 없이 DB에만 =====
+    # 본 출입처 검색으로 이미 잡힌 기사는 건드리지 않는다(keywords에 당직 검색어를 더하지 않음) —
+    # 그래야 본 출입처 기사의 섹션·소관 관문·check 알림이 당직 수집이 없던 평일과 똑같다.
+    # 여기서 새로 들어온 기사는 keywords가 당직 검색어뿐이라(is_duty_only) 아래에서 알림 단계로 가지 않는다.
+    for kw in DUTY_ONLY_KEYWORDS:
+        for it in fetch_naver(conn, kw, set(known) - set(collected)) + \
+                  fetch_google(kw, set(known) - set(collected)):
+            aid = it["id"]
+            if is_excluded(it["title"]):
+                continue
+            if aid in known and aid not in collected:
+                continue
+            if aid in collected:
+                if collected[aid].get("duty"):
+                    collected[aid]["kws"].add(kw)      # 같은 당직 기사가 다른 당직 검색어로 또 잡힘
+                continue                               # 본 출입처 기사는 그대로 둔다
+            kws = set(duty_matched_keywords(it["title"]))
+            if not kws:
+                if kw in clean(it["title"]):
+                    continue                           # 오탐 표현('산업부문' 등)뿐인 제목
+                kws = {kw}
+            it["kws"] = kws
+            it["duty"] = True
+            collected[aid] = it
+
     new_rows = []
     off_scope = []      # 소관 관문에서 걸러낸 폴백 기사 (감시용)
     reassigned = []     # 그룹 재배정된 폴백 기사 (감시용, check+digest 공용)
@@ -2209,8 +2227,17 @@ def run_check():
         for s in cbs_samples[:15]:
             print(f"  [CBS탈락] {s}")
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
+    duty_saved = 0
     for aid, it in collected.items():
         if aid in known:
+            continue
+        if it.get("duty"):
+            # 당직 수집 기사(0-44) — 저장만 한다. 그룹 재배정·소관 관문·노이즈·선별·알림을 거치지 않는다.
+            if media_allowed(it["source"]) or STORE_NON_WHITELIST:
+                conn.execute("INSERT OR IGNORE INTO articles VALUES(?,?,?,?,?,?,?,?)",
+                             (aid, it["title"], it["link"], it["source"], it["pub_dt"],
+                              now.isoformat(), ",".join(sorted(it["kws"])), it["origin"]))
+                duty_saved += 1
             continue
         # 그룹 재배정 — DB 저장 **전에** 적용해야 digest도 올바른 그룹으로 표시된다.
         # (check만 고칠 거면 아래 scope_gate 자리에서 해도 되지만, kws 자체가
@@ -2248,6 +2275,9 @@ def run_check():
                 continue
             new_rows.append(it)
     conn.commit()
+
+    if DUTY_ONLY_KEYWORDS:
+        print(f"[당직수집] 새 기사 {duty_saved}건 저장(알림 없음 — 뉴스레이다 '당직' 스위치로 봄, 0-44)")
 
     if reassigned:
         # 무엇을 옮겼는지 목록으로 남긴다(과잉 재배정 감시). 숫자만으로는 판단할 수 없다.
@@ -2313,6 +2343,8 @@ def run_check():
         recent = conn.execute("SELECT title, source, keywords FROM articles WHERE seen_dt >= ?",
                               ((now - datetime.timedelta(hours=24)).isoformat(),)).fetchall()
         # 섹션 안 중요도 정렬(clu_rank)용 전재 매체 집계 — 예전 그대로(선별에는 안 씀).
+        # 당직 수집 기사(0-44)는 셈에서 뺀다 — 알림 판정은 당직 수집이 없던 때와 같아야 한다.
+        recent = [r for r in recent if not is_duty_only(r[2])]
         pickup_count = {}
         for title, source, _ in recent:
             pickup_count.setdefault(group_key(title), set()).add(source)
@@ -2747,8 +2779,10 @@ def digest_by_group(rows):
         if not g and ACTOR_ASSIGN:
             g = actor_group(r[0], kws)
         if not g:
-            # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로
-            rep_kw = next((k for k in KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
+            # 대표 키워드: KEYWORDS 순서상 가장 앞선 것 → 그 그룹으로. 당직 수집 기사(0-44)는 KEYWORDS에 없으니
+            # DUTY_KEYWORDS 순서로(저장된 keywords는 가나다순이라 kws[0]이면 '국토부'가 늘 '재경부'를 이긴다).
+            rep_kw = next((k for k in KEYWORDS if k in kws), None) or \
+                next((k for k in DUTY_KEYWORDS if k in kws), (kws[0] if kws else KEYWORDS[0]))
             g = KEYWORD_GROUPS.get(rep_kw, rep_kw)
         by_group.setdefault(g, []).append(r)
     return by_group
@@ -2841,6 +2875,12 @@ def run_digest():
         print(f"[{now.strftime('%m/%d %H:%M')}] 토요일이지만 FORCE_SEND=1 — {label} 강제 실행(테스트용)")
 
     rows, photo_rows, junk_rows, noise_rows = digest_select(conn, start, end, now)
+    # 당직 수집 기사(0-44)는 digest 페이지·excluded_log에 넣지 않는다 — 뉴스레이다 '당직' 스위치로만 본다.
+    # (비상용 백업 페이지는 본 출입처 그대로. 넣으면 보존본이 하루 다섯 장씩 몇 배로 커진다.)
+    rows = [r for r in rows if not is_duty_only(r[4])]
+    photo_rows = [r for r in photo_rows if not is_duty_only(r[4])]
+    junk_rows = [r for r in junk_rows if not is_duty_only(r[4])]
+    noise_rows = [(r, w) for r, w in noise_rows if not is_duty_only(r[4])]
     photo_excluded, junk_excluded = len(photo_rows), len(junk_rows)
     noise_excluded = len(noise_rows)
 
@@ -3028,20 +3068,25 @@ def _mark_live_repeats(conn, start, groups):
     달고, 그룹·구간 건수(n)에서는 뺀다(dup으로 따로 센다). digest 출력은 무관.
     반환: 표시한 건수."""
     since = (start - datetime.timedelta(hours=LIVE_REPEAT_LOOKBACK_HOURS)).isoformat()
-    first = {}
-    for title, seen in conn.execute(
-            "SELECT title, seen_dt FROM articles WHERE seen_dt>=? AND seen_dt<?",
+    # 본 출입처 섹션은 당직 수집 기사(0-44)를 기준으로 삼지 않는다 — 스위치를 끈 화면에선 본 적 없는 기사라서.
+    first, first_core = {}, {}
+    for title, seen, kws in conn.execute(
+            "SELECT title, seen_dt, keywords FROM articles WHERE seen_dt>=? AND seen_dt<?",
             (since, start.isoformat())):
+        duty = is_duty_only(kws)
         for t in (title, clean_title_display(title)):
             k = group_key(t)
             if k and (k not in first or seen < first[k]):
                 first[k] = seen
+            if k and not duty and (k not in first_core or seen < first_core[k]):
+                first_core[k] = seen
     total = 0
     for g in groups:
         nd = 0
+        ref = first if g["name"] in DUTY_ONLY_GROUPS else first_core
         for clu in g["clusters"]:
             for it in clu:
-                seen = first.get(group_key(it["t"]))
+                seen = ref.get(group_key(it["t"]))
                 if seen:
                     t = datetime.datetime.fromisoformat(seen).astimezone(KST)
                     it["d"] = (t.strftime("%H:%M") if t.date() == start.date()
@@ -3412,16 +3457,20 @@ def collect_byline(conn, now, fetch=None):
 def _attach_seen(conn, start, end, groups):
     """페이지 기사마다 최초 수집 시각 q(ISO, 초 단위)를 단다. (0-24, 라이브 전용)
     '전체' 탭의 '확인 완료' 이후 새 기사 판별에 쓴다. 링크로 찾고, 링크가 없으면 제목으로."""
-    by_link, by_title = {}, {}
-    for title, link, seen in conn.execute(
-            "SELECT title, link, seen_dt FROM articles WHERE seen_dt>=? AND seen_dt<?",
+    # 본 출입처 섹션은 당직 수집 기사(0-44)의 수집 시각을 쓰지 않는다(_mark_live_repeats와 같은 이유).
+    maps = {True: ({}, {}), False: ({}, {})}     # 당직 여부 → (링크, 제목 키) → 최초 수집 시각
+    for title, link, seen, kws in conn.execute(
+            "SELECT title, link, seen_dt, keywords FROM articles WHERE seen_dt>=? AND seen_dt<?",
             (start.isoformat(), end.isoformat())):
-        if link and (link not in by_link or seen < by_link[link]):
-            by_link[link] = seen
         k = group_key(clean_title_display(title))
-        if k and (k not in by_title or seen < by_title[k]):
-            by_title[k] = seen
+        for duty in {True, is_duty_only(kws)}:
+            by_link, by_title = maps[duty]
+            if link and (link not in by_link or seen < by_link[link]):
+                by_link[link] = seen
+            if k and (k not in by_title or seen < by_title[k]):
+                by_title[k] = seen
     for g in groups:
+        by_link, by_title = maps[g["name"] in DUTY_ONLY_GROUPS]
         for clu in g["clusters"]:
             for it in clu:
                 seen = by_link.get(it["l"]) if it["l"] else None
@@ -3546,11 +3595,16 @@ def build_live_data(conn, now):
             "byline": byline_section(conn, spec, now),
         })
     last_seen = conn.execute("SELECT MAX(seen_dt) FROM articles").fetchone()[0]
-    return {
+    out = {
         "generated": now.isoformat(),
         "last_seen": last_seen or "",
         "reports": reports,
     }
+    # 당직 전용 그룹(0-44) — 페이지의 '당직' 스위치가 꺼져 있으면 이 섹션들을 걷어 낸다.
+    # 비어 있으면(변형판) 키를 싣지 않는다 — 스위치도 안 그려진다.
+    if DUTY_ONLY_GROUPS:
+        out["duty"] = list(DUTY_ONLY_GROUPS)
+    return out
 
 
 def run_live():

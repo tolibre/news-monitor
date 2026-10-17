@@ -123,8 +123,11 @@ def report_deadline(rid):
     return datetime.datetime(d.year, d.month, d.day, h, 0, tzinfo=KST)
 
 
-def snapshot_items(conn, rid):
-    """보고 마감 5분 전 시점의 화면 기사 목록. 보고를 못 찾으면 None."""
+def snapshot_items(conn, rid, picks=None):
+    """보고 마감 5분 전 시점의 화면 기사 목록. 보고를 못 찾으면 None.
+    당직 섹션(0-44, 뉴스레이다 '당직' 스위치를 켜야 보임)은 그 섹션에서 고른 기사가 있을 때만 싣는다 —
+    스위치를 안 켠 날엔 화면에 없던 기사라 '노출됐지만 안 고름'으로 세면 안 되고, 하루 수천 건이라
+    picks/ 파일이 몇 배로 커진다. picks = 이 보고의 체크 기록({구간id: {키: [1|0, 시각]}})."""
     now = report_deadline(rid) - datetime.timedelta(minutes=5)
     data = nm.build_live_data(conn, now)
     rep = next((r for r in data["reports"] if r["id"] == rid), None)
@@ -136,9 +139,19 @@ def snapshot_items(conn, rid):
         for mi, refs in enumerate(mg["c"]):
             for k, ref in enumerate(refs):
                 pos[tuple(ref)] = (mi, k, len(refs))
+    picked = {k for keys in (picks or {}).values() for k, e in keys.items() if e and e[0]}
+    duty = set(data.get("duty") or [])
+    keep_duty = set()
+    for seg in rep["segments"]:
+        for g in seg["groups"]:
+            if g["name"] in duty and any((it.get("l") or it.get("t")) in picked
+                                         for clu in g["clusters"] for it in clu):
+                keep_duty.add(g["name"])
     items = []
     for si, seg in enumerate(rep["segments"]):
         for gi, g in enumerate(seg["groups"]):
+            if g["name"] in duty and g["name"] not in keep_duty:
+                continue
             for ci, clu in enumerate(g["clusters"]):
                 for ii, it in enumerate(clu):
                     mi, k, size = pos.get((si, gi, ci, ii), (None, None, None))
@@ -203,7 +216,7 @@ def harvest(sync_docs, now=None, conn=None):
                 stats["updated"] += 1
             else:
                 age = (now.date() - report_deadline(rid).date()).days
-                items = snapshot_items(conn, rid) if age <= SNAPSHOT_MAX_AGE_DAYS else None
+                items = snapshot_items(conn, rid, picks[rid]) if age <= SNAPSHOT_MAX_AGE_DAYS else None
                 if items is None:
                     stats["no_items"] += 1
                 doc = {"v": 1, "rid": rid, "cols": COLS, "cols_note": COLS_NOTE,

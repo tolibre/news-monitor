@@ -19,11 +19,6 @@ on:
         required: false
         default: ''
         type: string
-      duty:
-        description: '당직 출입처 강제 (1=8개 전체 / "산업부,중기부" 형태로 일부만). 비우면 DUTY_DATES 날짜 기준.'
-        required: false
-        default: ''
-        type: string
       since:
         description: 'backfill 시작 시각 (예: 2026-08-20 20:00). 비우면 어제 20:00.'
         required: false
@@ -84,10 +79,7 @@ jobs:
           # 두 번째 봇 — excluded 모드(수동 조회) 전용. digest 텔레그램 발송은 0-42에서 폐기.
           TELEGRAM_DIGEST_BOT_TOKEN: ${{ secrets.TELEGRAM_DIGEST_BOT_TOKEN }}
           TELEGRAM_DIGEST_CHAT_ID: ${{ secrets.TELEGRAM_DIGEST_CHAT_ID }}
-          # cron-job.org가 보내는 body에는 이 값이 없어 빈 문자열이 된다.
-          # 즉 정기 실행(check)은 항상 DUTY_DATES 날짜 기준으로 동작한다.
-          # (2026-09-21 DB 실측: check는 매시 정각 1시간 간격으로 돌고 있었다)
-          DUTY_MODE: ${{ github.event.inputs.duty }}
+          # (0-44: 당직 출입처는 날짜와 무관하게 늘 수집한다 — 예전 duty 입력·DUTY_MODE는 없앴다.)
           BF_SINCE: ${{ github.event.inputs.since }}
           BF_UNTIL: ${{ github.event.inputs.until }}
           BF_GROUPS: ${{ github.event.inputs.groups }}
