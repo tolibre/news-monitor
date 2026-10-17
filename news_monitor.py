@@ -629,8 +629,9 @@ def media_name(source):
     return source.strip()  # 이미 매체명이거나 미등록 도메인이면 그대로
 
 # ==================== check 선별용 핵심 매체 ====================
-# check(실시간)는 선별이 목적: 아래 핵심 매체이거나, [단독]/[속보]이거나,
-# 2곳 이상이 보도 중인 기사만 알림. digest는 화이트리스트 전체를 빠짐없이 포함.
+# check(실시간)는 선별이 목적: [단독]이거나, 같은 사안을 보도한 아래 핵심 매체가
+# 3곳 이상인 기사만 알림(0-41 — run_check의 selected() 참조). digest는 화이트리스트 전체를 빠짐없이 포함.
+CHECK_CORE_SPREAD_MIN = 3   # check 통과에 필요한 같은 사안 핵심매체 수(0-41)
 CORE_MEDIA_DOMAINS = {
     # 통신사
     "yna.co.kr", "newsis.com", "news1.kr",
@@ -2211,33 +2212,64 @@ def run_check():
         if len(noised) > 30:
             print(f"  … 외 {len(noised) - 30}건")
 
-    # ===== check 선별: 핵심 매체 / 단독·속보 / 전재 확산(2곳 이상) 중 하나라도 해당해야 알림 =====
+    # ===== check 선별: [단독] 이거나, 같은 사안을 핵심매체 3곳 이상이 보도해야 알림 (0-41) =====
+    # 사용자 결정(2026-10-17): 예전 3관문(핵심매체 단건 / 단독·속보 / 전재 2곳 이상 중 하나)은
+    # 하루 평균 58건·13회 알림에 고른 기사 기록(picks/) 대비 채택률 5%라 안 보게 됐다.
+    #  - 핵심매체 단건만으로는 통과하지 않는다(채택률 3.5%).
+    #  - [속보]만으로는 통과하지 않는다(채택률 2.5%) — 핵심매체 3곳이 받으면 아래 규칙으로 통과.
+    #  - 사용자는 '단독 or 2곳 이상+핵심매체'를 골랐으나, 재생(10/7~10/15 check 156회)에서 같은 사안
+    #    기준 2곳+핵심매체는 알림이 1/3만 줄었고(607→409), 핵심매체 3곳 이상은 264건으로 고른 사안
+    #    커버는 같았다(21/29). 사용자가 이 안(C)으로 확정(10/17 09:25).
+    #  - '보도한 매체'는 **같은 사안** 기준으로 센다: 최근 24시간 같은 출입처 섹션의 화이트리스트
+    #    기사 중 제목이 같거나(group_key, 전재) 주제가 겹치는(significant_overlap — 클러스터링·재알림
+    #    억제와 같은 판정 함수) 기사의 매체. 예전엔 제목이 같은 전재만 셌다 — 매체마다 제목을 달리 단
+    #    사안('공정위 중점조사기획단 1호 사건 식품 담합')은 아무리 퍼져도 1곳이었다(0-41 재생에서 발견).
+    #  - 매체는 매체 단위로 센다(media_name). 같은 기사를 네이버(yna.co.kr)·구글(연합뉴스)이
+    #    둘 다 물어오면 예전엔 '2곳'이 됐다.
+    # 걸러진 기사는 DB에 그대로 있어 digest·뉴스레이다(라이브)에는 전부 나온다(check 전용).
     skipped = []
     if new_rows:
-        # 전재 확산 판정: 이번 배치 + 최근 24시간 DB에서 같은 제목 그룹의 매체 수 집계
-        pickup_count = {}
-        recent = conn.execute("SELECT title, source FROM articles WHERE seen_dt >= ?",
+        def outlet(s):
+            """source(도메인 또는 구글 매체명) → 매체 단위 이름."""
+            return re.sub(r"\s*뉴스$", "", media_name(s) or s or "").strip()
+
+        def sec_of(kws):
+            gs = display_groups(kws)
+            return gs[0] if gs else None
+
+        # 최근 24시간 DB(이번 배치 포함 — 위에서 이미 저장됨)의 화이트리스트 기사를 섹션별로 모은다.
+        recent = conn.execute("SELECT title, source, keywords FROM articles WHERE seen_dt >= ?",
                               ((now - datetime.timedelta(hours=24)).isoformat(),)).fetchall()
-        for title, source in recent:
-            k = group_key(title)
-            pickup_count.setdefault(k, set()).add(source)
+        # 섹션 안 중요도 정렬(clu_rank)용 전재 매체 집계 — 예전 그대로(선별에는 안 씀).
+        pickup_count = {}
+        for title, source, _ in recent:
+            pickup_count.setdefault(group_key(title), set()).add(source)
         for it in new_rows:
-            k = group_key(it["title"])
-            pickup_count.setdefault(k, set()).add(it["source"])
+            pickup_count.setdefault(group_key(it["title"]), set()).add(it["source"])
+        pool = {}       # 섹션 → [(group_key, 토큰, source)]
+        for title, source, kws in recent:
+            if not media_allowed(source):
+                continue
+            g = sec_of(kws.split(",") if kws else [])
+            pool.setdefault(g, []).append((group_key(title), topic_tokens(title), source))
+
+        def core_outlets(it):
+            """이 기사와 같은 사안을 보도한 핵심매체(매체 단위) 집합."""
+            gk, toks = group_key(it["title"]), topic_tokens(it["title"])
+            srcs = {it["source"]}
+            for k, t, s in pool.get(sec_of(it["kws"]), ()):
+                if k == gk or significant_overlap(toks, t):
+                    srcs.add(s)
+            return {outlet(s) for s in srcs if core_media(s)}
 
         def selected(it):
-            gs = display_groups(it["kws"])
-            g = gs[0] if gs else None
+            g = sec_of(it["kws"])
             if g in CHECK_EXCLUSIVE_ONLY_GROUPS:
-                # 표준 3관문 대신 [단독]/[속보]만 통과 (임시 키워드 절 참조).
+                # 표준 관문 대신 [단독]/[속보]만 통과 (임시 키워드 절 참조).
                 return bool(priority_mark(it["title"]))
-            if core_media(it["source"]):
+            if priority_mark(it["title"]) == "🔥":
                 return True
-            if priority_mark(it["title"]):
-                return True
-            if len(pickup_count.get(group_key(it["title"]), ())) >= 2:
-                return True
-            return False
+            return len(core_outlets(it)) >= CHECK_CORE_SPREAD_MIN
 
         skipped = [it for it in new_rows if not selected(it)]
         new_rows = [it for it in new_rows if selected(it)]
