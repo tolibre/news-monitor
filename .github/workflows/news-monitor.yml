@@ -40,18 +40,13 @@ on:
         default: ''
         type: string
       page_mode:
-        description: 'digest 전용: off(전문만, 페이지 없음) / both(전문+페이지, 전환 시작값) / summary(요약 카드+페이지). 비우면 off.'
+        description: 'digest 전용: both(페이지·보존본 생성, 정기 실행 값) / off(페이지 없이 제외기록·DB 정리만). 비우면 off.'
         required: false
         default: 'off'
         type: choice
-        options: ['off', both, summary]
+        options: ['off', both]
       force_send:
-        description: 'digest 전용, 수동 테스트용: 1이면 토요일 발송 스킵을 무시하고 강제 발송(PAGE_MODE 등 확인용). 비우면 평소처럼 토요일 스킵.'
-        required: false
-        default: ''
-        type: string
-      digest_push:
-        description: 'digest 전용, 비상용: on이면 digest 전문을 텔레그램으로 보낸다(페이지 마비 대비). 비우면 페이지·보존본만 만들고 텔레그램은 안 보냄(정기 실행 기본).'
+        description: 'digest 전용, 수동 테스트용: 1이면 토요일 스킵을 무시하고 강제 실행(페이지 확인용). 비우면 평소처럼 토요일 스킵.'
         required: false
         default: ''
         type: string
@@ -86,6 +81,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # 두 번째 봇 — excluded 모드(수동 조회) 전용. digest 텔레그램 발송은 0-42에서 폐기.
           TELEGRAM_DIGEST_BOT_TOKEN: ${{ secrets.TELEGRAM_DIGEST_BOT_TOKEN }}
           TELEGRAM_DIGEST_CHAT_ID: ${{ secrets.TELEGRAM_DIGEST_CHAT_ID }}
           # cron-job.org가 보내는 body에는 이 값이 없어 빈 문자열이 된다.
@@ -102,15 +98,9 @@ jobs:
           # digest 전용 HTML 페이지 전환 스위치(D 세션, claude/HTML전환_세션계획.md 참조).
           # digest가 아닌 모드에서는 news_monitor.py가 아예 읽지 않으므로 무해하다.
           PAGE_MODE: ${{ github.event.inputs.page_mode }}
-          # GitHub Pages 공개 URL. Settings → Pages에서 "Deploy from a branch:
-          # main / docs"로 한 번 켜면 이 주소가 된다(레포명이 news-monitor이므로 고정값).
-          PAGE_BASE_URL: https://tolibre.github.io/news-monitor
-          # 토요일 발송 스킵을 수동으로 우회하는 테스트 전용 스위치. cron-job.org
+          # 토요일 스킵을 수동으로 우회하는 테스트 전용 스위치. cron-job.org
           # body에는 이 값이 없어 항상 빈 문자열이므로 정기 실행의 토요일 스킵은 그대로다.
           FORCE_SEND: ${{ github.event.inputs.force_send }}
-          # digest 텔레그램 발송(0-21). cron-job.org body엔 이 값이 없어 정기 실행은 항상
-          # 발송 안 함. 비상 시 수동 실행에서만 on.
-          DIGEST_PUSH: ${{ github.event.inputs.digest_push }}
           # 0-30: 고른 기사 기록 수확(harvest_picks.py). 기기 연동 gist의 id — 비밀(secret)
           # gist라 id만 있으면 읽힌다(토큰 불필요). 비어 있으면 수확은 조용히 건너뛴다.
           NEWSRADAR_GIST_ID: ${{ secrets.NEWSRADAR_GIST_ID }}

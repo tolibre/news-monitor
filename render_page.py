@@ -9,9 +9,9 @@ https://claude.ai/artifact/2eaSQR1Awokxq1CQf55cUR)과 동일한 구조의 HTML �
 (retitle.py에서 이미 쓴 방식과 동일한 원칙).
 
 이 파일은 news_monitor.py를 전혀 수정하지 않고 옆에서 동작한다. news_monitor.py 쪽의
-유일한 변경은 PAGE_MODE 스위치이며, render_digest() 안에서 이미 계산된 그룹별 클러스터
-리스트를 이 모듈의 build_groups_data()에 넘기기만 한다(계산 로직 재실행 없음 —
-digest 출력과 페이지가 서로 다른 클러스터링 결과를 낼 위험 자체를 없앤다).
+유일한 변경은 PAGE_MODE 스위치이며, run_digest()가 digest_page_sections()로 계산한 그룹별
+클러스터 리스트를 이 모듈의 build_groups_data()에 넘기기만 한다(계산 로직 재실행 없음).
+(텔레그램 요약 카드 summary_card_text()는 0-42에서 digest 텔레그램과 함께 폐기.)
 """
 
 import datetime
@@ -374,35 +374,6 @@ def publish(label, start_dt, end_dt, raw_count, groups, now=None):
     prune_archive(now or end_dt)
     save_archive_index()
     return page_path
-
-
-def summary_card_text(label, start, end, groups, page_url=""):
-    """PAGE_MODE=summary일 때 텔레그램에 보낼 요약 카드 1개.
-    기관별 건수 + 단독·속보 + 페이지 링크. HTML parse_mode 기준."""
-    from news_monitor import tg_escape
-
-    total = sum(g["n"] for g in groups)
-    scoop = flash = 0
-    for g in groups:
-        for clu in g["clusters"]:
-            for it in clu:
-                if it["m"] == SCOOP:
-                    scoop += 1
-                elif it["m"] == FLASH:
-                    flash += 1
-
-    lines = [
-        f"📋 <b>{tg_escape(label)}</b> | {start} ~ {end}",
-        f"주요 이슈 {total}건 · 단독 {scoop} · 속보 {flash}",
-        "",
-    ]
-    for g in groups:
-        if g["n"]:
-            lines.append(f"■ {tg_escape(g['name'])} {g['n']}건")
-    if page_url:
-        lines.append("")
-        lines.append(f'<a href="{tg_escape(page_url)}">🔗 전체 보기</a>')
-    return "\n".join(lines)
 
 
 # ==================== HTML 템플릿 (시안 그대로, data만 치환) ====================

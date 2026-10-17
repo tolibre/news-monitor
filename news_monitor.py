@@ -706,36 +706,24 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "")
 # check(실시간)용 봇
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
-# digest(다이제스트)용 봇 — 비워두면 check용 봇으로 함께 전송
+# 두 번째 봇 — 지금은 excluded 모드(제외 기사 수동 조회) 전용. 비워두면 check용 봇으로 전송.
+# (예전 digest 텔레그램 발송은 0-42에서 폐기 — 인수인계 0-42 참조)
 TELEGRAM_DIGEST_BOT_TOKEN = os.environ.get("TELEGRAM_DIGEST_BOT_TOKEN", "") or TELEGRAM_BOT_TOKEN
 TELEGRAM_DIGEST_CHAT_ID   = os.environ.get("TELEGRAM_DIGEST_CHAT_ID", "") or TELEGRAM_CHAT_ID
 
-# HTML 다이제스트 페이지 전환 스위치 (D 세션, 2026-09-19. 상세: claude/HTML전환_세션계획.md)
-#   off     : 지금 그대로 텔레그램 전문만 보낸다. 페이지 생성 안 함(기존 동작과 완전히 동일).
-#   both    : 텔레그램 전문 + 페이지 생성을 같이 한다(전환 시작값 — 며칠 병행 검증용).
-#   summary : 텔레그램은 요약 카드 1개(기관별 건수 + 단독·속보 + 페이지 링크) + 페이지 생성.
-# 워크플로 입력값 하나(PAGE_MODE 환경변수)로 세 값을 오간다. off가 기본값이라
-# 이 환경변수를 아예 안 주면(예: retitle/backfill 모드, 또는 이 변경 이전 워크플로) 기존과
-# 동일하게 동작한다 — 롤백은 이 값을 off로 되돌리는 것만으로 충분하다(2항 참조).
+# digest 페이지 스위치 (0-15 → 0-42 정리).
+#   both(정기 실행 기본) : 페이지(docs/index.html)·보존본(docs/archive/) 생성.
+#   off                  : 페이지 안 만듦(변형판·수동 실행 기본) — 제외기록·DB 정리만.
+# 예전 summary(텔레그램 요약 카드)는 0-42에서 텔레그램 발송과 함께 폐기 — 들어오면 both로 본다
+# (옛 cron body·수동 입력과의 호환). digest 텔레그램 발송(DIGEST_PUSH)·전문 렌더러도 0-42에서 폐기.
 PAGE_MODE = os.environ.get("PAGE_MODE", "off").strip().lower()
-if PAGE_MODE not in ("off", "both", "summary"):
+if PAGE_MODE == "summary":
+    PAGE_MODE = "both"
+if PAGE_MODE not in ("off", "both"):
     PAGE_MODE = "off"
-# 페이지가 실제로 올라갈 GitHub Pages 절대 URL. 워크플로/시크릿으로 안 주면 상대경로만
-# 알 수 있어 summary 카드의 링크를 완성할 수 없다 — 비어 있으면 링크 없이 카드만 보낸다.
-PAGE_BASE_URL = os.environ.get("PAGE_BASE_URL", "").rstrip("/")
-
-# digest 텔레그램 발송 스위치 (0-21, 2026-09-23 사용자 결정).
-# 보고 준비가 라이브 페이지(/live/)로 넘어가 digest 텔레그램은 쓰지 않게 됐다. 그래서
-# 기본값은 off — digest는 계속 정기 실행되어 페이지(docs/index.html)·보존본(archive/)·
-# 제외기록(excluded_log)·DB 정리(prune_old)를 그대로 하되, 텔레그램만 보내지 않는다.
-# on은 비상용: 페이지가 마비됐을 때 workflow_dispatch에서 digest_push=on으로 수동 실행하면
-# 예전과 똑같은 전문(+페이지 링크)이 digest 봇으로 간다(인수인계 0-21 '비상 절차').
-# check 실시간 알림(target='check')과 excluded 모드 조회는 이 스위치와 무관하다.
-DIGEST_PUSH = os.environ.get("DIGEST_PUSH", "").strip().lower() in ("1", "on", "true", "yes")
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DB_PATH    = os.path.join(BASE_DIR, "news_monitor.db")
-DIGEST_DIR = os.path.join(BASE_DIR, "digests")
 ALERT_DIR  = os.path.join(BASE_DIR, "alerts")
 
 MAX_PAGES_PER_KEYWORD = 5      # 네이버: 키워드당 최대 5페이지(500건)까지 거슬러 수집
@@ -2695,7 +2683,7 @@ def digest_cluster_rank(clu):
 
 def digest_page_sections(by_group):
     """render_page.build_groups_data()에 넘길 [(그룹, 정렬된 clusters), ...].
-    render_digest()의 섹션 루프와 같은 순서·같은 규칙(그룹 간 group_key 중복 제거,
+    옛 텔레그램 전문 렌더러 render_digest()(0-42 폐기)의 섹션 루프와 같은 순서·같은 규칙(그룹 간 group_key 중복 제거,
     전재 묶기, 주제 클러스터링, 클러스터 정렬, 클러스터 내부 article_rank 정렬)."""
     sections = []
     seen = set()
@@ -2757,18 +2745,16 @@ def run_digest():
         end   = datetime.datetime.combine(today, datetime.time(22, 0), KST)
         label = "밤 다이제스트"
 
-    # FORCE_SEND=1이면 토요일 스킵을 무시하고 강제 발송한다. 정기 실행(cron-job.org)
-    # 은 이 값을 절대 안 주므로 평소 토요일 스킵 동작은 그대로다 — PAGE_MODE 등을 수동
-    # 테스트할 때 토요일이라 발송 자체가 안 되는 상황을 우회하기 위한 수동 실행 전용 스위치.
+    # FORCE_SEND=1이면 토요일 스킵을 무시하고 강제 실행한다(수동 테스트 전용 — 정기 실행
+    # cron-job.org body엔 이 값이 없어 토요일 스킵은 그대로다). 0-42부터 텔레그램 발송은 없고
+    # 토요일에 건너뛰는 것은 페이지 생성·제외기록이다(DB 정리 prune_old는 위에서 이미 실행).
     force_send = os.environ.get("FORCE_SEND", "").strip() == "1"
     if is_saturday and not force_send:
-        # 토요일은 다이제스트를 발송하지 않음. DB 정리(위 prune_old)는 이미 실행됐으므로
-        # 그대로 두고 발송/저장 단계만 건너뛴다. 재수집(re-query)조차 하지 않아 API 호출도 없음.
-        print(f"[{now.strftime('%m/%d %H:%M')}] 토요일 — {label} 발송 생략")
+        print(f"[{now.strftime('%m/%d %H:%M')}] 토요일 — {label} 생략")
         conn.close()
         return
     if is_saturday and force_send:
-        print(f"[{now.strftime('%m/%d %H:%M')}] 토요일이지만 FORCE_SEND=1 — {label} 강제 발송(테스트용)")
+        print(f"[{now.strftime('%m/%d %H:%M')}] 토요일이지만 FORCE_SEND=1 — {label} 강제 실행(테스트용)")
 
     rows, photo_rows, junk_rows, noise_rows = digest_select(conn, start, end, now)
     photo_excluded, junk_excluded = len(photo_rows), len(junk_rows)
@@ -2787,172 +2773,35 @@ def run_digest():
     # 기관 그룹별 그룹핑 (공정거래위원회+공정위 → 하나의 섹션 등)
     by_group = digest_by_group(rows)
 
-    # PAGE_MODE(off/both/summary)용 페이지 섹션. 0-20부터 digest_page_sections()가
-    # 계산한다 — 라이브 페이지(run_live)와 같은 함수를 써서 두 화면이 절대 어긋나지
-    # 않게 하기 위함. render_digest()와 같은 입력(by_group)·같은 순서의 결정론적
-    # 계산이므로 예전 '렌더 중 캡처'와 결과가 동일하다(0-20 검증: 8개 슬롯 diff 0).
-    # off면 계산 자체를 하지 않아 예전과 같은 경로다.
+    # 페이지 섹션 — 라이브 페이지(run_live)와 같은 digest_page_sections()를 쓴다(0-20).
+    # off면 계산하지 않는다.
     page_sections = digest_page_sections(by_group) if PAGE_MODE != "off" else []
 
-    # HTML/평문 공통 렌더러
-    def render_digest(as_html):
-        esc = tg_escape if as_html else (lambda s: s)
-        head = (f"📋 <b>{esc(label)}</b> | " if as_html else f"📋 {label} | ") + \
-               f"{start.strftime('%m/%d %H:%M')} ~ {end.strftime('%m/%d %H:%M')}"
-        lines = [head, "PLACEHOLDER"]
-        shown_local = 0
-        seen = set()
-        shown_titles = set()   # 최종 표시 제목 기준 중복 방지
-        for g in effective_group_order(by_group.keys()):
-            arts = by_group.get(g, [])
-            if not arts:
-                continue
-            grouped = dedup_group(arts)  # 전재(동일기사) 묶기 → [(대표item, [매체]), ...]
-            grouped = [(rep, srcs) for (rep, srcs) in grouped if group_key(rep[0]) not in seen]
-            for rep, srcs in grouped:
-                seen.add(group_key(rep[0]))
-            if not grouped:
-                continue
-            # 주제 클러스터링: grouped 항목들을 대표 제목 기준으로 묶음
-            clusters = cluster_by_topic(grouped, lambda gs: gs[0][0])
-            # 클러스터 정렬: 섹션 안에서 중요도 순 (단독·속보 > 전재 확산 > 핵심매체)
-            clusters.sort(key=digest_cluster_rank)
-            sec_pos = len(lines)      # 섹션 헤더 자리를 잡아두고, 건수는 렌더 후 채운다
-            lines.append(None)
-            sec_count = 0
-            for clu in clusters:
-                # 클러스터 내부: 단독·속보 > 통신사(연합 우선) > 발행순
-                clu.sort(key=lambda gs: article_rank(gs[0][0], gs[0][2], gs[0][3]))
-                cluster_started = False
-                for rep, sources in clu:
-                    t = clean_title_display(rep[0])
-                    if is_truncated_title(t):
-                        # 잘린 제목은 같은 주제 안의 온전한 제목으로 대체
-                        alt = next((clean_title_display(g2[0][0]) for g2 in clu
-                                    if not is_truncated_title(clean_title_display(g2[0][0]))), None)
-                        if alt:
-                            t = alt
-                    # 대체 결과 앞 줄과 완전히 같아졌으면(같은 기사의 전재) 한 줄만 남긴다
-                    tkey = re.sub(r"[\s\W]+", "", t)
-                    if tkey in shown_titles:
-                        continue
-                    shown_titles.add(tkey)
-                    shown_local += 1
-                    sec_count += 1
-                    # 같은 주제 묶음은 붙여서, 다른 주제 사이에는 빈 줄을 넣어 구분한다.
-                    # (제목 줄에 ▶/┗ 같은 기호를 붙이면 복사할 때 제목이 오염되므로
-                    #  기호 대신 여백으로 묶음을 표현)
-                    if sec_count > 1 and not cluster_started:
-                        lines.append("")
-                    cluster_started = True
-                    src = short_media_name(media_name(rep[2]))
-                    link = rep[1]
-                    mark = priority_mark(rep[0])
-                    mark_prefix = f"{mark} " if mark else ""
-                    # 제목은 일반 텍스트(복사하면 제목 줄만 깨끗하게 나옴).
-                    # 링크는 아랫줄에 별도로 두되, 화면에는 짧은 텍스트로만 보이게 앵커를 씌운다
-                    # (구글 RSS URL이 300자에 달해 그대로 노출하면 화면을 다 잡아먹기 때문).
-                    lines.append(f"{mark_prefix}{esc(t)}({esc(src)})")
-                    if link:
-                        lines.append(f'<a href="{esc(link)}">🔗 원문</a>' if as_html else link)
-            # 섹션 헤더 확정: 중복 제거 후 실제 표시된 건수를 사용
-            if sec_count == 0:
-                del lines[sec_pos]        # 전부 중복이라 빈 섹션이면 헤더도 제거
-            else:
-                lines[sec_pos] = (f"\n■ <b>{esc(g)}</b> ({sec_count}건)" if as_html
-                                  else f"\n■ {g} ({sec_count}건)")
-        if len(rows) == 0:
-            lines.append("\n(해당 구간 수집 기사 없음 — check 스케줄이 돌고 있었는지 확인하세요)")
-        # 필터로 걸러낸 건수 + 실제 목록 표기 — 과필터 감시용.
-        # 목록을 여기 바로 싣는 이유: excluded 모드는 DB가 git으로 다음 실행까지
-        # 전달돼야 동작하는데, push가 조용히 실패하면 목록이 사라진다(실제로 겪음).
-        # digest 시점엔 이미 데이터가 손에 있으므로 왕복 없이 바로 붙인다.
-        if photo_rows or junk_rows or noise_rows:
-            parts = []
-            if photo_excluded:
-                parts.append(f"사진 {photo_excluded}건")
-            if junk_excluded:
-                parts.append(f"무의미제목 {junk_excluded}건")
-            if noise_excluded:
-                tally = {}
-                for _, w in noise_rows:
-                    tally[w] = tally.get(w, 0) + 1
-                inner = ", ".join(f"{k} {v}" for k, v in sorted(tally.items(), key=lambda x: -x[1]))
-                parts.append(f"노이즈 {noise_excluded}건({inner})")
-            txt = "제외: " + ", ".join(parts)
-            lines.append(f"\n<i>{esc(txt)}</i>" if as_html else f"\n({txt})")
-            for r, tag in ([(r, "사진") for r in photo_rows]
-                           + [(r, "무의미") for r in junk_rows]
-                           + [(r, w) for r, w in noise_rows]):
-                ttl = clean_title_display(r[0])
-                src = short_media_name(media_name(r[2]))
-                if as_html:
-                    lines.append(f'<i>[{tag}] {esc(ttl)}({esc(src)})</i> '
-                                 f'<a href="{esc(r[1])}">🔗</a>')
-                else:
-                    lines.append(f"[{tag}] {ttl}({src})\n{r[1]}")
-        sep = "=" * (30 if as_html else 40)
-        lines[1] = f"주요 이슈 {shown_local}건 (원문 {len(rows)}건)\n" + sep
-        return "\n".join(lines)
+    # 0-42: 예전엔 여기서 텔레그램 전문(render_digest — '제목(매체)' 보고양식 + 🔗 원문 + 제외 목록)을
+    # HTML·평문 두 벌로 만들어 digest 봇으로 보내고(DIGEST_PUSH=on일 때) digests/*.txt에 저장했다.
+    # 보고 준비가 뉴스레이다(/live/)로 넘어가 폐기 — 원문은 커밋 90ae2b3의 run_digest(), 프로젝트
+    # 'claude/폐기기록_digest텔레그램.md'. 제외 건수는 아래 로그 한 줄로만 남긴다(목록은 excluded_log).
+    if photo_rows or junk_rows or noise_rows:
+        tally = {}
+        for _, w in noise_rows:
+            tally[w] = tally.get(w, 0) + 1
+        inner = ", ".join(f"{k} {v}" for k, v in sorted(tally.items(), key=lambda x: -x[1]))
+        print(f"[digest] 제외: 사진 {photo_excluded} · 무의미제목 {junk_excluded} · 노이즈 {noise_excluded}"
+              + (f"({inner})" if inner else ""))
 
-    html_text = render_digest(as_html=True)
-    plain_text = render_digest(as_html=False)
-
-    os.makedirs(DIGEST_DIR, exist_ok=True)
-    fname = os.path.join(DIGEST_DIR, f"digest_{now.strftime('%Y%m%d_%H%M')}.txt")
-    with open(fname, "w", encoding="utf-8") as f:
-        f.write(plain_text)
-
-    # ---------------- PAGE_MODE (D 세션, 2026-09-19) ----------------
-    # off  : 여기 전혀 들어오지 않음(page_sections가 비어 있고 아래 if도 안 탐) —
-    #        이 블록이 있기 전과 완전히 동일하게 동작.
-    # both/summary : render_page.py로 페이지를 만들어 저장소(docs/index.html)에 커밋.
-    #        실제 git add/commit/push는 이 함수가 아니라 워크플로 단계(news-monitor.yml)가
-    #        한다(기존 news_monitor.db 커밋과 같은 자리) — Claude 작업환경엔 push 권한이
-    #        없어 여기서 커밋을 시도해도 반영되지 않기 때문(3항 제약).
-    page_saved_path = None
     if PAGE_MODE != "off" and page_sections:
+        # 실제 git add/commit/push는 워크플로 단계(news-monitor.yml)가 한다.
         import render_page
         groups_data = render_page.build_groups_data(page_sections)
-        # 0-17: publish()가 최신 페이지(docs/index.html) + 보존본
-        # (docs/archive/<stamp>.html) + 목록(docs/archive/index.html)을 한 번에 쓰고
-        # 오래된 보존본을 정리한다. 반환값은 예전 save_page()와 같은 docs/index.html
-        # 경로이므로, 아래 both 모드 링크 판정은 그대로 둔다.
+        # 0-17: publish()가 최신 페이지(docs/index.html) + 보존본(docs/archive/<stamp>.html)
+        # + 목록(docs/archive/index.html)을 한 번에 쓰고 오래된 보존본을 정리한다.
         page_saved_path = render_page.publish(
             label, start, end, len(rows), groups_data,
         )
         print(f"[PAGE_MODE={PAGE_MODE}] 페이지 저장: {page_saved_path} "
               f"(보관 {len(render_page.scan_archive())}개)")
-
-    # notify()가 4096자 초과 시 자동으로 여러 메시지로 나눠 전송함
-    # (본문 자체가 '제목(매체)' 보고양식이므로 별도 보고양식 메시지는 보내지 않음)
-    if PAGE_MODE == "summary" and page_sections:
-        page_url = f"{PAGE_BASE_URL}/" if PAGE_BASE_URL else ""
-        summary_text = render_page.summary_card_text(
-            label, start.strftime("%m/%d %H:%M"), end.strftime("%m/%d %H:%M"),
-            groups_data, page_url=page_url,
-        )
-        if DIGEST_PUSH:
-            notify(summary_text, target="digest")
-        else:
-            print(f"[digest] 텔레그램 발송 생략(DIGEST_PUSH=off) — {label}")
-    else:
-        # off, both, 또는 표시할 기사가 없어 page_sections가 비었을 때 —
-        # 지금까지와 동일하게 전문을 보낸다(both는 전문+페이지 병행이 목적이므로 당연히
-        # 전문도 보낸다. summary인데 기사가 없었던 경우도 안전하게 전문 경로로 폴백).
-        # both 모드에서 실제로 페이지가 생성된 경우에만, 전문 텍스트 맨 끝에 페이지
-        # 링크를 붙인다. notify()는 이 문자열을 통째로 받아 내부에서 줄 단위로
-        # 청크를 나누므로, 여기서 끝에 붙이면 자동으로 '마지막 메시지의 최하단'이 된다
-        # (2026-09-20, 사용자 요청).
-        send_text = html_text
-        if PAGE_MODE == "both" and page_sections and PAGE_BASE_URL:
-            page_url = f"{PAGE_BASE_URL}/"
-            send_text = html_text + f'\n\n<a href="{tg_escape(page_url)}">🔗 전체 보기</a>'
-        if DIGEST_PUSH:
-            notify(send_text, target="digest")
-        else:
-            print(f"[digest] 텔레그램 발송 생략(DIGEST_PUSH=off) — {label}")
-    print(f"저장: {fname}")
+    print(f"[digest] {label} {start.strftime('%m/%d %H:%M')}~{end.strftime('%m/%d %H:%M')} "
+          f"원문 {len(rows)}건")
     conn.close()
 
 
