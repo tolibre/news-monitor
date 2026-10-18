@@ -3549,7 +3549,7 @@ def byline_section(conn, spec, now):
     rows = conn.execute("""SELECT title, link, source, pub_dt FROM byline_articles
                            WHERE pub_dt >= ? AND pub_dt < ? ORDER BY pub_dt""",
                         (start.isoformat(), min(now, end).isoformat())).fetchall()
-    groups = render_page.build_groups_data([(BYLINE_SECTION, [[(r, [r[2]])] for r in rows])])
+    groups = render_page.build_groups_data([(BYLINE_SECTION, [[(r, [r[2]])] for r in rows])], with_date=True)
     if len(BYLINE_NAMES) > 1:
         # 팀 모드(0-32): 기사마다 쓴 기자 — 원문 확인 때 남긴 근거(byline_checked.note)에서 뽑는다.
         notes = dict(conn.execute("""SELECT b.link, c.note FROM byline_articles b
@@ -3604,7 +3604,7 @@ def _build_live_report(conn, spec, now, own):
         if now >= start:
             rows, photo, junk, noise, n_own = picked[si]
             sections = digest_page_sections(live_apply_moves(digest_by_group(rows), moves))
-            groups = render_page.build_groups_data(sections)
+            groups = render_page.build_groups_data(sections, with_date=True)
             dup = _mark_live_repeats(conn, start, groups)
             _attach_seen(conn, start, end, groups)
             seg_sections.append((si, sections))

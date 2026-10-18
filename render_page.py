@@ -59,6 +59,17 @@ def _fmt_time(pub_dt_iso):
         return ""
 
 
+def _fmt_date(pub_dt_iso):
+    """pub_dt(ISO 문자열) → KST 날짜 'YYYY-MM-DD'(라이브 페이지가 오늘이 아니면 요일을 붙이는 데 씀, 0-50). 실패 시 ''."""
+    try:
+        dt = datetime.datetime.fromisoformat(pub_dt_iso)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=KST)
+        return dt.astimezone(KST).strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
 def _resolve_title(rep_title, clu_titles):
     """digest 본문과 동일한 잘린 제목 대체 로직 — clean_title_display 후 잘려 있으면
     같은 클러스터 안의 온전한 제목으로 바꾼다. render_digest()의 해당 블록과 동일하게
@@ -75,7 +86,7 @@ def _resolve_title(rep_title, clu_titles):
     return t
 
 
-def build_groups_data(group_sections):
+def build_groups_data(group_sections, with_date=False):
     """group_sections: [(group_name, sorted_clusters), ...] 형태의 리스트.
     sorted_clusters: render_digest()에서 clu_rank로 정렬을 마친 clusters 리스트 그대로
     (각 clu는 article_rank로 이미 정렬돼 있는 [(rep, sources), ...] 리스트).
@@ -109,6 +120,8 @@ def build_groups_data(group_sections):
                     "p": _fmt_time(pub_dt),
                     "n": len(sources) if sources else 1,
                 })
+                if with_date:   # 라이브 페이지 전용(0-50) — digest 페이지 데이터는 그대로
+                    items[-1]["pd"] = _fmt_date(pub_dt)
             if not items:
                 continue
             clu_out.append(items)
@@ -1924,7 +1937,7 @@ a.title:visited{color:var(--ink-900)}
       html += part;
     });
     if(t.all && !MERGED) html += drawByline(t.rep, now).html;
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. '+dutyNote()+'체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자, 오늘 기사가 아니면 요일이 붙음). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. '+dutyNote()+'체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
     document.getElementById('main').innerHTML = html;
     syncBar();
   }
@@ -2013,6 +2026,15 @@ a.title:visited{color:var(--ink-900)}
     if(ui.q && (it.t+' '+it.s).toLowerCase().indexOf(ui.q) === -1) return false;
     return true;
   }
+  // 발행 시각 표시(0-50) — 오늘 기사가 아니면 요일을 붙인다('토 09:10'). 휴일 구간·월요일 보고에서 언제 기사인지 바로 보이게.
+  // 엿새 넘게 지난 기사(요일이 겹칠 수 있음)는 '10/12 09:10'. pd가 없는 옛 데이터는 시각만.
+  function pubLabel(it){
+    if(!it.pd || !it.p || it.pd === todayKST()) return it.p || '';
+    var y = +it.pd.slice(0, 4), m = +it.pd.slice(5, 7), d = +it.pd.slice(8, 10);
+    var days = (Date.parse(todayKST() + 'T00:00:00Z') - Date.UTC(y, m - 1, d)) / 864e5;
+    if(days > 6 || days < 0) return m + '/' + d + ' ' + it.p;
+    return WD.charAt(new Date(Date.UTC(y, m - 1, d)).getUTCDay()) + ' ' + it.p;
+  }
   function row(it){
     var on = isPicked(it.rid, it.sid, it.key);
     var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>' : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
@@ -2022,7 +2044,7 @@ a.title:visited{color:var(--ink-900)}
       (MERGED && it.si !== BYSI ? '<span class="sg'+(segState(curRep().segments[it.si], Date.now())==='live'?' live':'')+'" title="'+esc(curRep().segments[it.si].label)+' 구간">'+CIRC.charAt(it.si)+'</span>' : '')+tag+
       '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>'+
       '<span class="meta">'+(it.d ? '<span class="rp">이미 나옴 '+esc(it.d)+'</span>' : '')+
-      '<span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>'+
+      '<span>'+esc(it.s)+'</span><span class="mono">'+esc(pubLabel(it))+'</span>'+
       (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '')+'</span></div>';
   }
 
