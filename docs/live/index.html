@@ -91,19 +91,33 @@ body{
 /* 앱 헤더(네이비 띠) + 필터 바(blue-50) */
 header{position:sticky; top:0; z-index:20; background:var(--blue-50); border-bottom:1px solid var(--line-300)}
 .appbar{background:var(--appbar); color:var(--appbar-ink); padding-top:env(safe-area-inset-top,0px)}
-.top{display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding-block:8px}
+.top{display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding-block:8px}
+/* 0-52: 머리줄은 '무슨 보고인가(제목·상태)'와 '보고 고르기'만 — 제목 아래 한 줄에 수집 시각·새로고침·연동 */
+.tblk{display:flex; flex-direction:column; gap:2px; min-width:0}
+.tline{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.ttags{display:flex; gap:4px}
+.ttags:empty{display:none}
+.ttags span{font-size:11px; font-weight:700; border-radius:999px; padding:1px 8px; white-space:nowrap; line-height:1.45}
+.ttags .dtag{color:var(--appbar); background:var(--appbar-ink)}
+.ttags .ptag{color:#14171A; background:#F2C94C}
 h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.02em; color:var(--appbar-ink)}
 .brand{display:flex; align-items:center; gap:8px; color:var(--appbar-ink); font-weight:700; font-size:13px; letter-spacing:-.01em; white-space:nowrap; text-decoration:none; padding-right:12px; border-right:1px solid var(--appbar-line)}
 .brand svg{width:20px; height:20px; flex:0 0 auto; color:#3B86EE}
 .fresh{font-size:12px; color:var(--appbar-ink-2); display:flex; align-items:center; gap:8px}
+.fresh button{height:22px; padding:0 8px; font-size:11px}
+.fresh button.ic{width:22px; padding:0; font-size:13px; line-height:1}
 .fresh button, .reports button{
   height:28px; border:1px solid var(--appbar-line); background:transparent; color:var(--appbar-ink);
   font:inherit; font-size:12px; border-radius:2px; padding:0 8px; cursor:pointer;
   transition:background-color 120ms ease-out, border-color 120ms ease-out;
 }
 .fresh button:hover, .reports button:hover{border-color:var(--appbar-ink-2)}
-.reports{margin-left:auto; display:flex; gap:4px}
-.reports button[aria-pressed="true"]{background:var(--appbar-ink); border-color:var(--appbar-ink); color:var(--appbar); font-weight:600}
+.reports{margin-left:auto; display:flex; gap:8px; align-items:center}
+.reports .rgrp{display:flex}
+.reports .rgrp button{border-radius:0; margin-left:-1px}
+.reports .rgrp button:first-child{border-radius:2px 0 0 2px; margin-left:0}
+.reports .rgrp button:last-child{border-radius:0 2px 2px 0}
+.reports button[aria-pressed="true"]{background:var(--appbar-ink); border-color:var(--appbar-ink); color:var(--appbar); font-weight:600; position:relative}
 .reports .dtag{align-self:center; font-size:11px; font-weight:700; color:var(--appbar); background:var(--appbar-ink); border-radius:999px; padding:1px 8px; white-space:nowrap}
 .filters{padding-top:8px}
 .warn{margin:0 0 8px; padding:8px 12px; border-radius:2px; border:1px solid var(--amber-600); background:var(--amber-50); color:var(--ink-900); font-size:12px}
@@ -118,6 +132,10 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 }
 .tab .l{display:block; font-size:13px; font-weight:600; white-space:nowrap}
 .tab .s{display:flex; gap:8px; font-size:11px; color:var(--ink-500); white-space:nowrap}
+/* 0-52: 탭은 한 줄(이름 · 건수). 시작 안 한 구간은 탭 대신 끝에 회색 글자 한 줄 */
+.tab.one{display:flex; gap:8px; height:32px; padding:0 12px; align-items:center}
+.tab.one .s{display:inline-flex; align-items:center}
+.tabs .later{flex:0 0 auto; align-self:center; font-size:12px; color:var(--ink-500); padding:0 4px; white-space:nowrap}
 .tab .st-live{color:var(--green-600); font-weight:600}
 .tab .st-live::before{content:'● '; font-size:8px; vertical-align:1px}
 .tab .pk{color:var(--blue-700); font-weight:700}
@@ -144,9 +162,14 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .seg button:hover{background:var(--blue-50)}
 .seg button[aria-pressed="true"]{background:var(--blue-100); color:var(--blue-700); font-weight:600; box-shadow:inset 0 0 0 1px var(--blue-500)}
 /* 당직 출입처 스위치(0-44) — 보기 범위 옆. 꺼짐 = 점선, 켬 = 눌린 상태 */
-.btn.dsw{border-style:dashed; color:var(--ink-500)}
-.btn.dsw .c{font-size:11px; font-variant-numeric:tabular-nums}
-.btn.dsw[aria-pressed="true"]{border-style:solid; border-color:var(--blue-500); background:var(--blue-100); color:var(--blue-700); font-weight:600}
+/* 0-52: '당직'은 필터가 아니라 모드 — 켜고 끄는 스위치 모양으로 검색칸 오른쪽에 따로 */
+.dsw{flex:0 0 auto; display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 4px; border:0; background:none; color:var(--ink-700); font:inherit; font-size:13px; cursor:pointer; white-space:nowrap}
+.dsw .tr{position:relative; width:28px; height:16px; border-radius:999px; background:var(--line-300); transition:background-color 120ms ease-out}
+.dsw .tr::after{content:''; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:var(--surf-0); transition:left 120ms ease-out}
+.dsw .c{font-size:11px; color:var(--ink-500); font-variant-numeric:tabular-nums}
+.dsw[aria-pressed="true"]{color:var(--blue-700); font-weight:600}
+.dsw[aria-pressed="true"] .tr{background:var(--primary)}
+.dsw[aria-pressed="true"] .tr::after{left:14px}
 #q{flex:1 1 160px; min-width:0; height:32px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:13px; padding:0 12px}
 #q::placeholder{color:var(--ink-500)}
 #q:focus{outline:none; border-color:var(--blue-600); box-shadow:0 0 0 2px var(--blue-100)}
@@ -178,7 +201,7 @@ section{margin-top:16px}
 .tag.scoop{background:var(--scoop-bg); color:#FFFFFF}
 .tag.flash{background:var(--red-50); color:var(--red-600); border:1px solid var(--red-line)}
 .rp{background:var(--surf-0); color:var(--ink-700); border:1px solid var(--line-300); font-weight:600}
-.seenbar{margin:12px 0 0; padding:8px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; font-size:13px; color:var(--ink-700)}
+.seenbar{margin:12px 0 0; padding:4px 4px 4px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; font-size:13px; color:var(--ink-700)}
 .seenbar b{color:var(--ink-900)}
 .seenbar .nwc{color:var(--blue-700); font-weight:700}
 .seenbar .sp{margin-left:auto; display:flex; gap:8px}
@@ -271,6 +294,12 @@ a.title:visited{color:var(--ink-900)}
   .bar .count{font-size:12px; white-space:nowrap}
   .btn{padding:0 8px; font-size:12px}
   .reports{margin-left:0; width:100%}
+  .reports .rgrp{flex:1 1 auto}
+  .reports .rgrp button{flex:1 1 0; white-space:nowrap}
+  .brand .bt{display:none}
+  .brand{border-right:0; padding-right:0; align-self:flex-start; margin-top:3px}
+  .top{flex-wrap:wrap; gap:8px}
+  .tblk{flex:1 1 0}
   .meta{margin-left:0; width:100%; padding-left:24px}
   .row{flex-wrap:wrap}
 }
@@ -289,9 +318,11 @@ a.title:visited{color:var(--ink-900)}
 <header>
   <div class="appbar">
     <div class="wrap top">
-      <a class="brand" href="./" title="뉴스레이다 — 처음 화면으로"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="#fff" fill-opacity=".8"/><circle cx="22" cy="11" r="2" fill="#fff"/></svg>뉴스레이다</a>
-      <h1 id="title">보고 준비</h1>
-      <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload">새로고침</button><button type="button" id="sync" class="sync off" title="체크·‘여기까지 확인’을 다른 기기와 맞추기">기기 연동</button></span>
+      <a class="brand" href="./" title="뉴스레이다 — 처음 화면으로"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="#fff" fill-opacity=".8"/><circle cx="22" cy="11" r="2" fill="#fff"/></svg><span class="bt">뉴스레이다</span></a>
+      <div class="tblk">
+        <div class="tline"><h1 id="title">보고 준비</h1><span class="ttags" id="ttags"></span></div>
+        <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload" class="ic" aria-label="새로고침" title="새로고침">↻</button><button type="button" id="sync" class="sync off" title="체크·‘여기까지 확인’을 다른 기기와 맞추기">기기 연동</button></span>
+      </div>
       <div class="reports" id="reports"></div>
     </div>
   </div>
@@ -301,14 +332,14 @@ a.title:visited{color:var(--ink-900)}
     <div class="beats" id="beats"></div>
     <div class="controls">
       <div class="seg" role="group" aria-label="보기 범위">
-        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="all" aria-pressed="true">모든 기사</button>
         <button data-f="mark" aria-pressed="false">단독·속보</button>
         <button data-f="spread" aria-pressed="false">전재 2건+</button>
         <button data-f="picked" aria-pressed="false">선택분</button>
         <button data-f="new" aria-pressed="false" id="f-new" hidden>새 기사</button>
       </div>
-      <button class="btn dsw" type="button" id="dsw" aria-pressed="false" hidden></button>
       <input id="q" type="search" placeholder="제목·매체 검색" autocomplete="off">
+      <button class="dsw" type="button" id="dsw" aria-pressed="false" hidden></button>
     </div>
   </div>
 </header>
@@ -386,7 +417,8 @@ a.title:visited{color:var(--ink-900)}
   var SEGSTORE = 'nm-live-segview-v1';
   var segOpen = false;
   try{ segOpen = localStorage.getItem(SEGSTORE) === '1'; }catch(e){}
-  function tabShown(t){ return segOpen || t.all || t.over; }
+  // 0-52: 구간 탭 접기(0-24b)는 없앴다 — 시작한 구간 탭은 늘 보이고, 시작 안 한 구간은 탭 대신 회색 글자로만.
+  function tabShown(t){ return t.all || t.over || segState(t.seg, Date.now()) !== 'future'; }
 
   // ---------- 당직 출입처 스위치 (0-44) ----------
   // data.json의 duty(당직 전용 그룹 이름들) 섹션은 서버가 늘 싣는다(당직 출입처는 날마다 수집, 알림 없음).
@@ -888,10 +920,12 @@ a.title:visited{color:var(--ink-900)}
       if(allTab && seenAt(ui.rep) != null) ui.tab = allTab.key;
       // 구간이 하나뿐인 보고(14:00 보고)도 '전체' 탭으로 연다(0-49) — 내용은 같은데 '여기까지 확인'은 '전체' 탭에만 있다.
       if(allTab && own.length === 1) ui.tab = allTab.key;
+      // 0-52: 기본은 늘 '보고 전체' 탭(접기를 없애기 전 기본 화면과 같음). 구간 탭은 직접 고를 때만.
+      if(allTab) ui.tab = allTab.key;
     }
-    // 구간 탭이 접혀 있으면 구간 탭은 열지 않는다 → '전체'
+    // 고른 탭이 안 그려지는 탭(시작 안 한 구간)이면 '전체'로
     var ct = tabs.filter(function(t){ return t.key === ui.tab; })[0];
-    if(!segOpen && (!ct || !tabShown(ct))){
+    if(!ct || !tabShown(ct)){
       var at = tabs.filter(function(t){ return t.all; })[0];
       if(at) ui.tab = at.key;
     }
@@ -944,41 +978,43 @@ a.title:visited{color:var(--ink-900)}
 
     // 보고 선택 (이전·현재·다음)
     var rb = document.getElementById('reports');
+    var tt = document.getElementById('ttags');
     if(PAST){
       warn.hidden = true;
-      rb.innerHTML = '<span class="ptag">지난 보고</span>' + (PAST.holiday ? '<span class="dtag">당직 일정</span>' : '') +
-        '<button type="button" class="pastbtn" id="pastbtn">지난 보고 ▾</button><button type="button" id="pastback">현재 보고로 ›</button>';
+      tt.innerHTML = '<span class="ptag">지난 보고</span>' + (PAST.holiday ? '<span class="dtag">당직 일정</span>' : '');
+      rb.innerHTML = '<button type="button" class="pastbtn" id="pastbtn">지난 보고 ▾</button><button type="button" id="pastback">현재 보고로 ›</button>';
       return;
     }
     var ddy = activeDutyDay(RAW);
-    rb.innerHTML = (ddy ? '<span class="dtag" title="'+esc(ddy)+' 당직 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날 휴일에 \'당직\' 스위치를 켰기 때문">당직 일정</span>' : '') + D.reports.map(function(x){
+    tt.innerHTML = ddy ? '<span class="dtag" title="'+esc(ddy)+' 당직 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날 휴일에 \'당직\' 스위치를 켰기 때문">당직 일정</span>' : '';
+    rb.innerHTML = '<span class="rgrp">' + D.reports.map(function(x){
       var cur = T(x.display_from) <= now && now < T(x.display_until);
-      return '<button type="button" data-r="'+x.id+'" aria-pressed="'+(x.id===ui.rep)+'">'+esc(x.title.replace(' 보고',''))+(cur?' ●':'')+'</button>';
-    }).join('') + '<button type="button" class="pastbtn" id="pastbtn" title="끝난 보고 다시 보기·지난 2주 기사 검색"><span class="lg">지난 보고 </span><span class="sm">지난 </span>▾</button>';
+      var full = x.title.replace(' 보고',''), short = full.replace(/^\d+\/\d+\((.)\) /, '$1 ');
+      return '<button type="button" data-r="'+x.id+'" aria-pressed="'+(x.id===ui.rep)+'" title="'+esc(x.title)+'"><span class="lg">'+esc(full)+'</span><span class="sm">'+esc(short)+'</span>'+(cur?' ●':'')+'</button>';
+    }).join('') + '</span><button type="button" class="pastbtn" id="pastbtn" title="끝난 보고 다시 보기·지난 2주 기사 검색"><span class="lg">지난 보고 </span><span class="sm">지난 </span>▾</button>';
 
   }
 
   function drawTabs(){
+    // 0-52: 한 줄 탭 — [보고 전체 N] [① 일 13:30~17:30 · N] … [→ 다음 보고 …] + 끝에 '②③④ 대기'(회색 글자)
     var now = Date.now();
     var tabs = tabList();
-    var nseg = tabs.filter(function(t){ return t.seg && !t.over; }).length;
-    var tog = '<button class="tab tog" type="button" data-tog="1" title="구간 탭 '+(segOpen?'접기':'펼치기')+'"><span class="l">'+
-              (segOpen ? '◂ 구간 접기' : '구간별 보기 ▸')+'</span><span class="s">'+(segOpen ? '전체만 보기' : CIRC.slice(0, nseg).split('').join('')+' 구간 탭')+'</span></button>';
-    document.getElementById('tabs').innerHTML = tabs.filter(tabShown).map(function(t){
+    var later = tabs.filter(function(t){ return t.seg && !t.over && segState(t.seg, now) === 'future'; });
+    var order = tabs.filter(function(t){ return t.all; }).concat(tabs.filter(function(t){ return !t.all && tabShown(t); }));
+    document.getElementById('tabs').innerHTML = order.map(function(t){
       if(t.all){
         var tot = t.rep.segments.reduce(function(a,s){ return a + s.n; }, 0);
         var pk = allSegs(t.rep).reduce(function(a,s){ return a + segPickCount(t.rep, s); }, 0);
         var nw = newCount(t.rep);
-        return '<button class="tab" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'"><span class="l">전체</span>'+
+        return '<button class="tab one" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'"><span class="l">보고 전체</span>'+
                '<span class="s"><span class="mono">'+tot+'건</span>'+(nw?'<span class="nwt mono">새 '+nw+'</span>':'')+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
       }
       var st = segState(t.seg, now), pk = segPickCount(t.rep, t.seg);
-      var stl = st === 'live' ? '<span class="st-live">진행 중</span>' : st === 'future' ? '<span class="st-future">대기</span>' : '<span>마감</span>';
       var lab = t.over ? '→ 다음 보고 ' + esc(t.seg.label) : t.no + ' ' + esc(t.seg.label);
-      var cnt = st === 'future' ? '' : '<span class="mono">'+t.seg.n+'건</span>'+(t.seg.dup ? '<span class="mono">+중복 '+t.seg.dup+'</span>' : '');
-      return '<button class="tab'+(st==='future'?' future':'')+(t.over?' over':'')+'" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'">'+
-             '<span class="l">'+lab+'</span><span class="s">'+stl+cnt+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
-    }).join('') + (nseg > 1 ? tog : '');
+      var stl = st === 'live' ? '<span class="st-live">진행 중</span>' : '';
+      return '<button class="tab one'+(t.over?' over':'')+'" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'" title="'+esc(t.seg.label)+' 구간'+(st==='live'?' (진행 중)':' (마감)')+'">'+
+             '<span class="l">'+lab+'</span><span class="s">'+stl+'<span class="mono">'+t.seg.n+'건</span>'+(t.seg.dup ? '<span class="mono">+중복 '+t.seg.dup+'</span>' : '')+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
+    }).join('') + (later.length ? '<span class="later" title="'+esc(later.map(function(t){ return t.no+' '+t.seg.label; }).join(' · '))+'">'+later.map(function(t){ return t.no; }).join('')+' 대기</span>' : '');
 
     syncBar();
   }
@@ -1047,7 +1083,7 @@ a.title:visited{color:var(--ink-900)}
       return '<button class="beat" type="button" data-b="'+esc(g)+'" aria-pressed="'+(g===ui.beat)+'"><span>'+esc(g)+'</span><span class="c mono">'+gcount[g]+'</span></button>';
     };
     document.getElementById('beats').innerHTML =
-      '<button class="beat ball" type="button" data-b="" aria-pressed="'+(!ui.beat)+'"><span>전체</span><span class="c mono">'+gtotal+'</span></button>' +
+      '<button class="beat ball" type="button" data-b="" aria-pressed="'+(!ui.beat)+'"><span>출입처 전체</span><span class="c mono">'+gtotal+'</span></button>' +
       gorder.map(chip).join('');
     // 당직 출입처 스위치(0-44) — 보기 범위 옆. 숫자 = 지금 탭의 당직 섹션 기사 수(켜면 칩 줄 맨 뒤에 당직 칩이 붙는다)
     var dsw = document.getElementById('dsw');
@@ -1055,7 +1091,7 @@ a.title:visited{color:var(--ink-900)}
     if(!dsw.hidden){
       dsw.setAttribute('aria-pressed', String(dutyOn));
       dsw.title = '경제정책팀 당직 출입처('+RAW.duty.join('·')+') 섹션 '+(dutyOn ? '숨기기' : '보기');
-      dsw.innerHTML = (dutyOn ? '✓ ' : '+ ') + '당직 <span class="c mono">'+dutyCount(t)+'</span>';
+      dsw.innerHTML = '<span class="tr" aria-hidden="true"></span>당직 출입처 <span class="c mono">'+dutyCount(t)+'</span>';
     }
 
     var html = '';
@@ -1123,7 +1159,7 @@ a.title:visited{color:var(--ink-900)}
     var btn = '<button class="btn sec" type="button" id="seen-mark"'+(can?'':' disabled')+'>여기까지 확인'+(last!=null?' <span class="lg">('+hm(new Date(last))+' 수집분)</span>':'')+'</button>';
     var undo = m && m.at ? '<button class="btn" type="button" id="seen-undo">되돌리기</button>' : '';
     var msg;
-    if(a == null) msg = '확인 기록 없음 — 다 보고 나서 <b>여기까지 확인</b>을 누르면, 다음에 열 때 그 뒤 들어온 기사에 <span class="nw">새</span> 표시가 붙습니다.';
+    if(a == null) msg = '다 본 뒤 누르면 다음부터 그 뒤 기사에 <span class="nw">새</span> 표시가 붙습니다.';
     else { var n = newCount(r); msg = '마지막 확인 <b>'+fmtAt(a)+' 수집분</b>까지 · 그 뒤 <span class="nwc">새 '+n+'건</span>' + (n ? ' — ‘새 기사’ 버튼으로 그것만 볼 수 있습니다.' : ''); }
     return '<div class="seenbar"><span>'+msg+'</span><span class="sp">'+undo+btn+'</span></div>';
   }
@@ -1134,12 +1170,6 @@ a.title:visited{color:var(--ink-900)}
   function drawMerged(r, now){
     var html = '', started = [];
     r.segments.forEach(function(s, si){ if(segState(s, now) !== 'future') started.push(si); });
-    // 구간 현황 한 줄(기존 구간 머리줄 대신) — 구간 탭을 펼쳤을 때만(0-24d). 마지막 수집 시각은 머리줄에 있다.
-    if(segOpen) html += '<p class="note">' + r.segments.map(function(s, si){
-      var st = segState(s, now);
-      return '<b>'+CIRC.charAt(si)+'</b> '+esc(s.label)+' '+(st==='future'?'대기':st==='live'?'<span class="st-live">진행 중</span>':'마감')+(st==='future'?'':' '+s.n+'건');
-    }).join(' · ') + (r.segments.some(function(s){ return segState(s, now) === 'live'; }) && D.generated ?
-      ' — '+hm(new Date(D.last_seen || D.generated))+' 수집분까지' : '') + '</p>';
     if(!PAST) html += seenBar(r);
     var any = false;
     r.all.forEach(function(mg, mgi){
