@@ -201,13 +201,13 @@ section{margin-top:16px}
 .tag.scoop{background:var(--scoop-bg); color:#FFFFFF}
 .tag.flash{background:var(--red-50); color:var(--red-600); border:1px solid var(--red-line)}
 .rp{background:var(--surf-0); color:var(--ink-700); border:1px solid var(--line-300); font-weight:600}
-.seenbar{margin:12px 0 0; padding:4px 4px 4px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; font-size:13px; color:var(--ink-700)}
+.seenbar{word-break:keep-all; margin:12px 0 0; padding:4px 4px 4px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; font-size:13px; color:var(--ink-700)}
 .seenbar b{color:var(--ink-900)}
 .seenbar .nwc{color:var(--blue-700); font-weight:700}
 .seenbar .sp{margin-left:auto; display:flex; gap:8px}
 .seenbar .btn{height:28px; padding:0 12px; font-size:12px}
 .pick{flex:0 0 auto; width:16px; height:16px; margin:0; cursor:pointer; accent-color:var(--blue-600); transform:translateY(3px)}
-a.title{color:var(--ink-900); text-decoration:none; font-size:14px; line-height:1.5; text-underline-offset:3px; text-wrap:pretty}
+a.title{color:var(--ink-900); text-decoration:none; font-size:14px; line-height:1.5; text-underline-offset:3px; text-wrap:pretty; word-break:keep-all; overflow-wrap:break-word}
 a.title:hover{color:var(--link); text-decoration:underline}
 a.title:visited{color:var(--ink-900)}
 .meta{flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline; font-size:12px; color:var(--ink-500); white-space:nowrap; font-variant-numeric:tabular-nums}
@@ -292,6 +292,17 @@ a.title:visited{color:var(--ink-900)}
 .foot a{color:var(--link)}
 
 .sm{display:none}
+/* 0-54: 폴드7 — 펼침 750px·커버 411px(예전 기준 884·372px과 다름). 900px 이하 공통:
+   ①보고 버튼 짧은 이름·로고 글자 숨김 → 머리줄 한 줄 ②가로 스크롤 줄의 회색 막대 숨김
+   ③머리는 아래로 스크롤하면 접히고 조금만 올리면 다시 나온다(JS: 머리 자동 접기) */
+@media (max-width:900px){
+  .reports .lg, .brand .bt{display:none} .reports .sm{display:inline}
+  .brand{border-right:0; padding-right:0}
+  .tabs, .beats{scrollbar-width:none}
+  .tabs::-webkit-scrollbar, .beats::-webkit-scrollbar{display:none}
+  header{transition:transform 180ms ease-out}
+  header.hid{transform:translateY(-100%)}
+}
 @media (max-width:560px){
   .lg{display:none} .sm{display:inline}
   .brand{padding-right:8px} h1{font-size:15px}
@@ -307,6 +318,13 @@ a.title:visited{color:var(--ink-900)}
   .tblk{flex:1 1 0}
   .meta{margin-left:0; width:100%; padding-left:24px}
   .row{flex-wrap:wrap}
+  /* 0-54: 제목이 체크박스·배지 옆에서 바로 시작(전엔 배지만 한 줄 차지하고 제목은 다음 줄로 밀림) */
+  a.title{flex:1 1 0; min-width:0}
+  /* 보기 범위 버튼 한 줄 균등 폭, 확인 바는 안내·버튼 한 줄 */
+  .seg{flex:1 1 100%} .seg button{flex:1 1 auto; padding:0 6px; white-space:nowrap}
+  .seenbar{flex-wrap:nowrap; gap:8px; padding:4px 4px 4px 10px; font-size:12px; line-height:1.45}
+  .seenbar > span:first-child{flex:1 1 0; min-width:0}
+  .seenbar .sp{flex:0 0 auto}
 }
 /* 폴드 커버(≤400px): 출입처 칩 → 색 있는 텍스트 + 가운뎃점, 체크박스 20px (규격 8) */
 @media (max-width:400px){
@@ -1472,6 +1490,24 @@ a.title:visited{color:var(--ink-900)}
     drawHeader();
     if(before !== after && veil.hidden) draw();
   }, 60e3);
+
+  // 머리 자동 접기(0-54) — 900px 이하(폴드 커버·펼침, 폰)에서만. 머리가 화면의 30~40%를 차지해
+  // 기사 목록이 좁았다. 아래로 24px 넘게 내리면 접고, 24px 넘게 올리면 편다. 맨 위 근처·검색칸 입력 중엔 늘 보인다.
+  (function(){
+    var hd = document.querySelector('header'), mq = window.matchMedia('(max-width:900px)');
+    var ly = window.scrollY, acc = 0;
+    function show(){ hd.classList.remove('hid'); acc = 0; }
+    window.addEventListener('scroll', function(){
+      var y = window.scrollY, dy = y - ly; ly = y;
+      var ae = document.activeElement;
+      if(!mq.matches || y <= hd.offsetHeight || (ae && ae.tagName === 'INPUT' && hd.contains(ae))) return show();
+      if((acc > 0) !== (dy > 0)) acc = 0;
+      acc += dy;
+      if(acc > 24) hd.classList.add('hid'); else if(acc < -24) hd.classList.remove('hid');
+    }, {passive:true});
+    hd.addEventListener('focusin', show);
+    mq.addEventListener ? mq.addEventListener('change', show) : mq.addListener(show);
+  })();
 
   syncUI();
   load(true);
