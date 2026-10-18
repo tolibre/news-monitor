@@ -104,6 +104,7 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .fresh button:hover, .reports button:hover{border-color:var(--appbar-ink-2)}
 .reports{margin-left:auto; display:flex; gap:4px}
 .reports button[aria-pressed="true"]{background:var(--appbar-ink); border-color:var(--appbar-ink); color:var(--appbar); font-weight:600}
+.reports .dtag{align-self:center; font-size:11px; font-weight:700; color:var(--appbar); background:var(--appbar-ink); border-radius:999px; padding:1px 8px; white-space:nowrap}
 .filters{padding-top:8px}
 .warn{margin:0 0 8px; padding:8px 12px; border-radius:2px; border:1px solid var(--amber-600); background:var(--amber-50); color:var(--ink-900); font-size:12px}
 .warn::before{content:'확인 필요'; font-weight:700; color:var(--amber-600); margin-right:8px}
@@ -362,15 +363,65 @@ a.title:visited{color:var(--ink-900)}
   // 당직이 없는 화면과 같아진다. 기억은 이 기기(브라우저)에만 — 기기 연동 대상이 아니다.
   // 저장키는 STORE에서 만든다(변형판 생성기가 저장키 접두어를 바꿀 때 같이 바뀌게).
   var DUTYSTORE = STORE.replace('-picks-', '-duty-');
+  // 0-48: 스위치는 켠 날 하루만 유지된다 — 휴일에 켜 둔 채 잊으면 다음 휴일까지 '당직 날'로 잡히므로.
+  // 저장값 {"d":"YYYY-MM-DD"}(켠 날, KST). 예전 값 '1'(0-44)은 오늘 켠 것으로 읽는다.
+  function todayKST(){ return new Date(Date.now() + 9*3600e3).toISOString().slice(0, 10); }
   var dutyOn = false;
-  try{ dutyOn = localStorage.getItem(DUTYSTORE) === '1'; }catch(e){}
+  try{
+    var dsv = localStorage.getItem(DUTYSTORE);
+    if(dsv === '1') dutyOn = true;
+    else if(dsv && dsv.charAt(0) === '{') dutyOn = JSON.parse(dsv).d === todayKST();
+  }catch(e){}
+  function saveDuty(){ try{ localStorage.setItem(DUTYSTORE, dutyOn ? JSON.stringify({d: todayKST()}) : '0'); }catch(e){} }
+  if(dutyOn) saveDuty();
   function dutyNames(){ var o = {}; ((RAW && RAW.duty) || []).forEach(function(g){ o[g] = 1; }); return o; }
   function copyObj(o){ var x = {}; Object.keys(o).forEach(function(k){ x[k] = o[k]; }); return x; }
+
+  // ---------- 당직 날 보고 시간표 (0-48) ----------
+  // 휴일에 '당직' 스위치를 켜면 그날을 내 당직 날로 기억하고(이 기기), 서버가 미리 계산해 둔 '그 휴일을 업무일로 친
+  // 보고 시간표'(RAW.duty_reports[날짜])로 보고를 나눈다 — 그날 09:00 보고(마지막 업무일 13:30부터)·14:00 보고(08:30~13:30),
+  // 다음 업무일 09:00 보고는 그날 13:30부터. 같은 휴일에 스위치를 끄면 기억을 지운다.
+  // 서버 데이터는 같은 보고·구간을 두 번 싣지 않으려고 참조를 쓴다: 보고 "n/2", 구간 {"ref":"n/1/3"}·{"ref":"<날짜>/0/4"}.
+  var DUTYDAYSTORE = STORE.replace('-picks-', '-dutyday-');
+  function dutyDays(){ try{ var a = JSON.parse(localStorage.getItem(DUTYDAYSTORE) || '[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+  function setDutyDay(d, on){
+    var a = dutyDays().filter(function(x){ return x !== d; });
+    if(on) a.push(d);
+    a.sort();
+    try{ localStorage.setItem(DUTYDAYSTORE, JSON.stringify(a.slice(-10))); }catch(e){}
+  }
+  // 오늘이 휴일이고 스위치가 켜져 있으면 오늘을 당직 날로 기억(데이터를 받을 때마다 — 켠 뒤 처음 받은 데이터에도 적용).
+  function noteDutyDay(){ if(RAW && RAW.holiday && RAW.holiday === todayKST() && dutyOn) setDutyDay(RAW.holiday, true); }
+  function activeDutyDay(raw){
+    var dr = raw && raw.duty_reports; if(!dr) return null;
+    var days = dutyDays().filter(function(d){ return dr[d]; });
+    return days.length ? days[days.length-1] : null;
+  }
+  var _drCache = {raw: null, res: null};
+  function dutyReportsAll(raw){
+    if(_drCache.raw === raw) return _drCache.res;
+    var res = {n: raw.reports}, dr = raw.duty_reports || {};
+    function pick(path){ var p = path.split('/'); return {rep: res[p[0]][+p[1]], si: p.length > 2 ? +p[2] : null}; }
+    Object.keys(dr).forEach(function(h){
+      res[h] = [];
+      dr[h].forEach(function(x){
+        if(typeof x === 'string'){ res[h].push(pick(x).rep); return; }
+        var r = copyObj(x);
+        r.segments = x.segments.map(function(s){ if(!s.ref) return s; var q = pick(s.ref); return q.rep.segments[q.si]; });
+        res[h].push(r);
+      });
+    });
+    _drCache = {raw: raw, res: res};
+    return res;
+  }
+  function baseReports(raw){ var d = activeDutyDay(raw); return d ? dutyReportsAll(raw)[d] : raw.reports; }
+
   function view(raw){
     var ds = dutyNames();
-    if(dutyOn || !raw.duty || !raw.duty.length) return raw;
-    var out = copyObj(raw);
-    out.reports = raw.reports.map(function(r){
+    var base = copyObj(raw); base.reports = baseReports(raw);
+    if(dutyOn || !raw.duty || !raw.duty.length) return base;
+    var out = base;
+    out.reports = base.reports.map(function(r){
       var maps = [], r2 = copyObj(r);
       r2.segments = r.segments.map(function(s, si){
         var m = {}, groups = [], n = 0, dup = 0;
@@ -398,7 +449,7 @@ a.title:visited{color:var(--ink-900)}
   }
   // 보고 양식은 걷어 내기 전 데이터에서 찾는다 — 스위치를 켜고 체크한 당직 기사는 꺼도 양식에 남는다(탭 ✓ 숫자와 같게).
   function rawOf(rep, seg){
-    var rr = RAW && RAW.reports.filter(function(x){ return x.id === rep.id; })[0];
+    var rr = RAW && baseReports(RAW).filter(function(x){ return x.id === rep.id; })[0];
     if(!rr) return seg;
     if(rr.byline && rr.byline.id === seg.id) return rr.byline;
     return rr.segments.filter(function(x){ return x.id === seg.id; })[0] || seg;
@@ -411,7 +462,7 @@ a.title:visited{color:var(--ink-900)}
     return n;
   }
   function dutyNote(){
-    return RAW && RAW.duty && RAW.duty.length ? '보기 범위 옆 <b>당직</b> 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림은 없음, 켜고 끈 상태는 이 기기에 기억). ' : '';
+    return RAW && RAW.duty && RAW.duty.length ? '보기 범위 옆 <b>당직</b> 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림은 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시). ' : '';
   }
 
   // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용. 기기 연동을 켜면 다른 기기와 맞춘다 — 0-26) ----------
@@ -666,7 +717,7 @@ a.title:visited{color:var(--ink-900)}
     fetch('data.json?t=' + Date.now(), {cache:'no-store'}).then(function(r){
       if(!r.ok) throw new Error(r.status);
       return r.json();
-    }).then(function(d){ var y = D ? window.scrollY : 0; RAW = d; D = view(d); pickDefaults(); draw(); window.scrollTo(0, y); })
+    }).then(function(d){ var y = D ? window.scrollY : 0; RAW = d; noteDutyDay(); D = view(d); pickDefaults(); draw(); window.scrollTo(0, y); })
       .catch(function(e){
         if(!D){ document.getElementById('main').innerHTML = '<p class="empty">데이터를 불러오지 못했습니다 ('+esc(e.message)+'). 새로고침을 눌러 주세요.</p>'; }
         document.getElementById('fresh').textContent = '불러오기 실패';
@@ -765,7 +816,8 @@ a.title:visited{color:var(--ink-900)}
 
     // 보고 선택 (이전·현재·다음)
     var rb = document.getElementById('reports');
-    rb.innerHTML = D.reports.map(function(x){
+    var ddy = activeDutyDay(RAW);
+    rb.innerHTML = (ddy ? '<span class="dtag" title="'+esc(ddy)+' 당직 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날 휴일에 \'당직\' 스위치를 켰기 때문">당직 일정</span>' : '') + D.reports.map(function(x){
       var cur = T(x.display_from) <= now && now < T(x.display_until);
       return '<button type="button" data-r="'+x.id+'" aria-pressed="'+(x.id===ui.rep)+'">'+esc(x.title.replace(' 보고',''))+(cur?' ●':'')+'</button>';
     }).join('');
@@ -1133,9 +1185,11 @@ a.title:visited{color:var(--ink-900)}
   });
   document.getElementById('dsw').addEventListener('click', function(){
     dutyOn = !dutyOn;
-    try{ localStorage.setItem(DUTYSTORE, dutyOn ? '1' : '0'); }catch(err){}
+    saveDuty();
+    // 0-48: 휴일에 켜면 오늘을 당직 날로 기억, 같은 날 끄면 지운다(보고 시간표가 바뀐다).
+    if(RAW && RAW.holiday && RAW.holiday === todayKST()) setDutyDay(RAW.holiday, dutyOn);
     if(!dutyOn && ui.beat && dutyNames()[ui.beat]) ui.beat = null;
-    D = view(RAW); draw();
+    D = view(RAW); pickDefaults(); draw();
   });
   [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
     btn.addEventListener('click', function(){
