@@ -760,6 +760,8 @@ a.title:visited{color:var(--ink-900)}
       // '여기까지 확인'을 쓰기 시작한 보고는 '전체' 탭으로 연다(0-24)
       var allTab = tabs.filter(function(t){ return t.all; })[0];
       if(allTab && seenAt(ui.rep) != null) ui.tab = allTab.key;
+      // 구간이 하나뿐인 보고(14:00 보고)도 '전체' 탭으로 연다(0-49) — 내용은 같은데 '여기까지 확인'은 '전체' 탭에만 있다.
+      if(allTab && own.length === 1) ui.tab = allTab.key;
     }
     // 구간 탭이 접혀 있으면 구간 탭은 열지 않는다 → '전체'
     var ct = tabs.filter(function(t){ return t.key === ui.tab; })[0];
