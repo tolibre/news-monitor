@@ -213,6 +213,11 @@ a.title:visited{color:var(--ink-900)}
 .meta{flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline; font-size:12px; color:var(--ink-500); white-space:nowrap; font-variant-numeric:tabular-nums}
 .more{margin-top:4px; margin-left:24px; border:0; background:none; padding:2px 0; cursor:pointer; font:inherit; font-size:12px; color:var(--link); font-weight:600}
 .more:hover{text-decoration:underline}
+.ncl{margin:2px 0 0 24px; display:flex; gap:6px; align-items:baseline; min-width:0; font-size:12px; color:var(--ink-500); font-variant-numeric:tabular-nums}
+.ncl > span{flex:0 0 auto; white-space:nowrap}
+.tag.nc{background:var(--o-me-bg); color:var(--o-me); transform:none}
+.ncl .nct{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-700); text-decoration:none}
+.ncl a.nct:hover{color:var(--link); text-decoration:underline}
 .dupes{margin-top:4px; margin-left:24px; padding-left:12px; border-left:1px solid var(--line-300); display:grid; gap:4px}
 .dupes a.title{font-size:13px; color:var(--ink-700)}
 .empty{padding:36px 0; text-align:center; color:var(--ink-500); font-size:13px}
@@ -311,7 +316,7 @@ a.title:visited{color:var(--ink-900)}
   .beat[aria-pressed="true"]{background:none; color:var(--og); text-decoration:underline; text-underline-offset:4px; text-decoration-thickness:2px}
   .pick{width:20px; height:20px; transform:translateY(4px)}
   .meta{padding-left:28px}
-  .more, .dupes{margin-left:28px}
+  .more, .dupes, .ncl{margin-left:28px}
 }
 </style>
 </head><body>
@@ -1031,7 +1036,7 @@ a.title:visited{color:var(--ink-900)}
     var nnew = merged ? items.filter(isNew).length : 0;
     var lead = items[0], rest = items.slice(1);
     var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
-    var body = row(lead);
+    var body = row(lead) + ncLine(items);
     if(rest.length){
       var big = items.length >= AUTO_EXPAND;
       // 합쳐 보기: 접힌 줄 안에 다른 구간 기사가 있으면 구간별 건수를 붙인다 —
@@ -1052,6 +1057,19 @@ a.title:visited{color:var(--ink-900)}
               '<div class="dupes" id="'+id+'"'+(big?'':' hidden')+'>'+rest.map(row).join('')+'</div>';
     }
     return {html:'<div class="'+cls+'">'+body+'</div>', fresh:fresh, dup:items.length-fresh, nnew:nnew};
+  }
+  // 노컷 기출고(0-54) — 묶음 기사 중 같은 주제로 발행 ±12시간 안에 노컷이 낸 기사가 있으면 대표 줄 아래 한 줄.
+  // 순위·체크에는 손대지 않는다(보고에 넣을지는 사용자가 체크로 정함). 대표 줄과 맞는 노컷 기사가 있으면 그것,
+  // 없으면 묶음 안 다른 기사와 맞는 것 중 가장 이른 것(줄이 대표 줄 바로 아래라 대표 줄과 맞는 쪽이 읽기 쉽다).
+  function ncLine(items){
+    var nc = items[0].nc || null;
+    if(!nc) items.forEach(function(x){ if(x.nc && (!nc || (x.nc.pd + x.nc.p) < (nc.pd + nc.p))) nc = x.nc; });
+    // 대표 줄이 노컷 기사면 그 줄이 곧 표시다 — 같은 내용을 한 줄 더 달지 않는다.
+    if(!nc || (items[0].s || '').indexOf('노컷') !== -1) return '';
+    var t = nc.l ? '<a class="nct" href="'+esc(nc.l)+'" target="_blank" rel="noopener" title="'+esc(nc.t)+'">'+esc(nc.t)+'</a>'
+                 : '<span class="nct" title="'+esc(nc.t)+'">'+esc(nc.t)+'</span>';
+    return '<div class="ncl" title="노컷뉴스가 같은 사안을 발행 앞뒤 12시간 안에 출고함"><span class="tag nc">노컷 기출고</span>'+
+           '<span class="mono">'+esc(pubLabel(nc))+'</span>'+(nc.w ? '<span>'+esc(nc.w)+'</span>' : '')+t+'</div>';
   }
   function section(name, blocks, gc, gdup, gnew){
     return '<section data-g="'+esc(name)+'"><div class="sec-head"><h2>'+esc(name)+'</h2><span class="n mono">'+gc+'건'+(gnew?' · <span class="nwc">새 '+gnew+'</span>':'')+(gdup?' · 이미 나옴 '+gdup:'')+'</span></div>'+blocks+'</section>';
@@ -1125,7 +1143,7 @@ a.title:visited{color:var(--ink-900)}
       html += part;
     });
     if(t.all && !MERGED) html += drawByline(t.rep, now).html;
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자, 오늘 기사가 아니면 요일이 붙음). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. '+dutyNote()+'체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자, 오늘 기사가 아니면 요일이 붙음). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. 묶음 아래 <b>노컷 기출고</b> 줄은 같은 사안을 노컷뉴스(본인·동료 기자)가 발행 앞뒤 12시간 안에 출고했다는 표시입니다(제목이 사실상 같거나 사안어 3개 이상이 겹칠 때, 사진·대담 녹취 제외). ‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. '+dutyNote()+'체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
     document.getElementById('main').innerHTML = html;
     syncBar();
   }
