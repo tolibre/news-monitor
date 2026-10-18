@@ -1209,6 +1209,25 @@ a.title:visited{color:var(--ink-900)}
 .fresh button.sync.ok::before{content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:#4FBF86; margin-right:6px; vertical-align:1px}
 .fresh button.sync.err{border-color:#F0B55A; color:#F0B55A}
 .spanel{max-width:520px}
+.ppanel{max-width:720px}
+.pvq{padding:0 16px 8px}
+.pvq input{width:100%; height:34px; padding:0 10px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:14px}
+.pvday{margin:10px 0 4px; font-size:12px; font-weight:700; color:var(--ink-500)}
+.pvday:first-child{margin-top:0}
+.pvrep{display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:8px 10px; margin:0 0 4px; border:1px solid var(--line-200); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:14px; cursor:pointer}
+.pvrep:hover{background:var(--blue-50); border-color:var(--blue-500)}
+.pvrep .c{margin-left:auto; color:var(--ink-500); font-size:12px; white-space:nowrap}
+.pvrep .pk{color:var(--blue-700); font-weight:700}
+.pvtag{font-size:11px; font-weight:700; padding:0 6px; border-radius:999px; border:1px solid var(--blue-500); color:var(--blue-700); white-space:nowrap}
+.pvhit{padding:7px 0; border-bottom:1px solid var(--line-200)}
+.pvhit a.t{color:var(--ink-900); text-decoration:none; font-size:14px}
+.pvhit a.t:hover{text-decoration:underline}
+.pvhit .m{display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:2px; font-size:12px; color:var(--ink-500)}
+.pvhit .m button{border:0; background:none; padding:0; color:var(--link); font:inherit; cursor:pointer; text-decoration:underline}
+.pvhit .pk{color:var(--blue-700); font-weight:700}
+.pvnote{color:var(--ink-500); font-size:12px}
+.reports .pastbtn{border-style:dashed; white-space:nowrap; flex:0 0 auto}
+.reports .ptag{align-self:center; font-size:11px; font-weight:700; color:var(--appbar); background:#F2C94C; border-radius:999px; padding:1px 8px; white-space:nowrap}
 .sbody{padding:12px 16px 16px; font-size:13px; color:var(--ink-700); overflow:auto}
 .sbody p{margin:0 0 12px}
 .sbody b{color:var(--ink-900)}
@@ -1299,6 +1318,18 @@ a.title:visited{color:var(--ink-900)}
       <button class="btn" type="button" id="unpick" hidden>이 구간 선택 해제</button>
       <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 본인 기사는 &lt;기처리&gt;로 따로 모읍니다. 직접 고쳐도 됩니다.</span>
     </div>
+  </div>
+</div>
+
+<div class="veil" id="pveil" hidden>
+  <div class="panel ppanel" role="dialog" aria-modal="true" aria-labelledby="pvtitle">
+    <div class="panel-head">
+      <h3 id="pvtitle">지난 보고</h3>
+      <span class="sub" id="pvsub"></span>
+      <button class="x" type="button" id="pvclose" aria-label="닫기">&times;</button>
+    </div>
+    <div class="pvq"><input id="pvq" type="search" placeholder="지난 보고 전체에서 제목·매체 검색 (2글자 이상)" autocomplete="off"></div>
+    <div class="sbody" id="pvbody"><p>불러오는 중…</p></div>
   </div>
 </div>
 
@@ -1396,6 +1427,96 @@ a.title:visited{color:var(--ink-900)}
   }
   function baseReports(raw){ var d = activeDutyDay(raw); return d ? dutyReportsAll(raw)[d] : raw.reports; }
 
+  // ---------- 지난 보고 (0-51) ----------
+  // 끝난 보고는 서버가 past/<보고id>.json으로 2주 보관한다(index.json 목록, search.json 기간 전체 검색).
+  // 고르면 PAST 모드 — 화면용 데이터를 그 보고 하나로 바꿔 평소와 똑같이 그린다(구간 탭·'전체'·체크·보고 양식).
+  // 자동 새로고침은 RAW만 갈아 끼우고 화면은 그대로 둔다. '현재 보고로'를 누르면 원래대로.
+  var PAST = null;            // {f, raw}
+  var PIDX = null, PSEARCH = null;
+  function srcRaw(){ return PAST ? PAST.raw : RAW; }
+  // 같은 보고가 평소판·당직판 둘 다 있으면(다음 업무일 09:00 보고) 이 기기가 그 휴일을 당직 날로 기억하거나
+  // 당직판 구간에 체크가 있으면 당직판, 아니면 평소판. 휴일 당일 보고(당직판만 있음)는 당직 날이었거나 체크가 있을 때만.
+  function pastVisible(list){
+    var dd = {}; dutyDays().forEach(function(x){ dd[x] = 1; });
+    function checked(r){ var o = picks[r.rid] || {}; return (r.segs || []).some(function(s){ return o[s] && Object.keys(o[s]).length; }); }
+    var byRid = {};
+    list.forEach(function(r){ (byRid[r.rid] = byRid[r.rid] || []).push(r); });
+    return list.filter(function(r){
+      var sib = byRid[r.rid];
+      if(!r.holiday) return !sib.some(function(x){ return x.holiday && x !== r && (dd[x.holiday] || checked(x)); });
+      return !!(dd[r.holiday] || checked(r));
+    });
+  }
+  function pickCount(r){ var o = picks[r.rid] || {}, n = 0; (r.segs || []).forEach(function(s){ if(o[s]) n += Object.keys(o[s]).length; }); return n; }
+  function fetchJSON(u){ return fetch(u + '?t=' + Date.now(), {cache:'no-store'}).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }); }
+  var pveil = document.getElementById('pveil');
+  function openPast(){
+    pveil.hidden = false;
+    document.getElementById('pvsub').textContent = '';
+    fetchJSON('past/index.json').then(function(d){ PIDX = d; drawPast(); })
+      .catch(function(){ document.getElementById('pvbody').innerHTML = '<p>아직 저장된 지난 보고가 없습니다(보고가 끝나면 그 뒤 첫 수집 때 저장됩니다).</p>'; });
+    var q = document.getElementById('pvq'); if(window.innerWidth > 640) q.focus();
+  }
+  function drawPast(){
+    if(!PIDX) return;
+    var q = document.getElementById('pvq').value.trim();
+    var vis = pastVisible(PIDX.reports);
+    document.getElementById('pvsub').textContent = '최근 ' + (PIDX.keep_days || 14) + '일 · ' + vis.length + '개';
+    if(q.length >= 2){ drawPastSearch(q, vis); return; }
+    var html = '', day = '';
+    vis.slice().sort(function(a, b){ return a.rid < b.rid ? 1 : a.rid > b.rid ? -1 : 0; }).forEach(function(r){
+      var dkey = r.rid.slice(0, 8);
+      if(dkey !== day){ day = dkey; html += '<div class="pvday">' + esc(r.title.replace(/ \d\d:\d\d 보고$/, '')) + '</div>'; }
+      var pk = pickCount(r);
+      html += '<button type="button" class="pvrep" data-pf="'+esc(r.f)+'"><span>' + esc(r.title) + '</span>' +
+        (r.holiday ? '<span class="pvtag">당직 일정</span>' : '') +
+        '<span class="c"><span class="mono">' + (dutyOn ? r.n : r.n - (r.nd || 0)) + '건</span>' + (pk ? ' · <span class="pk">✓' + pk + '</span>' : '') + '</span></button>';
+    });
+    document.getElementById('pvbody').innerHTML = html ||
+      '<p>아직 저장된 지난 보고가 없습니다(보고가 끝나면 그 뒤 첫 수집 때 저장됩니다).</p>';
+  }
+  function drawPastSearch(q, vis){
+    var body = document.getElementById('pvbody');
+    if(!PSEARCH){
+      body.innerHTML = '<p>검색 자료를 받는 중…</p>';
+      fetchJSON('past/search.json').then(function(d){ PSEARCH = d; drawPast(); })
+        .catch(function(e){ body.innerHTML = '<p>검색 자료를 받지 못했습니다(' + esc(e.message) + ').</p>'; });
+      return;
+    }
+    var ok = {}; vis.forEach(function(r){ ok[r.f] = r; });
+    var words = q.toLowerCase().split(/\s+/).filter(Boolean), hits = [];
+    PSEARCH.items.forEach(function(it){
+      var f = PSEARCH.files[it[0]], r = ok[f]; if(!r) return;
+      var hay = (it[3] + ' ' + it[4]).toLowerCase();
+      if(words.every(function(w){ return hay.indexOf(w) >= 0; })) hits.push([r, it]);
+    });
+    hits.sort(function(a, b){ var x = a[0].rid, y = b[0].rid; return x < y ? 1 : x > y ? -1 : 0; });
+    var html = '<p class="pvnote">' + hits.length + '건' + (hits.length > 200 ? ' — 최근 200건만 보입니다' : '') + ' · 제목을 누르면 기사, ‘보고에서 보기’는 그 보고를 엽니다.</p>';
+    hits.slice(0, 200).forEach(function(h){
+      var r = h[0], it = h[1];
+      var sid = it[1] >= 0 ? r.segs[it[1]] : 'byline';
+      var on = isPicked(r.rid, sid, it[7] || it[3]);
+      html += '<div class="pvhit"><a class="t" href="' + esc(it[7]) + '" target="_blank" rel="noopener">' + (it[8] === SCOOP ? '[단독] ' : '') + esc(it[3]) + '</a>' +
+        '<div class="m"><span>' + esc(r.title.replace(' 보고', '')) + (r.holiday ? '(당직 일정)' : '') + '</span><span>' + esc(it[2]) + '</span><span>' + esc(it[4]) + ' ' +
+        esc(pubLabel({pd: it[5], p: it[6]})) + '</span>' + (on ? '<span class="pk">✓ 체크함</span>' : '') +
+        '<button type="button" data-pf="' + esc(r.f) + '">보고에서 보기</button></div></div>';
+    });
+    body.innerHTML = html;
+  }
+  function loadPast(f){
+    fetchJSON('past/' + f).then(function(doc){
+      var raw = {generated: RAW ? RAW.generated : '', last_seen: RAW ? RAW.last_seen : '', duty: doc.duty || (RAW && RAW.duty) || [], reports: [doc.report]};
+      PAST = {f: f, raw: raw, holiday: doc.holiday};
+      pveil.hidden = true;
+      D = view(raw); ui.rep = doc.report.id; repManual = true; tabManual = false; ui.beat = null;
+      pickDefaults(); draw(); window.scrollTo(0, 0);
+    }).catch(function(e){ document.getElementById('pvbody').insertAdjacentHTML('afterbegin', '<p>불러오지 못했습니다(' + esc(e.message) + ').</p>'); });
+  }
+  function leavePast(){
+    PAST = null; repManual = false; tabManual = false; ui.beat = null;
+    D = view(RAW); pickDefaults(); draw(); window.scrollTo(0, 0);
+  }
+
   function view(raw){
     var ds = dutyNames();
     var base = copyObj(raw); base.reports = baseReports(raw);
@@ -1429,7 +1550,8 @@ a.title:visited{color:var(--ink-900)}
   }
   // 보고 양식은 걷어 내기 전 데이터에서 찾는다 — 스위치를 켜고 체크한 당직 기사는 꺼도 양식에 남는다(탭 ✓ 숫자와 같게).
   function rawOf(rep, seg){
-    var rr = RAW && baseReports(RAW).filter(function(x){ return x.id === rep.id; })[0];
+    var src = srcRaw();
+    var rr = src && baseReports(src).filter(function(x){ return x.id === rep.id; })[0];
     if(!rr) return seg;
     if(rr.byline && rr.byline.id === seg.id) return rr.byline;
     return rr.segments.filter(function(x){ return x.id === seg.id; })[0] || seg;
@@ -1697,7 +1819,11 @@ a.title:visited{color:var(--ink-900)}
     fetch('data.json?t=' + Date.now(), {cache:'no-store'}).then(function(r){
       if(!r.ok) throw new Error(r.status);
       return r.json();
-    }).then(function(d){ var y = D ? window.scrollY : 0; RAW = d; noteDutyDay(); D = view(d); pickDefaults(); draw(); window.scrollTo(0, y); })
+    }).then(function(d){
+      var y = D ? window.scrollY : 0; RAW = d; noteDutyDay();
+      if(!PAST){ D = view(d); pickDefaults(); }   // 지난 보고를 보는 중이면 화면은 그대로(0-51)
+      draw(); window.scrollTo(0, y);
+    })
       .catch(function(e){
         if(!D){ document.getElementById('main').innerHTML = '<p class="empty">데이터를 불러오지 못했습니다 ('+esc(e.message)+'). 새로고침을 눌러 주세요.</p>'; }
         document.getElementById('fresh').textContent = '불러오기 실패';
@@ -1798,11 +1924,17 @@ a.title:visited{color:var(--ink-900)}
 
     // 보고 선택 (이전·현재·다음)
     var rb = document.getElementById('reports');
+    if(PAST){
+      warn.hidden = true;
+      rb.innerHTML = '<span class="ptag">지난 보고</span>' + (PAST.holiday ? '<span class="dtag">당직 일정</span>' : '') +
+        '<button type="button" class="pastbtn" id="pastbtn">지난 보고 ▾</button><button type="button" id="pastback">현재 보고로 ›</button>';
+      return;
+    }
     var ddy = activeDutyDay(RAW);
     rb.innerHTML = (ddy ? '<span class="dtag" title="'+esc(ddy)+' 당직 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날 휴일에 \'당직\' 스위치를 켰기 때문">당직 일정</span>' : '') + D.reports.map(function(x){
       var cur = T(x.display_from) <= now && now < T(x.display_until);
       return '<button type="button" data-r="'+x.id+'" aria-pressed="'+(x.id===ui.rep)+'">'+esc(x.title.replace(' 보고',''))+(cur?' ●':'')+'</button>';
-    }).join('');
+    }).join('') + '<button type="button" class="pastbtn" id="pastbtn" title="끝난 보고 다시 보기·지난 2주 기사 검색"><span class="lg">지난 보고 </span><span class="sm">지난 </span>▾</button>';
 
   }
 
@@ -1988,7 +2120,7 @@ a.title:visited{color:var(--ink-900)}
       return '<b>'+CIRC.charAt(si)+'</b> '+esc(s.label)+' '+(st==='future'?'대기':st==='live'?'<span class="st-live">진행 중</span>':'마감')+(st==='future'?'':' '+s.n+'건');
     }).join(' · ') + (r.segments.some(function(s){ return segState(s, now) === 'live'; }) && D.generated ?
       ' — '+hm(new Date(D.last_seen || D.generated))+' 수집분까지' : '') + '</p>';
-    html += seenBar(r);
+    if(!PAST) html += seenBar(r);
     var any = false;
     r.all.forEach(function(mg, mgi){
       if(ui.beat && mg.name !== ui.beat) return;
@@ -2060,7 +2192,7 @@ a.title:visited{color:var(--ink-900)}
     document.getElementById('segpart').hidden = !!t.all;
     // 하단 '여기까지 확인'(0-24d) — '전체' 탭에서만. 위쪽 확인 바와 같은 동작.
     var bs = document.getElementById('bar-seen');
-    bs.hidden = !(t.all && r.all);
+    bs.hidden = !(t.all && r.all) || !!PAST;
     if(!bs.hidden){
       var a = seenAt(r.id), last = D.last_seen ? T(D.last_seen) : null;
       var can = last != null && (a == null || last > a);
@@ -2154,6 +2286,8 @@ a.title:visited{color:var(--ink-900)}
 
   // ---------- 이벤트 ----------
   document.getElementById('reports').addEventListener('click', function(e){
+    if(e.target.closest('#pastbtn')){ openPast(); return; }
+    if(e.target.closest('#pastback')){ leavePast(); return; }
     var b = e.target.closest('button[data-r]'); if(!b) return;
     ui.rep = b.getAttribute('data-r'); repManual = true; tabManual = false; pickDefaults(); draw();
   });
@@ -2178,9 +2312,9 @@ a.title:visited{color:var(--ink-900)}
     dutyOn = !dutyOn;
     saveDuty();
     // 0-48: 휴일에 켜면 오늘을 당직 날로 기억, 같은 날 끄면 지운다(보고 시간표가 바뀐다).
-    if(RAW && RAW.holiday && RAW.holiday === todayKST()) setDutyDay(RAW.holiday, dutyOn);
+    if(!PAST && RAW && RAW.holiday && RAW.holiday === todayKST()) setDutyDay(RAW.holiday, dutyOn);
     if(!dutyOn && ui.beat && dutyNames()[ui.beat]) ui.beat = null;
-    D = view(RAW); pickDefaults(); draw();
+    D = view(srcRaw()); pickDefaults(); draw();
   });
   [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
     btn.addEventListener('click', function(){
@@ -2231,7 +2365,14 @@ a.title:visited{color:var(--ink-900)}
   document.getElementById('make-all').addEventListener('click', function(){ openPanel('all'); });
   document.getElementById('close').addEventListener('click', closePanel);
   veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ if(!sveil.hidden) sveil.hidden = true; else if(!veil.hidden) closePanel(); } });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ if(!pveil.hidden) pveil.hidden = true; else if(!sveil.hidden) sveil.hidden = true; else if(!veil.hidden) closePanel(); } });
+  document.getElementById('pvclose').addEventListener('click', function(){ pveil.hidden = true; });
+  pveil.addEventListener('click', function(e){
+    if(e.target === pveil){ pveil.hidden = true; return; }
+    var b = e.target.closest('[data-pf]'); if(b) loadPast(b.getAttribute('data-pf'));
+  });
+  var pvTimer = null;
+  document.getElementById('pvq').addEventListener('input', function(){ clearTimeout(pvTimer); pvTimer = setTimeout(drawPast, 200); });
   document.getElementById('unpick').addEventListener('click', function(){
     if(!panelSeg) return;
     var o = picks[panelSeg.rep.id] && picks[panelSeg.rep.id][panelSeg.seg.id];

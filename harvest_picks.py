@@ -130,9 +130,16 @@ def snapshot_items(conn, rid, picks=None):
     picks/ 파일이 몇 배로 커진다. picks = 이 보고의 체크 기록({구간id: {키: [1|0, 시각]}})."""
     now = report_deadline(rid) - datetime.timedelta(minutes=5)
     data = nm.build_live_data(conn, now)
-    rep = next((r for r in data["reports"] if r["id"] == rid), None)
-    if not rep:
+    # 당직 날 보고 시간표(0-48)의 보고도 찾는다 — 휴일 당일 보고(20261018-am 등)는 당직판에만 있고,
+    # 다음 업무일 09:00 보고는 평소판·당직판이 같은 id라 체크 기록의 구간 id가 더 많이 겹치는 쪽을 쓴다(같으면 평소판).
+    cands = [r for r in data["reports"] if r["id"] == rid]
+    if hasattr(nm, "resolve_duty_reports"):
+        for reps in nm.resolve_duty_reports(data).values():
+            cands += [r for r in reps if r["id"] == rid and all(r is not x for x in cands)]
+    if not cands:
         return None
+    psegs = set((picks or {}).keys())
+    rep = max(cands, key=lambda r: len(psegs & {s["id"] for s in r["segments"]}))
     # '전체' 탭 묶음 순서: (구간 si, gi, ci, ii) → (묶음 순번, 묶음 안 순번, 묶음 크기)
     pos = {}
     for mg in rep["all"]:

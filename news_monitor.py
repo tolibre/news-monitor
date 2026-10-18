@@ -3694,6 +3694,131 @@ def _build_duty_reports(conn, now, own, base_specs, base_reports):
     return out
 
 
+# ==================== 지난 보고 보관 (0-51) ====================
+# 사용자 요청(10/18): 지난 보고를 ①내가 뭘 보고했는지 다시 보기 ②며칠 전 기사 다시 찾기 — 둘 다.
+# 뉴스레이다 data.json은 [이전, 현재, 다음] 보고만 싣는다. 보고가 끝나면(화면 전환 시각 display_until이 지나면)
+# 그 보고를 docs/live/past/<보고id>.json으로 한 번 저장하고 PAST_KEEP_DAYS일 보관한다. 페이지는 '지난 보고' 창에서
+# index.json(목록)을 읽고, 고른 보고만 받아 평소 화면 그대로 연다. search.json은 기간 전체 제목 검색용.
+#  - 당직 날 보고 시간표(0-48)의 보고도 저장한다: 휴일 당일 보고(20261018-am 등)는 '<보고id>.json',
+#    다음 업무일 보고처럼 평소 시간표와 id가 같은 것은 '<보고id>~<휴일>.json'. 어느 쪽을 보여 줄지는 페이지가 정한다
+#    (그 기기가 기억한 당직 날·체크 기록). 서버는 누가 당직이었는지 모르므로 휴일마다 저장한다.
+#  - 파일은 한 번 쓰면 다시 쓰지 않는다(커밋 변동 최소). 목록·검색 파일은 파일 구성이 바뀔 때만 다시 쓴다.
+PAST_DIRNAME = "past"
+PAST_KEEP_DAYS = 14
+
+
+def resolve_duty_reports(data):
+    """data['duty_reports']의 참조('n/1', {'ref': 'n/1/3'} 등)를 풀어 {휴일: [보고 dict …]}.
+    평소 보고를 가리키는 항목은 data['reports']의 바로 그 객체(같은 id)다."""
+    res = {"n": data.get("reports") or []}
+    out = {}
+
+    def pick(path):
+        a = path.split("/")
+        rep = res[a[0]][int(a[1])]
+        return rep if len(a) == 2 else rep["segments"][int(a[2])]
+
+    for h, reps in (data.get("duty_reports") or {}).items():
+        res[h] = []
+        for x in reps:
+            if isinstance(x, str):
+                res[h].append(pick(x))
+                continue
+            r = dict(x)
+            r["segments"] = [pick(s["ref"]) if "ref" in s else s for s in x["segments"]]
+            res[h].append(r)
+        out[h] = res[h]
+    return out
+
+
+def past_candidates(data, now, duty_since=None):
+    """끝난 보고 [(파일 이름, 보고 dict, 휴일 ISO 또는 None)]. duty_since(날짜)가 있으면 그 전 휴일의 당직 시간표는 뺀다."""
+    out = []
+    normal = data.get("reports") or []
+    normal_ids = {id(r) for r in normal}
+    for r in normal:
+        if datetime.datetime.fromisoformat(r["display_until"]) <= now:
+            out.append((f"{r['id']}.json", r, None))
+    for h, reps in sorted(resolve_duty_reports(data).items()):
+        if duty_since and h < duty_since.isoformat():
+            continue
+        for r in reps:
+            if id(r) in normal_ids or datetime.datetime.fromisoformat(r["display_until"]) > now:
+                continue
+            same_day = r["id"][:8] == h.replace("-", "")
+            out.append((f"{r['id']}.json" if same_day else f"{r['id']}~{h}.json", r, h))
+    return out
+
+
+def _past_report_date(name):
+    return datetime.date(int(name[:4]), int(name[4:6]), int(name[6:8]))
+
+
+def archive_past_reports(data, now, live_dir, duty_since=None):
+    """끝난 보고를 past/에 저장하고, 오래된 것을 지우고, 목록·검색 파일을 맞춘다. (새로 쓴 수, 지운 수) 반환."""
+    pdir = os.path.join(live_dir, PAST_DIRNAME)
+    os.makedirs(pdir, exist_ok=True)
+    added = 0
+    for name, rep, h in past_candidates(data, now, duty_since):
+        path = os.path.join(pdir, name)
+        if os.path.exists(path):
+            continue
+        doc = {"v": 1, "file": name, "rid": rep["id"], "title": rep["title"], "holiday": h,
+               "saved": now.isoformat(timespec="seconds"), "duty": data.get("duty") or [], "report": rep}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
+        added += 1
+    cut = now.date() - datetime.timedelta(days=PAST_KEEP_DAYS)
+    removed = 0
+    names = []
+    for name in sorted(os.listdir(pdir)):
+        if not re.match(r"^\d{8}-(am|pm)(~\d{4}-\d\d-\d\d)?\.json$", name):
+            continue
+        if _past_report_date(name) < cut:
+            os.remove(os.path.join(pdir, name))
+            removed += 1
+            continue
+        names.append(name)
+    idx_path = os.path.join(pdir, "index.json")
+    old = None
+    if os.path.exists(idx_path):
+        try:
+            with open(idx_path, encoding="utf-8") as f:
+                old = json.load(f)
+        except Exception:
+            old = None
+    if added or removed or not old or [r["f"] for r in old.get("reports", [])] != names \
+            or not os.path.exists(os.path.join(pdir, "search.json")):
+        reports, items = [], []
+        for fi, name in enumerate(names):
+            with open(os.path.join(pdir, name), encoding="utf-8") as f:
+                doc = json.load(f)
+            rep = doc["report"]
+            reports.append({"f": name, "rid": doc["rid"], "title": doc["title"], "holiday": doc.get("holiday"),
+                            "n": sum(s.get("n", 0) for s in rep["segments"]),
+                            # 당직 섹션 기사 수 — 페이지가 '당직' 스위치를 끈 기기에선 n에서 뺀 수를 보여 준다
+                            "nd": sum(g["n"] for s in rep["segments"] for g in s.get("groups", [])
+                                      if g["name"] in set(doc.get("duty") or [])),
+                            "segs": [s["id"] for s in rep["segments"]]})
+            for si, seg in enumerate(rep["segments"]):
+                for g in seg.get("groups", []):
+                    for clu in g["clusters"]:
+                        for it in clu:
+                            items.append([fi, si, g["name"], it.get("t", ""), it.get("s", ""),
+                                          it.get("pd", ""), it.get("p", ""), it.get("l", ""), it.get("m", "")])
+            by = rep.get("byline") or {}
+            for g in by.get("groups", []):
+                for clu in g["clusters"]:
+                    for it in clu:
+                        items.append([fi, -1, g["name"], it.get("t", ""), it.get("s", ""),
+                                      it.get("pd", ""), it.get("p", ""), it.get("l", ""), it.get("m", "")])
+        with open(idx_path, "w", encoding="utf-8") as f:
+            json.dump({"v": 1, "keep_days": PAST_KEEP_DAYS, "reports": reports}, f, ensure_ascii=False, separators=(",", ":"))
+        with open(os.path.join(pdir, "search.json"), "w", encoding="utf-8") as f:
+            json.dump({"v": 1, "files": names, "items": items}, f, ensure_ascii=False, separators=(",", ":"))
+    return added, removed
+
+
 def run_live():
     """check 직후 워크플로가 부른다(실패해도 check는 이미 끝난 뒤라 영향 없음)."""
     import render_page
@@ -3708,6 +3833,12 @@ def run_live():
     finally:
         conn.close()
     path = render_page.publish_live(data)
+    try:   # 0-51 — 실패해도 페이지는 이미 썼다
+        added, removed = archive_past_reports(data, now, render_page.LIVE_DIR)
+        if added or removed:
+            print(f"[live] 지난 보고 저장 {added}건 · 정리 {removed}건 (docs/live/{PAST_DIRNAME}/)")
+    except Exception as e:
+        print(f"[warn] 지난 보고 저장 실패: {e}")
     cur = data["reports"][1]   # report_timeline()이 [이전, 현재, 다음] 순서로 준다
     print(f"[live] {cur['title']} — " + ", ".join(
         f"{s['label']} {s['n']}건" for s in cur["segments"] if s["state"] != "future")
