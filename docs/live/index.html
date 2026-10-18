@@ -616,7 +616,7 @@ a.title:visited{color:var(--ink-900)}
     return n;
   }
   function dutyNote(){
-    return RAW && RAW.duty && RAW.duty.length ? '보기 범위 옆 <b>당직</b> 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림은 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시). ' : '';
+    return RAW && RAW.duty && RAW.duty.length ? '검색칸 옆 <b>휴일 특근</b> 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림은 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시). ' : '';
   }
 
   // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용. 기기 연동을 켜면 다른 기기와 맞춘다 — 0-26) ----------
@@ -986,7 +986,7 @@ a.title:visited{color:var(--ink-900)}
       return;
     }
     var ddy = activeDutyDay(RAW);
-    tt.innerHTML = ddy ? '<span class="dtag" title="'+esc(ddy)+' 당직 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날 휴일에 \'당직\' 스위치를 켰기 때문">당직 일정</span>' : '';
+    tt.innerHTML = ddy ? '<span class="dtag" title="'+esc(ddy)+' 당직 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날 휴일에 \'휴일 특근\' 스위치를 켰기 때문">당직 일정</span>' : '';
     rb.innerHTML = '<span class="rgrp">' + D.reports.map(function(x){
       var cur = T(x.display_from) <= now && now < T(x.display_until);
       var full = x.title.replace(' 보고',''), short = full.replace(/^\d+\/\d+\((.)\) /, '$1 ');
@@ -1090,8 +1090,8 @@ a.title:visited{color:var(--ink-900)}
     dsw.hidden = !(RAW && RAW.duty && RAW.duty.length);
     if(!dsw.hidden){
       dsw.setAttribute('aria-pressed', String(dutyOn));
-      dsw.title = '경제정책팀 당직 출입처('+RAW.duty.join('·')+') 섹션 '+(dutyOn ? '숨기기' : '보기');
-      dsw.innerHTML = '<span class="tr" aria-hidden="true"></span>당직 출입처 <span class="c mono">'+dutyCount(t)+'</span>';
+      dsw.title = '휴일 특근 — 경제정책팀 출입처('+RAW.duty.join('·')+') 섹션 '+(dutyOn ? '숨기기' : '보기')+', 휴일에 켜면 그날을 특근 날로 보고 09:00·14:00 보고로 나눔';
+      dsw.innerHTML = '<span class="tr" aria-hidden="true"></span>휴일 특근 <span class="c mono">'+dutyCount(t)+'</span>';
     }
 
     var html = '';
