@@ -143,8 +143,10 @@ if _TEMP_KW_ON:
 
 # 키워드가 매칭되어도, 제목에 이 표현이 있으면 오탐으로 보고 완전히 제외.
 # 예: "공정위"가 "스포츠공정위원회"에도 포함되어 오매칭되는 문제 방지.
+# 0-46: '스포츠공정위원회'만 있어 제목 약칭 '스포츠공정위'(DB 48건 — 유도대표팀 지도자 회부 등)가 그대로 들어왔다.
+#       '스포츠공정위'로 바꿔 둘 다 잡고, 대학 법학 경연 '모의공정위'도 추가. digest_select도 이 목록으로 거른다.
 EXCLUDE_TERMS = [
-    "대한체육회", "스포츠공정위원회",
+    "대한체육회", "스포츠공정위", "모의공정위",
 ]
 
 # ==================== 폴백 기사 소관 관문 (check 전용, 2026-09-03) ====================
@@ -2595,6 +2597,9 @@ def digest_select(conn, start, end, now):
                            WHERE seen_dt>=? AND seen_dt<? ORDER BY pub_dt""",
                         (start.isoformat(), end.isoformat())).fetchall()
     rows = [r for r in rows if media_allowed(r[2])]  # 화이트리스트 매체만
+    # 오탐 제외어(EXCLUDE_TERMS) — 수집 단계에서 이미 버리지만, 제외어를 늘리기 전에 들어온 기사가
+    # DB에 남아 있으면 화면에 그대로 뜬다(0-46: '스포츠공정위'). 그래서 여기서도 한 번 더 거른다.
+    rows = [r for r in rows if not is_excluded(r[0])]
     fresh_cutoff = (now - datetime.timedelta(hours=24)).isoformat()
     rows = [r for r in rows if r[3] >= fresh_cutoff]  # 발행 24시간 이내만
     # digest는 "빠뜨리지 않는 것"이 목표 → strict=True (확신할 때만 제외)
