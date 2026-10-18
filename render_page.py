@@ -1272,7 +1272,7 @@ a.title:visited{color:var(--ink-900)}
 .foot a{color:var(--link)}
 
 .sm{display:none}
-/* 0-54: 폴드7 — 펼침 750px·커버 411px(예전 기준 884·372px과 다름). 900px 이하 공통:
+/* 0-55: 폴드7 — 펼침 750px·커버 411px(예전 기준 884·372px과 다름). 900px 이하 공통:
    ①보고 버튼 짧은 이름·로고 글자 숨김 → 머리줄 한 줄 ②가로 스크롤 줄의 회색 막대 숨김
    ③머리는 아래로 스크롤하면 접히고 조금만 올리면 다시 나온다(JS: 머리 자동 접기) */
 @media (max-width:900px){
@@ -1298,7 +1298,7 @@ a.title:visited{color:var(--ink-900)}
   .tblk{flex:1 1 0}
   .meta{margin-left:0; width:100%; padding-left:24px}
   .row{flex-wrap:wrap}
-  /* 0-54: 제목이 체크박스·배지 옆에서 바로 시작(전엔 배지만 한 줄 차지하고 제목은 다음 줄로 밀림) */
+  /* 0-55: 제목이 체크박스·배지 옆에서 바로 시작(전엔 배지만 한 줄 차지하고 제목은 다음 줄로 밀림) */
   a.title{flex:1 1 0; min-width:0}
   /* 보기 범위 버튼 한 줄 균등 폭, 확인 바는 안내·버튼 한 줄 */
   .seg{flex:1 1 100%} .seg button{flex:1 1 auto; padding:0 6px; white-space:nowrap}
@@ -2471,7 +2471,7 @@ a.title:visited{color:var(--ink-900)}
     if(before !== after && veil.hidden) draw();
   }, 60e3);
 
-  // 머리 자동 접기(0-54) — 900px 이하(폴드 커버·펼침, 폰)에서만. 머리가 화면의 30~40%를 차지해
+  // 머리 자동 접기(0-55) — 900px 이하(폴드 커버·펼침, 폰)에서만. 머리가 화면의 30~40%를 차지해
   // 기사 목록이 좁았다. 아래로 24px 넘게 내리면 접고, 24px 넘게 올리면 편다. 맨 위 근처·검색칸 입력 중엔 늘 보인다.
   (function(){
     var hd = document.querySelector('header'), mq = window.matchMedia('(max-width:900px)');
