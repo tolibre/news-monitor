@@ -19,6 +19,7 @@ news_monitor.py  (v2 — 네이버 API 주 수집원 / 무과금 / DB 기반 다
 import sys, os, re, html, sqlite3, hashlib, datetime, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 import json
+import contextlib
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -2970,8 +2971,25 @@ LIVE_DIRNAME = "live"
 _WD = "월화수목금토일"
 
 
+# 당직 날(0-48) — 휴일 당직자는 그날도 09:00·14:00 보고를 한다. 그 휴일을 업무일로 친 보고 시간표를
+# build_live_data가 따로 계산해 싣는다(duty_reports). 이 집합은 그 계산 동안에만 잠깐 채운다(_as_workday).
+_EXTRA_WORKDAYS = set()
+
+
 def is_report_workday(d):
+    if d.isoformat() in _EXTRA_WORKDAYS:
+        return True
     return d.weekday() < 5 and d.isoformat() not in REPORT_HOLIDAYS
+
+
+@contextlib.contextmanager
+def _as_workday(d):
+    """with 블록 동안 휴일 d를 업무일로 친다(당직 날 보고 시간표 계산용, 0-48)."""
+    _EXTRA_WORKDAYS.add(d.isoformat())
+    try:
+        yield
+    finally:
+        _EXTRA_WORKDAYS.discard(d.isoformat())
 
 
 def _prev_workday(d):
@@ -3546,59 +3564,77 @@ def byline_section(conn, spec, now):
     return sec
 
 
+# 당직 날 보고 시간표(0-48) — 사용자 결정(10/18): "당직 날에는 평소와 같이 09:00·14:00에 모니터 보고를 한다."
+# 휴일 H를 업무일로 치면 report_spec이 그대로 맞는 구간을 만든다 — H 09:00 보고 = 마지막 업무일 13:30부터
+# (사이 휴일은 하루씩, 사용자 확인: '마지막 업무일 13:30부터'), H 14:00 보고 = H 08:30~13:30,
+# 다음 업무일 09:00 보고 = H 13:30부터(당직자는 H 14:00 보고까지 이미 했으므로).
+# 오늘부터 DUTY_SCHEDULE_LOOKBACK_DAYS일 전까지의 휴일마다 계산해, 평소 시간표와 다를 때만 싣는다
+# (월요일 오후 15:00 이후엔 같아져서 안 실림). 어느 날이 '내 당직 날'인지는 페이지가 안다
+# ('당직' 스위치를 휴일에 켠 날 — 기기에 기억). 서버는 후보만 준다.
+DUTY_SCHEDULE_LOOKBACK_DAYS = 3
+
+
+def _build_live_report(conn, spec, now, own):
+    """보고 spec 하나 → 페이지용 보고 dict(구간 데이터·'전체' 탭 참조·본인 기사 섹션)."""
+    import render_page
+    segs_out = []
+    seg_sections = []   # '전체' 탭 합치기용(0-22) — 시작된 구간의 섹션 원본
+    seg_groups = {}
+    # 사안 단위 섹션 합치기(0-33)는 보고 전체를 한 번에 봐야 하므로 구간 선별을 먼저 끝낸다.
+    picked = {}
+    for si, (start, end) in enumerate(spec["segments"]):
+        if now >= start:
+            # 신선도 기준 = 구간 끝(이미 끝난 구간) 또는 지금(진행 중 구간) —
+            # 그 구간 digest가 제때 돌았을 때와 같은 결과.
+            # 휴일 구간(24시간)은 live_select()가 digest 슬롯 단위로 쪼개 고른다(0-21).
+            rows, photo, junk, noise = live_select(conn, start, end, now)
+            n_own = len(rows)
+            rows = [r for r in rows if not is_own_article(r, own)]
+            picked[si] = (rows, photo, junk, noise, n_own - len(rows))
+    moves = live_story_moves([p[0] for p in picked.values()])
+    for si, (start, end) in enumerate(spec["segments"]):
+        seg = {
+            "id": f"{start:%Y%m%d%H%M}",
+            "label": _seg_label(start, end),
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "state": ("future" if now < start else "live" if now < end else "done"),
+            "raw": 0, "n": 0, "dup": 0, "x": 0, "groups": [],
+        }
+        if now >= start:
+            rows, photo, junk, noise, n_own = picked[si]
+            sections = digest_page_sections(live_apply_moves(digest_by_group(rows), moves))
+            groups = render_page.build_groups_data(sections)
+            dup = _mark_live_repeats(conn, start, groups)
+            _attach_seen(conn, start, end, groups)
+            seg_sections.append((si, sections))
+            seg_groups[si] = groups
+            seg.update(raw=len(rows), n=sum(g["n"] for g in groups), dup=dup,
+                       x=len(photo) + len(junk) + len(noise), groups=groups)
+            if n_own:
+                seg["own"] = n_own
+        segs_out.append(seg)
+    return {
+        "id": spec["id"], "kind": spec["kind"], "title": spec["title"],
+        "display_from": spec["display_from"].isoformat(),
+        "display_until": spec["display_until"].isoformat(),
+        "segments": segs_out,
+        "all": live_merge_sections(seg_sections, seg_groups, spec["kind"]),
+        "byline": byline_section(conn, spec, now),
+    }
+
+
+def _spec_key(spec):
+    return (spec["id"], tuple(spec["segments"]))
+
+
 def build_live_data(conn, now):
     """페이지용 JSON(dict). 구간마다 digest와 같은 선별·클러스터링을 돌린다."""
-    import render_page
-    reports = []
     # 본인 기사는 구간 섹션에서 뺀다(0-23c, 사용자 결정 — 김광일 기자 섹션에서 보므로
     # 두 번 볼 필요 없다). 창 밖 본인 기사(전날 14시 이후 등)도 빠진다 — 보고 안 하기로 함.
     own = byline_own_keys(conn)
-    for spec in report_timeline(now):
-        segs_out = []
-        seg_sections = []   # '전체' 탭 합치기용(0-22) — 시작된 구간의 섹션 원본
-        seg_groups = {}
-        # 사안 단위 섹션 합치기(0-33)는 보고 전체를 한 번에 봐야 하므로 구간 선별을 먼저 끝낸다.
-        picked = {}
-        for si, (start, end) in enumerate(spec["segments"]):
-            if now >= start:
-                # 신선도 기준 = 구간 끝(이미 끝난 구간) 또는 지금(진행 중 구간) —
-                # 그 구간 digest가 제때 돌았을 때와 같은 결과.
-                # 휴일 구간(24시간)은 live_select()가 digest 슬롯 단위로 쪼개 고른다(0-21).
-                rows, photo, junk, noise = live_select(conn, start, end, now)
-                n_own = len(rows)
-                rows = [r for r in rows if not is_own_article(r, own)]
-                picked[si] = (rows, photo, junk, noise, n_own - len(rows))
-        moves = live_story_moves([p[0] for p in picked.values()])
-        for si, (start, end) in enumerate(spec["segments"]):
-            seg = {
-                "id": f"{start:%Y%m%d%H%M}",
-                "label": _seg_label(start, end),
-                "start": start.isoformat(),
-                "end": end.isoformat(),
-                "state": ("future" if now < start else "live" if now < end else "done"),
-                "raw": 0, "n": 0, "dup": 0, "x": 0, "groups": [],
-            }
-            if now >= start:
-                rows, photo, junk, noise, n_own = picked[si]
-                sections = digest_page_sections(live_apply_moves(digest_by_group(rows), moves))
-                groups = render_page.build_groups_data(sections)
-                dup = _mark_live_repeats(conn, start, groups)
-                _attach_seen(conn, start, end, groups)
-                seg_sections.append((si, sections))
-                seg_groups[si] = groups
-                seg.update(raw=len(rows), n=sum(g["n"] for g in groups), dup=dup,
-                           x=len(photo) + len(junk) + len(noise), groups=groups)
-                if n_own:
-                    seg["own"] = n_own
-            segs_out.append(seg)
-        reports.append({
-            "id": spec["id"], "kind": spec["kind"], "title": spec["title"],
-            "display_from": spec["display_from"].isoformat(),
-            "display_until": spec["display_until"].isoformat(),
-            "segments": segs_out,
-            "all": live_merge_sections(seg_sections, seg_groups, spec["kind"]),
-            "byline": byline_section(conn, spec, now),
-        })
+    specs = report_timeline(now)
+    reports = [_build_live_report(conn, spec, now, own) for spec in specs]
     last_seen = conn.execute("SELECT MAX(seen_dt) FROM articles").fetchone()[0]
     out = {
         "generated": now.isoformat(),
@@ -3609,6 +3645,52 @@ def build_live_data(conn, now):
     # 비어 있으면(변형판) 키를 싣지 않는다 — 스위치도 안 그려진다.
     if DUTY_ONLY_GROUPS:
         out["duty"] = list(DUTY_ONLY_GROUPS)
+        today = now.date()
+        if not is_report_workday(today):
+            out["holiday"] = today.isoformat()
+        dr = _build_duty_reports(conn, now, own, specs, reports)
+        if dr:
+            out["duty_reports"] = dr
+    return out
+
+
+def _build_duty_reports(conn, now, own, base_specs, base_reports):
+    """당직 날 보고 시간표 후보(0-48) {휴일 ISO: [보고 …]}.
+    같은 보고·같은 구간을 두 번 싣지 않는다 — 평소 보고와 같은 보고는 문자열 "n/<보고 순번>",
+    이미 실은 구간과 내용이 같은 구간은 {"ref": "<출처>/<보고 순번>/<구간 순번>"}(출처 = 'n' 또는 휴일 ISO).
+    페이지가 이 참조를 풀어 평소 보고와 같은 모양으로 만든다."""
+    base_keys = {_spec_key(s): i for i, s in enumerate(base_specs)}
+    seen = {}
+    for ri, rep in enumerate(base_reports):
+        for si, seg in enumerate(rep["segments"]):
+            seen.setdefault(json.dumps(seg, ensure_ascii=False, sort_keys=True), f"n/{ri}/{si}")
+    out = {}
+    today = now.date()
+    for k in range(DUTY_SCHEDULE_LOOKBACK_DAYS, -1, -1):
+        h = today - datetime.timedelta(days=k)
+        if is_report_workday(h):
+            continue
+        with _as_workday(h):
+            specs = report_timeline(now)
+            if [_spec_key(s) for s in specs] == list(base_keys):
+                continue
+            reps = []
+            for ri, spec in enumerate(specs):
+                if _spec_key(spec) in base_keys:
+                    reps.append(f"n/{base_keys[_spec_key(spec)]}")
+                    continue
+                rep = _build_live_report(conn, spec, now, own)
+                segs = []
+                for si, seg in enumerate(rep["segments"]):
+                    key = json.dumps(seg, ensure_ascii=False, sort_keys=True)
+                    if key in seen:
+                        segs.append({"ref": seen[key]})
+                    else:
+                        seen[key] = f"{h.isoformat()}/{ri}/{si}"
+                        segs.append(seg)
+                rep["segments"] = segs
+                reps.append(rep)
+        out[h.isoformat()] = reps
     return out
 
 
