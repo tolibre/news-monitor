@@ -2121,12 +2121,23 @@ def send_overnight_exclusives(conn, now):
     if items:
         lines = [f"🌙 <b>밤사이 단독 {len(items)}건</b> (어젯밤 23시~오늘 6시, 야간이라 못 보낸 것)"]
         prev_g = None
+        try:        # 노컷 기출고 꼬리(0-54) — 표시만
+            nc_pool = load_nocut_pool(conn, now - datetime.timedelta(hours=12), now)
+        except Exception as e:
+            print(f"[warn] 노컷 기출고 대조: {e}")
+            nc_pool = []
         for g, title, link, src, hm in items:
             if g != prev_g:
                 lines.append(f"\n■ <b>{tg_escape(g)}</b>")
                 prev_g = g
             tail = f" [{hm}|{tg_escape(media_name(src))}]" if src else ""
             body = (f'<a href="{tg_escape(link)}">{tg_escape(title)}</a>' if link else tg_escape(title))
+            if nc_pool and link:
+                r = conn.execute("SELECT pub_dt FROM articles WHERE link=?", (link,)).fetchone()
+                nc = nocut_find(title, r[0] if r else None, nc_pool, link)
+                if nc:
+                    lab = tg_escape(nocut_label(nc, now))
+                    tail += f' 📰<a href="{tg_escape(nc["l"])}">{lab}</a>' if nc["l"] else f" 📰{lab}"
             lines.append(f"🔥 · {body}{tail}")
         notify("\n".join(lines))
         print(f"[밤사이] 야간 기록 단독 {len(items)}건 묶어 발송")
@@ -2418,6 +2429,21 @@ def run_check():
             # 점수 동률이면 먼저 보도된 것(원 보도에 가까움) 우선
             return (-sc, min(a["pub_dt"] for a in clu))
 
+        # 노컷 기출고 꼬리(0-54) — 표시만. 선별·억제·알림 수는 그대로. 실패해도 알림은 나간다.
+        try:
+            nc_pool = load_nocut_pool(conn, now - datetime.timedelta(hours=24), now)
+        except Exception as e:
+            print(f"[warn] 노컷 기출고 대조: {e}")
+            nc_pool = []
+
+        def clu_nocut(clu):
+            best = None
+            for a in clu:
+                x = nocut_find(a["title"], a["pub_dt"], nc_pool, a["link"])
+                if x and (best is None or x["p"] < best["p"]):
+                    best = x
+            return best
+
         sections = []            # [(그룹명, [(대표기사, 묶음크기), ...]), ...]
         for g in effective_group_order(by_g.keys()):
             arts = by_g.get(g, [])
@@ -2476,6 +2502,7 @@ def run_check():
                     record_alerted_topic(conn, key, it["title"], toks, tier, now)
                     prior_topics.append({"key": key, "title": it["title"], "tokens": toks,
                                          "tier": tier, "first_dt": now.isoformat()})
+                it["nc"] = clu_nocut(clu) if nc_pool else None
                 rows.append((it, extra))
             if rows:
                 sections.append((g, rows))
@@ -2502,12 +2529,18 @@ def run_check():
                     mp = f"{mark} " if mark else ""
                     src = media_name(it["source"])
                     rel = f" (관련 {extra}건)" if extra > 0 else ""
+                    nc = it.get("nc")
                     if as_html:
+                        ncs = ""
+                        if nc:
+                            lab = esc(nocut_label(nc, now))
+                            ncs = f' 📰<a href="{esc(nc["l"])}">{lab}</a>' if nc["l"] else f" 📰{lab}"
                         body.append(
                             f'{mp}· <a href="{esc(it["link"])}">{esc(it["title"])}</a>'
-                            f' [{t}|{esc(src)}]{rel}')
+                            f' [{t}|{esc(src)}]{rel}{ncs}')
                     else:
-                        body.append(f"{mp}· {it['title']} [{t}|{src}]{rel}\n    {it['link']}")
+                        ncs = f"\n    📰{nocut_label(nc, now)} 「{nc['t']}」" if nc else ""
+                        body.append(f"{mp}· {it['title']} [{t}|{src}]{rel}{ncs}\n    {it['link']}")
             head = (f"🆕 <b>주요 기사 {shown}건</b> " if as_html
                     else f"🆕 주요 기사 {shown}건 ") + f"({now.strftime('%m/%d %H:%M')})"
             lines = [head] + body
@@ -3477,6 +3510,154 @@ def collect_byline(conn, now, fetch=None):
     return len(new)
 
 
+# ==================== 노컷 기출고 표시 (0-54) ====================
+# 사용자 요청(10/18): "모니터 기사 중 노컷뉴스가 같은 주제를 비슷한 시간에 출고한 바 있으면 내 판단이 달라진다."
+# 사용자 결정: ①순위는 그대로, 표시만(사내 보고에 넣을지는 본인이 체크로 정한다) ②발행 ±12시간
+# ③노컷 전체(본인 + 동료 기자). check 알림 꼬리와 뉴스레이다 묶음 아래 줄에 같은 판정으로 붙인다.
+#  - 대상: articles의 노컷 기사(링크 도메인 nocutnews.co.kr 또는 매체명에 '노컷' — 구글 경로 포함).
+#    본인 기사도 articles에 그대로 있다(구간 섹션에서만 뺄 뿐, 0-23c) — 판단을 바꾸는 건 대부분 본인 기사였다.
+#    사진 기사·잡문·라디오 대담 녹취(제목 끝 [한판승부] 등)는 '기사 출고'가 아니라서 뺀다.
+#  - 같은 주제: 제목키(group_key)가 같거나, significant_overlap(클러스터링과 같은 함수)에 더해 출입처명·흔한 말을
+#    뺀 공통 토큰이 NOCUT_MIN_SHARED개 이상. 클러스터링 기준(2개)만으로는 '치킨 프랜차이즈 담합 조사' ↔
+#    '정유사 기름값 담합 심의'({담합, 혐의}), '주병기 감찰 의혹' ↔ '주병기 한화 기술탈취 의혹'처럼 같은 출입처의
+#    다른 사안이 짝지어졌다(25개 보고 재생에서 배지 146묶음 중 오짝 약 20 → 3개 기준 112묶음 중 약 6).
+#    잘못 붙은 배지는 '노컷이 안 쓴 기사를 건너뛰게' 만드므로 놓치는 쪽보다 해롭다 — 그래서 엄격하게.
+#    배지에 노컷 기사 제목을 같이 보여 줘 남은 오짝은 눈으로 걸러지게 한다.
+#  - 섹션 제한은 두지 않는다: 같은 섹션으로 묶으면 휴일 특근 날 본인 재경부 기사·다른 섹션에 실린 동료 기사를
+#    놓쳤다(재생에서 늘어난 11묶음 중 9개가 맞는 짝).
+NOCUT_WINDOW_HOURS = 12
+NOCUT_MIN_SHARED = 3
+NOCUT_ENABLED = True        # 변형판 생성기가 끌 수 있는 자리(동료판은 본인 판단 기준이 달라 기본 끔을 권장)
+NOCUT_DOMAINS = ("nocutnews.co.kr",)
+# 사안 하나를 다룬 기사로 보지 않는 노컷 꼬리표 — 여러 사안을 엮은 묶음(노컷한컷·윅퀵·지역 주요 뉴스), 의견(칼럼·기고),
+# 출연 대담(뉴스연구소·금융치료). 라디오 대담 녹취(BYLINE_PROGRAM_TAGS: 한판승부·뉴스쇼·오늘아침 등)도 같이 뺀다.
+# 실측(노컷 825건): '이진숙 국감 제척, 코스피 꺾이고, 집값 오르고[노컷한컷]'이 과방위 국감 묶음 세 곳에 배지로 붙었다.
+NOCUT_SKIP_TAGS = ("노컷한컷", "윅퀵", "주요 뉴스", "칼럼", "기고", "뉴스연구소", "금융치료")
+_BRACKET_RE = re.compile(r"\[([^\[\]]{1,20})\]")
+_WRITER_RE = re.compile(r"([가-힣]{2,4})\s*(?:CBS\s*)?기자")
+
+
+def is_nocut_row(link, source):
+    host = urllib.parse.urlparse(link or "").netloc.lower()
+    if any(host == d or host.endswith("." + d) for d in NOCUT_DOMAINS):
+        return True
+    return "노컷" in (media_name(source or "") or "")
+
+
+def load_nocut_pool(conn, start, end):
+    """발행 시각이 [start-12h, end+12h]인 노컷 기사 목록(발행순). 항목: dict(t, l, p(ISO), w(기자), gk, tok).
+    start·end는 datetime. check는 (지금-36h, 지금), 뉴스레이다는 보고 창을 넘긴다."""
+    if not NOCUT_ENABLED:
+        return []
+    _byline_table(conn)
+    w = datetime.timedelta(hours=NOCUT_WINDOW_HOURS)
+    own_ids, own_links = set(), set()
+    for aid, link in conn.execute("SELECT id, link FROM byline_articles"):
+        own_ids.add(aid)
+        if link:
+            own_links.add(link)
+    notes = dict(conn.execute("SELECT id, note FROM byline_checked WHERE own = 0"))
+    me = BYLINE_NAME
+    out, who_by_key = [], {}
+    for aid, title, link, source, pub in conn.execute(
+            "SELECT id, title, link, source, pub_dt FROM articles WHERE pub_dt >= ? AND pub_dt <= ? ORDER BY pub_dt",
+            ((start - w).isoformat(), (end + w).isoformat())):
+        if not is_nocut_row(link, source):
+            continue
+        t = clean_title_display(title)
+        tags = _BRACKET_RE.findall(title or "")
+        if any(k in tg for tg in tags for k in NOCUT_SKIP_TAGS + tuple(BYLINE_PROGRAM_TAGS)):
+            continue
+        if is_photo_article(t, link or "") or is_junk_title(t):
+            continue
+        who = ""
+        if aid in own_ids or (link and link in own_links):
+            who = me
+        else:
+            m = _WRITER_RE.search(notes.get(aid, ""))
+            if m:
+                who = m.group(1)
+        gk = group_key(t)
+        if who:
+            who_by_key.setdefault(gk, who)
+        out.append({"t": t, "l": link or "", "p": pub, "w": who, "gk": gk, "tok": topic_tokens(t)})
+    for x in out:      # 구글 경로로 들어온 같은 기사(링크가 달라 바이라인 기록이 없음)에 기자 이름 채우기
+        if not x["w"]:
+            x["w"] = who_by_key.get(x["gk"], "")
+    return out
+
+
+def nocut_same_topic(title, x):
+    """title(다른 매체 기사)과 노컷 기사 x(load_nocut_pool 항목)의 같은 주제 점수 — 0이면 다른 주제.
+    제목키가 같으면 100, 아니면 출입처명·흔한 말을 뺀 공통 토큰 수(NOCUT_MIN_SHARED 이상일 때만)."""
+    t = clean_title_display(title)
+    if group_key(t) == x["gk"]:
+        return 100
+    tok = topic_tokens(t)
+    if not significant_overlap(tok, x["tok"]):
+        return 0
+    n = len((tok & x["tok"]) - CLUSTER_AGENCY_TOKENS - TOPIC_COMMON_TOKENS)
+    return n if n >= NOCUT_MIN_SHARED else 0
+
+
+def nocut_find(title, pub_dt, pool, link=""):
+    """다른 매체 기사(제목·발행 ISO)와 같은 주제로 발행 ±12시간 안에 나간 노컷 기사 중 가장 잘 맞는 것
+    (점수가 같으면 가장 이른 것, 없으면 None). 기사 자신이 노컷이면 None(제 기사에 배지를 달지 않는다).
+    '가장 이른 것'만 고르면 누리호 발사일처럼 같은 날 노컷 기사가 여럿일 때 겨우 3개 겹친 이른 기사가 뽑혔다."""
+    if not pool or not pub_dt or (link and is_nocut_row(link, "")):
+        return None
+    try:
+        p = datetime.datetime.fromisoformat(pub_dt)
+    except Exception:
+        return None
+    w = datetime.timedelta(hours=NOCUT_WINDOW_HOURS)
+    lo, hi = (p - w).isoformat(), (p + w).isoformat()
+    best, best_k = None, 0
+    for x in pool:                      # 발행순 — 점수가 같으면 먼저 본(이른) 것이 남는다
+        if x["p"] < lo:
+            continue
+        if x["p"] > hi:
+            break
+        k = nocut_same_topic(title, x)
+        if k > best_k:
+            best, best_k = x, k
+    return best
+
+
+def nocut_label(x, now=None):
+    """check 알림용 짧은 꼬리 '노컷 10:38 김광일'(오늘이 아니면 '10/17 10:38')."""
+    d = datetime.datetime.fromisoformat(x["p"]).astimezone(KST)
+    today = (now or datetime.datetime.now(KST)).date()
+    hm = d.strftime("%H:%M") if d.date() == today else f"{d.month}/{d.day} {d:%H:%M}"
+    return f"노컷 {hm}" + (f" {x['w']}" if x["w"] else "")
+
+
+def _attach_nocut(conn, groups, start, end, pool=None):
+    """뉴스레이다 기사마다, 같은 주제의 노컷 기사가 있으면 nc={t, l, p, pd, w}를 단다(라이브 전용, 0-54).
+    페이지가 묶음 안 가장 이른 nc를 묶음 아래 한 줄로 그린다. 링크로 발행 시각(ISO)을 찾는다."""
+    if not NOCUT_ENABLED:
+        return
+    import render_page
+    pool = load_nocut_pool(conn, start, end) if pool is None else pool
+    if not pool:
+        return
+    links = [it["l"] for g in groups for clu in g["clusters"] for it in clu if it.get("l")]
+    pubs = {}
+    for i in range(0, len(links), 500):
+        part = links[i:i + 500]
+        pubs.update(conn.execute(f"SELECT link, pub_dt FROM articles WHERE link IN ({','.join('?' * len(part))})",
+                                 part).fetchall())
+    for g in groups:
+        for clu in g["clusters"]:
+            for it in clu:
+                if "노컷" in (it.get("s") or ""):
+                    continue            # 노컷 기사 자신(구글 경로 포함)
+                x = nocut_find(it["t"], pubs.get(it.get("l")), pool, it.get("l", ""))
+                if x:
+                    it["nc"] = {"t": x["t"], "l": x["l"], "p": render_page._fmt_time(x["p"]),
+                                "pd": render_page._fmt_date(x["p"]), "w": x["w"]}
+
+
 def _attach_seen(conn, start, end, groups):
     """페이지 기사마다 최초 수집 시각 q(ISO, 초 단위)를 단다. (0-24, 라이브 전용)
     '전체' 탭의 '확인 완료' 이후 새 기사 판별에 쓴다. 링크로 찾고, 링크가 없으면 제목으로."""
@@ -3592,6 +3773,10 @@ def _build_live_report(conn, spec, now, own):
             rows = [r for r in rows if not is_own_article(r, own)]
             picked[si] = (rows, photo, junk, noise, n_own - len(rows))
     moves = live_story_moves([p[0] for p in picked.values()])
+    # 노컷 기출고(0-54) — 보고 창 전체로 한 번 읽어 구간마다 쓴다.
+    nc_pool = None
+    if NOCUT_ENABLED and picked:
+        nc_pool = load_nocut_pool(conn, spec["segments"][0][0], spec["segments"][-1][1])
     for si, (start, end) in enumerate(spec["segments"]):
         seg = {
             "id": f"{start:%Y%m%d%H%M}",
@@ -3607,6 +3792,8 @@ def _build_live_report(conn, spec, now, own):
             groups = render_page.build_groups_data(sections, with_date=True)
             dup = _mark_live_repeats(conn, start, groups)
             _attach_seen(conn, start, end, groups)
+            if nc_pool:
+                _attach_nocut(conn, groups, start, end, nc_pool)
             seg_sections.append((si, sections))
             seg_groups[si] = groups
             seg.update(raw=len(rows), n=sum(g["n"] for g in groups), dup=dup,
