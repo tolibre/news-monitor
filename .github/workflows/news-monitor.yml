@@ -194,6 +194,10 @@ jobs:
               [ -n "$f" ] && git rm -q --ignore-unmatch -- "$f"
             done < "$KEEP/docs-deleted.txt"
             python merge_db.py "$KEEP/ours.db" news_monitor.db
+            # 0-45: 합집합은 한쪽이 정리(prune_old)로 지운 기사를 되살린다 — 06:00 digest가 지운 것을
+            # 같은 시각 check가 경합에 지며 도로 넣었다(10/18 06:00, 4.5만 건). 합친 뒤 같은 보관 규칙을 다시 건다.
+            python -c "import sqlite3, news_monitor as m; c = sqlite3.connect('news_monitor.db'); print(f'[merge] 보관 규칙 재적용 — {m.prune_old(c)}건 삭제'); c.close()" \
+              || echo "::warning::합친 DB 정리 실패 — 다음 06:00 정리에서 다시 지웁니다."
             git add news_monitor.db
             if [ -d docs ]; then git add -A docs; fi
             if [ -d picks ]; then git add -A picks; fi
