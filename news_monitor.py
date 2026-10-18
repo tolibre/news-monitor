@@ -3763,6 +3763,9 @@ def archive_past_reports(data, now, live_dir, duty_since=None):
         path = os.path.join(pdir, name)
         if os.path.exists(path):
             continue
+        # 기사가 하나도 없는 보고(새 변형판의 운영 전 기간, 수집 장애)는 저장하지 않는다
+        if not sum(s.get("n", 0) for s in rep["segments"]) and not (rep.get("byline") or {}).get("n"):
+            continue
         doc = {"v": 1, "file": name, "rid": rep["id"], "title": rep["title"], "holiday": h,
                "saved": now.isoformat(timespec="seconds"), "duty": data.get("duty") or [], "report": rep}
         with open(path, "w", encoding="utf-8") as f:
