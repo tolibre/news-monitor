@@ -1,0 +1,197 @@
+{
+ "built": "2026-10-19T13:30:32+09:00",
+ "built_from": "build_live_data(마감 5분 전) 재구성",
+ "cols": [
+  "sid",
+  "group",
+  "cluster",
+  "pos",
+  "size",
+  "mark",
+  "n",
+  "dup",
+  "source",
+  "title",
+  "link"
+ ],
+ "cols_note": "sid=구간id(byline=김광일 기자), group=출입처, cluster='전체' 탭 출입처 안 묶음 순서(0=맨 위), pos=묶음 안 순서(0=대표줄), size=묶음 기사 수, mark=🔥단독/⚡속보, n=전재 매체 수, dup=이미 나옴(최초 수집 시각), source=매체, title=제목, link=기사 키(체크 기록의 키와 같음)",
+ "picks": {
+  "202610172200": {
+   "https://www.edaily.co.kr/News/Read?newsId=01105366645614232&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article": [
+    1,
+    1792282978904
+   ],
+   "https://www.mk.co.kr/article/12178611": [
+    1,
+    1792283401259
+   ],
+   "https://www.mt.co.kr/politics/2026/10/17/2026101615132387607": [
+    1,
+    1792283152042
+   ],
+   "https://www.yna.co.kr/view/AKR20261016022300030?input=1195m": [
+    1,
+    1792283364831
+   ],
+   "https://www.yna.co.kr/view/AKR20261016069000003?input=1195m": [
+    0,
+    1792283364381
+   ],
+   "https://www.yna.co.kr/view/AKR20261016164900530?input=1195m": [
+    1,
+    1792283435707
+   ],
+   "https://www.yna.co.kr/view/AKR20261017018700030?input=1195m": [
+    1,
+    1792283491488
+   ],
+   "https://www.yna.co.kr/view/AKR20261017019100002?input=1195m": [
+    1,
+    1792282929884
+   ],
+   "https://www.yna.co.kr/view/AKR20261017030100002?input=1195m": [
+    1,
+    1792283051759
+   ],
+   "https://www.yna.co.kr/view/AKR20261017033300002?input=1195m": [
+    1,
+    1792282911233
+   ],
+   "https://www.ytn.co.kr/_ln/0103_202610180626431980": [
+    1,
+    1792283212154
+   ]
+  },
+  "202610181330": {
+   "https://www.segye.com/newsView/20261018509068?OutUrl=naver": [
+    0,
+    1792333173433
+   ]
+  },
+  "202610181730": {
+   "https://imnews.imbc.com/replay/2026/nwdesk/article/6858811_37004.html": [
+    1,
+    1792333102124
+   ],
+   "https://news.google.com/rss/articles/CBMigAFBVV95cUxPZy1MMl84Q19WWlNrak9BNnJWUEZ3Y0JNWnozVWhjcnBWaDZaU3VSYWMwa21vQmpjTnpOZGw0ZlEyeU5IVHhJQVpaSnkxSU5kUURwS25qNHpMelhzTy1Lckd2ZEhWR0VuU2FpVWE2R1NhbkpmYnU4ZFRBWm5KVlJ0RA?oc=5": [
+    1,
+    1792333174911
+   ],
+   "https://www.ajunews.com/view/20261018105123453": [
+    1,
+    1792333231580
+   ]
+  },
+  "202610190600": {
+   "https://www.yna.co.kr/view/AKR20261017030400002?input=1195m": [
+    1,
+    1792364011578
+   ]
+  },
+  "byline": {
+   "https://www.nocutnews.co.kr/news/6593098?utm_source=naver&utm_medium=article&utm_campaign=20261019050045": [
+    1,
+    1792364074376
+   ]
+  }
+ },
+ "rid": "20261019-am",
+ "unmatched": 10,
+ "v": 1,
+ "items": [
+  ["202610181330", "공정위", 1, 1, 7, "", 2, "", "세계", "공정위 중점조사단, 식품업계 담합 정조준…경쟁제한적 ‘정보교환 담합’ 카드 꺼내나", "https://news.google.com/rss/articles/CBMia0FVX3lxTE1kZTBpZW9IQTB5Zmp6TFZoejdDbWJnanJLUlFnOEM5NXM5ZGQwWDFHbWRaRDAtZmFVeFQybTF2V3VrT0U3NzZwd09DNDZtNGRjbThTTVVGU2dUb19MUWVmZ1FMMkJLNUd0LWFN0gFUQVVfeXFMTjVwWjhqeVRiYm5fSngxU29JYkppSHA3YnlwSXNjVkI0Y29xRWtFVjM3eWtCUlluZkFkOEhralFzLWE4OUVuSkJzSGlNMWxjNjVPM1N3?oc=5"],
+  ["202610181330", "공정위", 9, 0, 1, "", 1, "", "매일경제", "통합 진에어, 부산발 국제선 대폭 확대…5개 노선·주 58회 신설", "https://www.mk.co.kr/article/12178750"],
+  ["202610181330", "공정위", 3, 0, 1, "", 1, "", "서울", "“월급 올라도 남는 게 없네”…직장인 세금 낮추는 법안 나왔다 [주목, 이 주의 법안]", "https://www.seoul.co.kr/news/plan/this-week-bill/2026/10/18/20261018500039?wlog_tag3=naver"],
+  ["202610181330", "공정위", 4, 0, 1, "", 1, "", "세계", "“짝퉁에 中 추격까지”…잘나가는 K뷰티, 해외시장서 이중고", "https://www.segye.com/newsView/20261018509068?OutUrl=naver"],
+  ["202610181330", "공정위", 5, 0, 1, "", 1, "", "SBS", "[다음주 경제] 한은 22일 금리 결정…금융권 해킹·ETF 국감도 주목", "https://biz.sbs.co.kr/article_hub/20000340603?division=NAVER"],
+  ["202610181330", "공정위", 12, 0, 1, "", 1, "", "매일", "택배 분실 보상, 운송장 가액 비우면 300만원 금도 50만원까지", "https://www.imaeil.com/page/view/2026101600123973672"],
+  ["202610181330", "공정위", 13, 0, 1, "", 1, "", "블로터", "[코인이담] 코인거래소, '종합금융' 될 수 있을까…국감이 던진 숙제", "https://www.bloter.net/news/articleView.html?idxno=675939"],
+  ["202610181330", "방미통위", 0, 0, 3, "", 1, "", "연합뉴스", "캐나다 앨버타주 군 기지서 대형 화재…사상자 다수 발생", "https://www.yna.co.kr/view/AKR20261018037300009?input=1195m"],
+  ["202610181330", "방미통위", 0, 1, 3, "", 1, "", "SBS", "캐나다 앨버타주 군 기지서 대형 화재…\"사상자 다수\"", "https://news.sbs.co.kr/news/endPage.do?news_id=N1008802984&plink=ORI&cooper=NAVER"],
+  ["202610181330", "방미통위", 0, 2, 3, "", 1, "", "디지털타임스", "캐나다 앨버타주 군 기지서 대형 화재…최소 7명 사망 “심각한 사고”", "https://www.dt.co.kr/article/12089682?ref=naver"],
+  ["202610181330", "방미통위", 1, 0, 1, "", 2, "", "뉴스1", "숏폼·AI 챗봇 청소년 보호 미흡…카톡 AI 비서 탑재[뉴스잇(IT)쥬]", "https://www.news1.kr/it-science/general-it/6323557"],
+  ["202610181330", "방미통위", 3, 0, 1, "", 1, "", "세계", "“악마가 따로 없다” 끊이지 않는 딥페이크 성범죄물", "https://www.segye.com/newsView/20261018509103?OutUrl=naver"],
+  ["202610181330", "방미통위", 9, 0, 1, "", 1, "", "디지털타임스", "[人사이더] 조희대 탄핵론 vs ETF 책임론… 국감 후반전도 ‘여야 전면전’", "https://www.dt.co.kr/article/12089656?ref=naver"],
+  ["202610181330", "방미통위", 10, 0, 1, "", 1, "", "이투데이", "반환점 돈 국감, 이제 '종합검증'…금융해킹·ETF·부동산·대미투자 격돌", "https://www.etoday.co.kr/news/view/2637034"],
+  ["202610181330", "방미통위", 11, 0, 1, "", 1, "", "디지털데일리", "'오징어게임' 열매 나누려다 씨앗 말리나…저작권법 개정의 역설 [IT클로즈업]", "https://www.ddaily.co.kr/page/view/2026101811291659751"],
+  ["202610181330", "과기정통부", 1, 0, 1, "", 2, "", "경향", "오늘의인사-금융위, 과기부, 외교부, 국토부 외", "https://www.khan.co.kr/article/202610181307001"],
+  ["202610181330", "과기정통부", 9, 0, 2, "", 1, "", "머니투데이", "'제2의 딥시크 쇼크' 오나…美 AI 일부 성능 넘고 가격은 40분의 1", "https://www.mt.co.kr/tech/2026/10/18/2026101810392533695"],
+  ["202610181330", "과기정통부", 10, 0, 1, "", 1, "", "매일경제", "외국계라고 버티면 ‘장땡’인가?…구글·엑스·메타 사장들 재소환", "https://www.mk.co.kr/article/12178759"],
+  ["202610181330", "과기정통부", 3, 0, 1, "", 1, "", "서울", "‘행시 38회’ 전성시대…비서실장·인사수석·경제수석 靑 대거 포진", "https://www.seoul.co.kr/news/politics/2026/10/18/20261018500066?wlog_tag3=naver"],
+  ["202610181330", "과기정통부", 11, 0, 1, "", 1, "", "머니투데이", "운전자 없는 택시, 정말 돈 될까…'자율주행 이코노미'가 던진 질문", "https://www.mt.co.kr/culture/2026/10/18/2026101814201397948"],
+  ["202610181330", "과기정통부", 4, 0, 1, "", 1, "", "세계", "AI데이터센터 물 수요 최대 234만t… “공식 통계 마련부터”", "https://www.segye.com/newsView/20261018511205?OutUrl=naver"],
+  ["202610181330", "과기정통부", 12, 0, 1, "", 1, "", "파이낸셜뉴스", "이용량은 '0%대', 부담은 '100%'…3G OFF 기준 정해야[AI시대, 통신정책 2.0 짜야 (中)]", "https://www.fnnews.com/news/202610151451012044"],
+  ["202610181330", "과기정통부", 13, 0, 1, "", 1, "", "머니투데이", "달이 사라져도 괜찮을까?…어려운 과학, 쉽게 '아는 척' 하려면", "https://www.mt.co.kr/culture/2026/10/18/2026101810375870190"],
+  ["202610181330", "과기정통부", 5, 0, 1, "", 1, "", "SBS", "베트남보다 느린 한국 인터넷?…정부·통신업계 \"단순 비교 한계\"", "https://biz.sbs.co.kr/article_hub/20000340145?division=NAVER"],
+  ["202610181330", "과기정통부", 21, 0, 1, "", 1, "", "전자", "중앙대 '2026 SW·AI 테크페어' 성료…고교생부터 석·박사 연구 성과까지, 인재 발굴과 성과 확산 기여", "https://www.etnews.com/20261016000183"],
+  ["202610181330", "과기정통부", 22, 0, 1, "", 1, "", "쿠키뉴스", "“얼마나 잘 맞히고 재현하나”… ETRI ‘휴먼이해 AI 경진대회’", "https://www.kukinews.com/article/view/kuk202610180026"],
+  ["202610181330", "과기정통부", 23, 0, 1, "", 1, "", "전자", "[세종만사]국감 새벽대기 없애는 기후장관", "https://www.etnews.com/20261018000051"],
+  ["202610181330", "과기정통부", 24, 0, 1, "", 1, "", "이투데이", "제철소엔 전기, 석화공장엔 증기⋯산업용 소형원전 뜬다", "https://www.etoday.co.kr/news/view/2636912"],
+  ["202610181330", "과기정통부", 25, 0, 1, "", 1, "", "이데일리", "제조 데이터 수집만으론 부족…AI 학습용 3단계 관리 추진", "https://www.edaily.co.kr/News/Read?newsId=02358326645614232&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article"],
+  ["202610181330", "과기정통부", 26, 0, 1, "", 1, "", "지디넷코리아", "김선민 의원 \"한국연구재단 연구부정 예비조사 3년…이유 뭔가\"", "https://zdnet.co.kr/view/?no=20261018153001"],
+  ["202610181330", "과기정통부", 27, 0, 1, "", 1, "", "지디넷코리아", "중국, AI 핵심 기술 수출 제한 추진…'독자 AI' 중요성 커졌다", "https://zdnet.co.kr/view/?no=20261018095644"],
+  ["202610181330", "과기정통부", 28, 0, 1, "", 1, "", "전자", "정부-민간 공동 투자로 국방용 반도체 자립화 추진…투자형 R&D 시동", "https://www.etnews.com/20261016000214"],
+  ["202610181330", "과기정통부", 29, 0, 1, "", 1, "", "데일리안", "LG유플러스, '119'의 의미 새겼다…순직 소방관 추모런에 2300명", "https://www.dailian.co.kr/news/view/1702812/?sc=Naver"],
+  ["202610181330", "과기정통부", 30, 0, 1, "", 1, "", "서울경제", "과학계가 꼽은 미래 인재상은 ‘S·P·A·R·K’…“AI교육 비중 10~15%로 늘려야”", "https://www.sedaily.com/article/20102935?ref=naver"],
+  ["202610181330", "과기정통부", 31, 0, 1, "", 1, "", "부산", "부울경 공공 와이파이 100곳 중 4곳은 ‘유령 와이파이’", "https://www.busan.com/view/busan/view.php?code=2026101816243906563"],
+  ["202610181330", "우주항공청", 0, 0, 1, "", 2, "", "세계", "靑 “누리호 땅에 붙잡혀 긴 잠 자야 했다”… 前정부 R&D 삭감 비판", "https://news.google.com/rss/articles/CBMiWEFVX3lxTE9YQUdYTWhMb3NHUWV4Z2hoRFVBb3I4N2Q3U2VtRU5WNzlDR1FEZEM3eXkwbmJmb0w1LTZ0cV9meU9oaUNhekM2U2tiUlVIaWVKNVF2bUFOT2_SAVRBVV95cUxNbjVfTW5mcjFyQjl5RFJNcGE2bXF2S2p2WWtRYU05QnZ6YjJ4Z2JHZE9qcUluVEh5SnhsWkJMWWwzOG5sNVlOS0hmS1hibVA3djU5SWc?oc=5"],
+  ["202610181330", "우주항공청", 2, 0, 1, "", 1, "", "연합뉴스", "경남 홍보캐릭터 '벼리', 공공캐릭터 페스티벌 최우수상", "https://www.yna.co.kr/view/AKR20261018030300052?input=1195m"],
+  ["202610181730", "공정위", 0, 0, 2, "🔥", 1, "", "MBC", "[단독] 뭉칫돈에 제설기까지‥대학에 돈 뿌린 이유", "https://imnews.imbc.com/replay/2026/nwdesk/article/6858811_37004.html"],
+  ["202610181730", "공정위", 8, 0, 1, "", 2, "", "한국경제", "중수청 시대, 공정거래·금융수사 늘어난다", "https://news.google.com/rss/articles/CBMiWkFVX3lxTFBKRWRJU3k2YU5nMzNVYXBkNmVTRDJuZWR6ZXJMLWFPNmZDV0p3cV8wSnZ5LWFMRGFFTmhPZzZuWGxQUzcxMXZOc2tIdjRLX3dtMFpLX1l3VS02QQ?oc=5"],
+  ["202610181730", "공정위", 10, 0, 1, "", 1, "", "한국경제", "\"한국 좋아서 왔는데 이게 뭐죠?\"…외국인들 분통 터진 사연", "https://www.hankyung.com/article/2026101888921"],
+  ["202610181730", "공정위", 2, 0, 6, "", 1, "", "서울", "10대 로펌에 공정위 퇴직자만 124명 [무소불위 不공정위]", "https://news.google.com/rss/articles/CBMigAFBVV95cUxPZy1MMl84Q19WWlNrak9BNnJWUEZ3Y0JNWnozVWhjcnBWaDZaU3VSYWMwa21vQmpjTnpOZGw0ZlEyeU5IVHhJQVpaSnkxSU5kUURwS25qNHpMelhzTy1Lckd2ZEhWR0VuU2FpVWE2R1NhbkpmYnU4ZFRBWm5KVlJ0RA?oc=5"],
+  ["202610181730", "공정위", 2, 1, 6, "", 1, "", "서울", "행시 수석·차석 쏠리는 공정위… 전문성 쌓아 몸값 올려 기업·로펌으로 [무소불위 不공정위]", "https://news.google.com/rss/articles/CBMigAFBVV95cUxOdUdFMFVsY1NaNkFINjBUWF9jeFlyZzgwc1c5d0ZwR0kyYWtmOXRQUlh6dU9WTHBCd19xRDhDSkx4SU01UEh1clVpenRlaGRQSV9hZi1rMmR4LVJsRmJMdEtJY3RPLU9SaXdmV0lLMUFWQ1JJbzcwN3RNVUxKdE1vcQ?oc=5"],
+  ["202610181730", "공정위", 14, 0, 1, "", 1, "", "아시아투데이", "구자은 LS 회장, '오른손 호황' 넘어 '왼손 결단'의 시간", "https://www.asiatoday.co.kr/kn/view.php?key=20261018010005630"],
+  ["202610181730", "방미통위", 4, 0, 1, "", 1, "", "한겨레", "인권위 ‘세종 이전’ 계획에 우려…“피감기관과 한 건물, 파리원칙 위반”", "https://www.hani.co.kr/arti/society/society_general/1282928.html"],
+  ["202610181730", "방미통위", 5, 0, 1, "", 1, "", "경향", "시청률 20% 앞둔 ‘닥터X’ 억까논란, 日 원작 스캔들과 묘하게 겹치네", "https://sports.khan.co.kr/article/202610181902003?pt=nv"],
+  ["202610181730", "방미통위", 6, 0, 2, "", 1, "", "SBS", "'쇼츠' 찍느라 검증은 뒷전…이런 국감 언제까지", "https://news.sbs.co.kr/news/endPage.do?news_id=N1008803115&plink=ORI&cooper=NAVER"],
+  ["202610181730", "방미통위", 2, 0, 1, "", 2, "", "아주경제", "3년 묵은 구글·애플 인앱결제 과징금 제재...방미통위, 10월 내 마무리", "https://www.ajunews.com/view/20261018105123453"],
+  ["202610181730", "방미통위", 12, 0, 1, "", 1, "", "지디넷코리아", "[ZD브리핑] 빅테크 실적 발표...과방위 국감 마무리", "https://zdnet.co.kr/view/?no=20261018163738"],
+  ["202610181730", "방미통위", 8, 0, 2, "", 1, "", "디지털타임스", "주진우·김태규·이진숙… 선봉장인가, 외연 확장 걸림돌인가", "https://www.dt.co.kr/article/12089703?ref=naver"],
+  ["202610181730", "방미통위", 13, 0, 1, "", 1, "", "디지털타임스", "[홍성철의 까칠하게 세상읽기] YTN의 절차 하자와 배임 딜레마", "https://www.dt.co.kr/article/12089710?ref=naver"],
+  ["202610181730", "과기정통부", 0, 0, 1, "🔥", 1, "", "세계", "[단독] “서점 차리나?” 수상한 대량구매… 용도 묻자 “해외도서관 납...", "https://www.segye.com/newsView/20261018513405?OutUrl=naver"],
+  ["202610181730", "과기정통부", 14, 0, 1, "", 1, "", "매일경제", "국가 R&D성과, 기업·지역 성장동력으로 잇는다", "https://www.mk.co.kr/article/12178960"],
+  ["202610181730", "과기정통부", 15, 0, 1, "", 1, "", "파이낸셜뉴스", "'이용량 0%대' 3G망 유지비 줄줄 새는데… 서비스 종료도 난항 [AI시대, 통신정책 2.0으로 (中)]", "https://www.fnnews.com/news/202610181817092524"],
+  ["202610181730", "과기정통부", 16, 0, 1, "", 1, "", "한국경제", "[한국건설기술연구원 스마트건설지원센터 보육기업 CEO] 친환경 발열양생 시스템(ThermoCure) 및 친환경 건설 솔루션 제공하는 기업 ‘파이네코’", "https://magazine.hankyung.com/job-joy/article/202610189066d"],
+  ["202610181730", "과기정통부", 20, 0, 1, "", 2, "", "이데일리", "오늘의 인사 종합", "https://news.google.com/rss/articles/CBMigAFBVV95cUxNUXkzYlkwOHg0SGdLbzMwV2lEeERVSi1uaG5MVVlHNjJ2UUdNb1dBN0F0S1hnNElPRFNraHJickpiaGJvTnpBRl9lcFdVTFBENl96TldKdk5uZk9BREJOdnpGZ1h2R2hFU3JYSHBFbXpjbUhzbmtnbE9NbVQydlo0MA?oc=5"],
+  ["202610181730", "과기정통부", 32, 0, 1, "", 1, "", "헬로디디", "[좌담회] \"삼성 가는 것보다 낫다\" 출연연 부자과학자 '성큼'이해충돌 숙원, 특례로 해소···연구자 지분·연쇄창업 가능", "http://www.hellodd.com/news/articleView.html?idxno=113521"],
+  ["202610181730", "과기정통부", 33, 0, 1, "", 1, "", "오마이뉴스", "로봇 춤추고 무술까지... 전주대 운동장 매료시킨 '20주년' 전북과학축전", "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003276298&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news"],
+  ["202610181730", "우주항공청", 3, 0, 1, "", 1, "", "조선", "창공의 비행쇼부터 K방산 비즈니스까지… ‘사천에어쇼’ 22일 팡파르", "https://www.chosun.com/national/2026/10/18/COOY5I2IZBDUPGGY7VRS3F74E4/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news"],
+  ["202610181730", "우주항공청", 5, 0, 1, "", 1, "", "오마이뉴스", "외국의 비웃음 날려버린 한국 자동차, 이 남자 닮았네 [윤한샘의 맥주실...", "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003275833&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news"],
+  ["202610181730", "우주항공청", 6, 0, 1, "", 1, "", "서울경제", "항공축제 넘어 수출 무대로…130개 기업 집결", "https://www.sedaily.com/article/20103012?ref=naver"],
+  ["202610182200", "공정위", 6, 0, 1, "", 1, "", "뉴시스", "\"편의점 하루 176만원 팔아도 月 순수익 230만원…그냥 알바가 낫다\"", "https://www.newsis.com/view/NISX20261013_0003824286"],
+  ["202610182200", "공정위", 2, 3, 6, "", 1, "", "서울", "행시 수석·차석 쏠리는 공정위… 전문성 쌓고 몸값 올려 기업·로펌으로 [무소불위 不공정위]", "https://news.google.com/rss/articles/CBMigAFBVV95cUxQRG1GS0UyTVNhSGh1QlhRNU5iUnJsekpaclROZWZ1X1Jkb3lKTnlKamxmTE05alRFalRrLVNvazFlMnh6clhYU3RUVDREWGVDWGtSQkJwdlh4UnA0YjRiMzhJUDQycWdFNGVzeVJKcTQwdmlPMmgxS0VyS0ZZaEdjdw?oc=5"],
+  ["202610182200", "공정위", 2, 2, 6, "", 1, "19:00", "서울", "10대 로펌에 공정위 퇴직자만 124명 [무소불위 不공정위]", "https://news.google.com/rss/articles/CBMigAFBVV95cUxNMlpqOW01TTBCWWlUSUpsMjZHR1BQQS1xa0N4bENWcnBVbHI0d2d4NmItTUxFQW0xOWNYRUNIeUtHNkl6SGRXUjVXU3dPTjJoS1JBM3ZpSlJHb1l5cGhHQm5yakdDVl9nUUZrUTJ2SkthbzlsZnNIVXBiOWJ2MVNJNw?oc=5"],
+  ["202610182200", "방미통위", 7, 0, 1, "", 1, "", "헤럴드경제", "실패하지 않는 의사 vs 실패한 병원…‘눈물의 여왕’, ‘닥터X’로 또 해냈다", "https://biz.heraldcorp.com/article/10906374?ref=naver"],
+  ["202610182200", "과기정통부", 9, 1, 2, "", 1, "14:00", "머니투데이", "'제2의 딥시크 쇼크' 오나…美 AI 일부 성능 넘고 가격은 40분의 1", "https://www.mt.co.kr/tech/2026/10/19/2026101810392533695"],
+  ["202610182200", "과기정통부", 17, 0, 1, "", 1, "", "한국경제", "[충북대학교 창업지원단 모두의 창업] “지원한 팀들이 탄탄한 기업으로 성장하는 모습을 보면서 창업지원 업무가 얼마나 매력적이고 의미 있는 일인지 확신을 가지게 됩니다”", "https://magazine.hankyung.com/job-joy/article/202610189109d"],
+  ["202610182200", "과기정통부", 18, 0, 1, "", 1, "", "머니투데이", "스마트 공장서 본 중기부 장관의 진심[투데이窓/박영선]", "https://www.mt.co.kr/opinion/2026/10/19/2026101814411539492"],
+  ["202610182200", "과기정통부", 34, 0, 1, "", 1, "", "미디어오늘", "경향신문 유튜브 \"대통령 소통 잘해\" 지면에선 \"부정적 영향 커\"", "https://www.mediatoday.co.kr/news/articleView.html?idxno=337815"],
+  ["202610182200", "우주항공청", 1, 0, 1, "", 2, "", "동아", "더 많이 싣고 더 자주 발사… 누리호 숙제는 ‘돈 버는 로켓’", "https://news.google.com/rss/articles/CBMib0FVX3lxTE9WMlZ1SHF2ZzcwTHRGNWt0MU9kd0VPbjRFa2dMNi1RVmwtVS1xMVBGRF9DNXdOQWsxVkloS3BmM3pZQ2QzNVFMNU9rcmxYakNYTGhyZ2sycTdQR2ZUNVBTc3FZMlF6T3lBZzlVUFAwa9IBZkFVX3lxTE5ORnd2UFhPSVZMWEsyLV93dzdSNnZpWE03MUxqQ1ZscmtCdl8tRFZrUDRycnNDOEoxLUFnSUphRmsxTkZReTRnUWRQRTd0dXd6enJTeUZMNVhyTnItSVlkTzhMTVFpdw?oc=5"],
+  ["202610190600", "공정위", 1, 0, 7, "", 1, "", "연합뉴스", "담합 걸리고 또 걸려…7년간 3건 이상 적발 사업자 65곳", "https://www.yna.co.kr/view/AKR20261017030400002?input=1195m"],
+  ["202610190600", "공정위", 1, 2, 7, "", 2, "", "이데일리", "“CP는 기업의 건강검진…담합 징후 발견하고 끊어내야”", "https://news.google.com/rss/articles/CBMigAFBVV95cUxOY0hSWkEwVGZlY1o4aDlTY3RReHhQWU9GYlE1X2w3Qnd5NFFuUF9kRnRkcDR6c2hkX1RYbUhMSlI1eV85SGRBcEowckE4RWo0QlN2RGJCdXBrQlJmdlA3eUMwN1BySDZxRmpRdmN3al85UmxxTW1sdmFKNmZkWHpZNQ?oc=5"],
+  ["202610190600", "공정위", 1, 3, 7, "", 1, "", "세계", "공정위, 식품업계 정조준… ‘정보교환 담합’ 꺼내나", "https://www.segye.com/newsView/20261018513159?OutUrl=naver"],
+  ["202610190600", "공정위", 1, 4, 7, "", 1, "", "SBS", "툭 하면 담합…7년간 3건 이상 반복 적발 사업자 65곳", "https://biz.sbs.co.kr/article_hub/20000340654?division=NAVER"],
+  ["202610190600", "공정위", 1, 5, 7, "", 2, "", "아주경제", "공정위 적발에도 또다시 담합…7년간 담합 3차례 이상 적발된 기업 65곳", "https://news.google.com/rss/articles/CBMiWkFVX3lxTFBDSTNmUG5EYUJCMi1jWFdfYkI5cGNIQ0Z1NnhxSTdBNWpURVY2bzlkbEo4eDdSUmluTWtfWHNZRDFCaloxZmlhcTlEaks4QmI1WE9KMVkxZ2lUd9IBWEFVX3lxTE9keFBIWHY1YW51UUZOWDJHN195NHhQZ2lQZHZkdGpYZTZFclhnQXhkM3F2blhkd3hZX0RQVm8zVW0zZjNnWDB1eFpOYU90ZGlSUER1U28xdzQ?oc=5"],
+  ["202610190600", "공정위", 1, 6, 7, "", 1, "", "한국경제", "“정부 제재 비웃나” 한샘 7년간 담합 20건 최다 불명예", "https://magazine.hankyung.com/business/article/202610199422b"],
+  ["202610190600", "공정위", 2, 4, 6, "", 1, "02:00", "서울", "행시 수석·차석 쏠리는 공정위… 전문성 쌓고 몸값 올려 기업·로펌으로 [무소불위 不공정위]", "https://www.seoul.co.kr/news/plan/omnipotent-KFTC/2026/10/19/20261019006002?wlog_tag3=naver"],
+  ["202610190600", "공정위", 2, 5, 6, "", 1, "10/18 19:00", "서울", "10대 로펌에 공정위 퇴직자만 124명 [무소불위 不공정위]", "https://www.seoul.co.kr/news/plan/omnipotent-KFTC/2026/10/19/20261019001006?wlog_tag3=naver"],
+  ["202610190600", "공정위", 7, 0, 1, "", 1, "", "뉴스1", "추미애 '소방 빨대' 후폭풍 속 오늘 경기도·서울시 국감", "https://www.news1.kr/politics/assembly/6323669"],
+  ["202610190600", "공정위", 0, 1, 2, "", 1, "", "MBC", "기부금에 제설기까지‥대학 잡으려 '2백억'?", "https://imnews.imbc.com/replay/2026/nwtoday/article/6858866_37012.html"],
+  ["202610190600", "공정위", 11, 0, 1, "", 1, "", "한국경제", "44조원 담합 혐의에…억울하다는 정유사 '법정공방' 예고", "https://magazine.hankyung.com/business/article/202610141099b"],
+  ["202610190600", "방미통위", 6, 1, 2, "", 1, "10/18 21:00", "SBS", "'쇼츠' 찍느라 검증은 뒷전…이런 국감 언제까지", "https://news.sbs.co.kr/news/endPage.do?news_id=N1008803339&plink=ORI&cooper=NAVER"],
+  ["202610190600", "방미통위", 8, 1, 2, "", 1, "", "노컷뉴스", "'전대 모드' 불 지피는 올공 3남매…주진우·김태규·이진숙", "https://www.nocutnews.co.kr/news/6593114?utm_source=naver&utm_medium=article&utm_campaign=20261019050045"],
+  ["202610190600", "방미통위", 14, 0, 1, "", 1, "", "시사IN", "‘두 번째 임기’ 원민경 장관 “모든 방법 동원해 디지털 성착취 압박할 것”", "https://www.sisain.co.kr/news/articleView.html?idxno=58642"],
+  ["202610190600", "방미통위", 15, 0, 1, "", 1, "", "대전", "[여백] 세종시 기관 이전, 주택공급은", "https://www.daejonilbo.com/news/articleView.html?idxno=2307640"],
+  ["202610190600", "과기정통부", 2, 0, 2, "", 1, "", "뉴시스", "뉴시스 창사 25주년 '10년 후 한국' 포럼 개막…\"AI·반도체로 대한민국 미래 그린다\"", "https://www.newsis.com/view/NISX20261017_0003830151"],
+  ["202610190600", "과기정통부", 2, 1, 2, "", 1, "", "이투데이", "[알립니다] '2027 테크 퀘스트'가 대한민국 AI의 미래를 엽니다", "https://www.etoday.co.kr/news/view/2636305"],
+  ["202610190600", "과기정통부", 6, 0, 1, "", 1, "", "뉴시스", "연구실 사고 3년 새 38% 늘었는데…연구실 시설 개선 예산 42% 삭감", "https://www.newsis.com/view/NISX20261018_0003830667"],
+  ["202610190600", "과기정통부", 19, 0, 1, "", 1, "", "조선비즈", "[비즈톡톡] 국가대표 AI 사업 흔들리는데 선정되면 기업가치 상승 호재?", "https://biz.chosun.com/it-science/ict/2026/10/19/PTVVXLBETFBJTK5DBS43HS2OS4/?utm_source=naver&utm_medium=original&utm_campaign=biz"],
+  ["202610190600", "과기정통부", 7, 0, 1, "", 1, "", "연합뉴스", "혁신당 김선민 \"정부 R＆D 기술료 징수율 21.6%…관리 강화해야\"", "https://www.yna.co.kr/view/AKR20261018041200001?input=1195m"],
+  ["202610190600", "과기정통부", 8, 0, 1, "", 1, "", "연합뉴스", "최고 위험등급 해킹 취약점도 점검 안했다…과기부 관리 허점", "https://www.yna.co.kr/view/AKR20261016137600017?input=1195m"],
+  ["202610190600", "과기정통부", 35, 0, 1, "", 1, "", "이데일리", "굴착공사 정보 21개 중 통신사엔 9개뿐…“담당자 연락처 빠져 복구 지연 우려”", "https://www.edaily.co.kr/News/Read?newsId=02148406645614560&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article"],
+  ["202610190600", "우주항공청", 4, 0, 1, "", 1, "", "세계", "李 “공개회의라도 국무위원 할 말 다해” 비공개 압박 일축", "https://www.segye.com/newsView/20261018513315?OutUrl=naver"],
+  ["byline", "김광일 기자", null, null, null, "", 1, "", "노컷뉴스", "대미 흑자 1천억불 눈앞…알래스카 LNG 투자 딜레마", "https://www.nocutnews.co.kr/news/6593098?utm_source=naver&utm_medium=article&utm_campaign=20261019050045"],
+  ["byline", "김광일 기자", null, null, null, "", 1, "", "노컷뉴스", "대미 흑자 1천억불 눈앞…알래스카 LNG 투자 딜레마", "https://www.nocutnews.co.kr/news/6593098?utm_source=naver&utm_medium=article&utm_campaign=20261019061643"]
+ ]
+}
