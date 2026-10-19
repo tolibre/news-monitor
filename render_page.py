@@ -1143,6 +1143,7 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .seg button[aria-pressed="true"]{background:var(--blue-100); color:var(--blue-700); font-weight:600; box-shadow:inset 0 0 0 1px var(--blue-500)}
 /* 당직 출입처 스위치(0-44) — 보기 범위 옆. 꺼짐 = 점선, 켬 = 눌린 상태 */
 /* 0-52: '당직'은 필터가 아니라 모드 — 켜고 끄는 스위치 모양으로 검색칸 오른쪽에 따로 */
+.qbtn{display:none}
 .dsw{flex:0 0 auto; display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 4px; border:0; background:none; color:var(--ink-700); font:inherit; font-size:13px; cursor:pointer; white-space:nowrap}
 .dsw .tr{position:relative; width:28px; height:16px; border-radius:999px; background:var(--line-300); transition:background-color 120ms ease-out}
 .dsw .tr::after{content:''; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:var(--surf-0); transition:left 120ms ease-out}
@@ -1183,7 +1184,7 @@ section{margin-top:16px}
 .rp{background:var(--surf-0); color:var(--ink-700); border:1px solid var(--line-300); font-weight:600}
 .seenbar{word-break:keep-all; margin:12px 0 0; padding:4px 4px 4px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; font-size:13px; color:var(--ink-700)}
 .seenbar b{color:var(--ink-900)}
-.seenbar .nwc{color:var(--blue-700); font-weight:700}
+.seenbar .nwc{color:var(--blue-700); font-weight:700; white-space:nowrap}
 .seenbar .sp{margin-left:auto; display:flex; gap:8px}
 .seenbar .btn{height:28px; padding:0 12px; font-size:12px}
 .pick{flex:0 0 auto; width:16px; height:16px; margin:0; cursor:pointer; accent-color:var(--blue-600); transform:translateY(3px)}
@@ -1293,7 +1294,7 @@ a.title:visited{color:var(--ink-900)}
   .reports .rgrp{flex:1 1 auto}
   .reports .rgrp button{flex:1 1 0; white-space:nowrap}
   .brand .bt{display:none}
-  .brand{border-right:0; padding-right:0; align-self:flex-start; margin-top:3px}
+  .brand{border-right:0; padding-right:0}
   .top{flex-wrap:wrap; gap:8px}
   .tblk{flex:1 1 0}
   .meta{margin-left:0; width:100%; padding-left:24px}
@@ -1301,7 +1302,21 @@ a.title:visited{color:var(--ink-900)}
   /* 0-55: 제목이 체크박스·배지 옆에서 바로 시작(전엔 배지만 한 줄 차지하고 제목은 다음 줄로 밀림) */
   a.title{flex:1 1 0; min-width:0}
   /* 보기 범위 버튼 한 줄 균등 폭, 확인 바는 안내·버튼 한 줄 */
-  .seg{flex:1 1 100%} .seg button{flex:1 1 auto; padding:0 6px; white-space:nowrap}
+  /* 0-56: 커버 머리 268→약 200px — ①제목·수집 시각·↻·연동 한 줄 ②보기 범위·검색·특근 한 줄(검색칸은 돋보기를 누르면 아래에 펼침) */
+  .tblk{flex-direction:row; align-items:center; gap:8px; flex:1 1 0; min-width:0}
+  .tline{flex:0 1 auto; min-width:0; flex-wrap:nowrap}
+  h1{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+  .fresh{flex:0 0 auto; margin-left:auto; gap:6px; font-size:11px; white-space:nowrap}
+  .fresh button{height:24px} .fresh button.ic{width:24px}
+  .controls{gap:6px}
+  .seg{flex:1 1 auto} .seg button{flex:1 1 auto; padding:0 6px; white-space:nowrap}
+  .qbtn{flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-700); cursor:pointer}
+  .qbtn svg{width:16px; height:16px}
+  .qbtn[aria-expanded="true"]{background:var(--blue-100); border-color:var(--blue-500); color:var(--blue-700)}
+  #q{display:none; order:9; flex:1 1 100%}
+  .controls.qopen #q{display:block}
+  .dsw{gap:6px; padding:0 2px}
+  .topic{padding:6px 10px}
   .seenbar{flex-wrap:nowrap; gap:8px; padding:4px 4px 4px 10px; font-size:12px; line-height:1.45}
   .seenbar > span:first-child{flex:1 1 0; min-width:0}
   .seenbar .sp{flex:0 0 auto}
@@ -1315,6 +1330,7 @@ a.title:visited{color:var(--ink-900)}
   .pick{width:20px; height:20px; transform:translateY(4px)}
   .meta{padding-left:28px}
   .more, .dupes, .ncl{margin-left:28px}
+  .dsw .c{display:none}
 }
 </style>
 </head><body>
@@ -1324,7 +1340,7 @@ a.title:visited{color:var(--ink-900)}
       <a class="brand" href="./" title="뉴스레이다 — 처음 화면으로"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="#fff" fill-opacity=".8"/><circle cx="22" cy="11" r="2" fill="#fff"/></svg><span class="bt">뉴스레이다</span></a>
       <div class="tblk">
         <div class="tline"><h1 id="title">보고 준비</h1><span class="ttags" id="ttags"></span></div>
-        <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload" class="ic" aria-label="새로고침" title="새로고침">↻</button><button type="button" id="sync" class="sync off" title="체크·‘여기까지 확인’을 다른 기기와 맞추기">기기 연동</button></span>
+        <span class="fresh"><span id="fresh">불러오는 중…</span><button type="button" id="reload" class="ic" aria-label="새로고침" title="새로고침">↻</button><button type="button" id="sync" class="sync off" title="체크·‘여기까지 확인’을 다른 기기와 맞추기"><span class="lg">기기 </span>연동</button></span>
       </div>
       <div class="reports" id="reports"></div>
     </div>
@@ -1335,12 +1351,13 @@ a.title:visited{color:var(--ink-900)}
     <div class="beats" id="beats"></div>
     <div class="controls">
       <div class="seg" role="group" aria-label="보기 범위">
-        <button data-f="all" aria-pressed="true">모든 기사</button>
+        <button data-f="all" aria-pressed="true"><span class="lg">모든 기사</span><span class="sm">모두</span></button>
         <button data-f="mark" aria-pressed="false">단독·속보</button>
-        <button data-f="spread" aria-pressed="false">전재 2건+</button>
-        <button data-f="picked" aria-pressed="false">선택분</button>
-        <button data-f="new" aria-pressed="false" id="f-new" hidden>새 기사</button>
+        <button data-f="spread" aria-pressed="false"><span class="lg">전재 2건+</span><span class="sm">전재2+</span></button>
+        <button data-f="picked" aria-pressed="false"><span class="lg">선택분</span><span class="sm">선택</span></button>
+        <button data-f="new" aria-pressed="false" id="f-new" hidden><span class="lg">새 기사</span><span class="sm">새</span></button>
       </div>
+      <button class="qbtn" type="button" id="qbtn" aria-label="제목·매체 검색" aria-expanded="false" title="제목·매체 검색"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.4 10.4 L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
       <input id="q" type="search" placeholder="제목·매체 검색" autocomplete="off">
       <button class="dsw" type="button" id="dsw" aria-pressed="false" hidden></button>
     </div>
@@ -1820,7 +1837,7 @@ a.title:visited{color:var(--ink-900)}
   var sveil = document.getElementById('sveil'), sbody = document.getElementById('sbody');
   function syncUI(){
     var b = document.getElementById('sync');
-    if(!cfg.token){ b.className = 'sync off'; b.textContent = '기기 연동'; }
+    if(!cfg.token){ b.className = 'sync off'; b.innerHTML = '<span class="lg">기기 </span>연동'; }
     else if(sync.busy && !cfg.last){ b.className = 'sync'; b.textContent = '연동 중…'; }
     else if(sync.err){ b.className = 'sync err'; b.textContent = '연동 오류'; }
     else { b.className = 'sync ok'; b.innerHTML = '연동<span class="lg">됨</span>' + (cfg.last ? ' <span class="mono">' + hm(new Date(cfg.last)) + '</span>' : ''); }
@@ -1970,8 +1987,9 @@ a.title:visited{color:var(--ink-900)}
     // 신선도
     var ls = D.last_seen ? new Date(D.last_seen) : null;
     var mins = ls ? Math.round((now - ls.getTime())/60e3) : null;
-    document.getElementById('fresh').textContent = ls ?
-      ('마지막 수집 ' + (ymd(ls) === ymd(new Date()) ? '' : (ls.getMonth()+1)+'/'+ls.getDate()+' ') + hm(ls) + (mins >= 0 && mins < 120 ? ' · '+mins+'분 전' : '')) : '수집 기록 없음';
+    // 0-56: 폰·폴드 커버는 '20:00 수집 · 17분 전'으로 줄여 제목과 한 줄에
+    document.getElementById('fresh').innerHTML = ls ?
+      ('<span class="lg">마지막 수집 </span>' + (ymd(ls) === ymd(new Date()) ? '' : (ls.getMonth()+1)+'/'+ls.getDate()+' ') + hm(ls) + '<span class="sm"> 수집</span>' + (mins >= 0 && mins < 120 ? ' · '+mins+'분 전' : '')) : '수집 기록 없음';
     var h = new Date().getHours(), warn = document.getElementById('warn');
     // 수집(check)은 05~22시에만 돈다. 그 사이에 90분 넘게 새 수집이 없으면 경고.
     if(ls && h >= 6 && h <= 23 && mins > 90){
@@ -2107,7 +2125,7 @@ a.title:visited{color:var(--ink-900)}
     if(!dsw.hidden){
       dsw.setAttribute('aria-pressed', String(dutyOn));
       dsw.title = '휴일 특근 — 경제정책팀 출입처('+RAW.duty.join('·')+') 섹션 '+(dutyOn ? '숨기기' : '보기')+', 휴일에 켜면 그날을 특근 날로 보고 09:00·14:00 보고로 나눔';
-      dsw.innerHTML = '<span class="tr" aria-hidden="true"></span>휴일 특근 <span class="c mono">'+dutyCount(t)+'</span>';
+      dsw.innerHTML = '<span class="tr" aria-hidden="true"></span><span class="lg">휴일 </span>특근 <span class="c mono">'+dutyCount(t)+'</span>';
     }
 
     var html = '';
@@ -2175,8 +2193,9 @@ a.title:visited{color:var(--ink-900)}
     var btn = '<button class="btn sec" type="button" id="seen-mark"'+(can?'':' disabled')+'>여기까지 확인'+(last!=null?' <span class="lg">('+hm(new Date(last))+' 수집분)</span>':'')+'</button>';
     var undo = m && m.at ? '<button class="btn" type="button" id="seen-undo">되돌리기</button>' : '';
     var msg;
-    if(a == null) msg = '다 본 뒤 누르면 다음부터 그 뒤 기사에 <span class="nw">새</span> 표시가 붙습니다.';
-    else { var n = newCount(r); msg = '마지막 확인 <b>'+fmtAt(a)+' 수집분</b>까지 · 그 뒤 <span class="nwc">새 '+n+'건</span>' + (n ? ' — ‘새 기사’ 버튼으로 그것만 볼 수 있습니다.' : ''); }
+    // 0-56: 좁은 화면은 안내를 한 줄로(.sm)
+    if(a == null) msg = '<span class="lg">다 본 뒤 누르면 다음부터 그 뒤 기사에 <span class="nw">새</span> 표시가 붙습니다.</span><span class="sm">다 보고 누르면 이후 기사에 <span class="nw">새</span> 표시</span>';
+    else { var n = newCount(r); msg = '<span class="lg">마지막 </span>확인 <b>'+fmtAt(a)+'<span class="lg"> 수집분</span></b>까지 · <span class="lg">그 뒤 </span><span class="nwc">새 '+n+'건</span>' + (n ? '<span class="lg"> — ‘새 기사’ 버튼으로 그것만 볼 수 있습니다.</span>' : ''); }
     return '<div class="seenbar"><span>'+msg+'</span><span class="sp">'+undo+btn+'</span></div>';
   }
 
@@ -2390,6 +2409,14 @@ a.title:visited{color:var(--ink-900)}
     });
   });
   var q = document.getElementById('q'), timer;
+  // 0-56: 좁은 화면 검색 — 돋보기를 누르면 검색칸을 펼치고, 비운 채로 빠져나오면 다시 접는다
+  var qbtn = document.getElementById('qbtn'), qrow = q.parentNode;
+  function qOpen(on){ qrow.classList.toggle('qopen', on); qbtn.setAttribute('aria-expanded', String(on)); }
+  qbtn.addEventListener('click', function(){
+    if(qrow.classList.contains('qopen') && !q.value){ qOpen(false); return; }
+    qOpen(true); q.focus();
+  });
+  q.addEventListener('blur', function(){ setTimeout(function(){ if(!q.value && document.activeElement !== qbtn) qOpen(false); }, 150); });
   q.addEventListener('input', function(){ clearTimeout(timer); timer = setTimeout(function(){ ui.q = q.value.trim().toLowerCase(); draw(); }, 120); });
 
   function seenAction(kind){
