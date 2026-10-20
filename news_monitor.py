@@ -2050,7 +2050,8 @@ def notify(text, target="check", parse_mode="HTML"):
             chunks, cur = [], ""
             for line in text.split("\n"):
                 piece = (line if not cur else "\n" + line)
-                if len(cur) + len(piece) > TG_CHUNK and cur:
+                # 노컷 기출고 꼬리 줄('    └ …', 0-57)은 바로 위 기사 줄과 같은 메시지에 둔다 — 여유(4096-3800)로 충분
+                if len(cur) + len(piece) > TG_CHUNK and cur and not line.startswith("    └"):
                     chunks.append(cur)
                     cur = line
                 else:
@@ -2136,8 +2137,7 @@ def send_overnight_exclusives(conn, now):
                 r = conn.execute("SELECT pub_dt FROM articles WHERE link=?", (link,)).fetchone()
                 nc = nocut_find(title, r[0] if r else None, nc_pool, link)
                 if nc:
-                    lab = tg_escape(nocut_label(nc, now))
-                    tail += f' 📰<a href="{tg_escape(nc["l"])}">{lab}</a>' if nc["l"] else f" 📰{lab}"
+                    tail += nocut_tail(nc, now)          # 기사 줄 아래 따로 한 줄(0-57)
             lines.append(f"🔥 · {body}{tail}")
         notify("\n".join(lines))
         print(f"[밤사이] 야간 기록 단독 {len(items)}건 묶어 발송")
@@ -2531,16 +2531,13 @@ def run_check():
                     rel = f" (관련 {extra}건)" if extra > 0 else ""
                     nc = it.get("nc")
                     if as_html:
-                        ncs = ""
-                        if nc:
-                            lab = esc(nocut_label(nc, now))
-                            ncs = f' 📰<a href="{esc(nc["l"])}">{lab}</a>' if nc["l"] else f" 📰{lab}"
+                        ncs = nocut_tail(nc, now) if nc else ""     # 기사 줄 아래 따로 한 줄(0-57)
                         body.append(
                             f'{mp}· <a href="{esc(it["link"])}">{esc(it["title"])}</a>'
                             f' [{t}|{esc(src)}]{rel}{ncs}')
                     else:
-                        ncs = f"\n    📰{nocut_label(nc, now)} 「{nc['t']}」" if nc else ""
-                        body.append(f"{mp}· {it['title']} [{t}|{src}]{rel}{ncs}\n    {it['link']}")
+                        ncs = (f"\n    [노컷 기출고] {nocut_label(nc, now)[len('노컷 '):]} 「{nc['t']}」") if nc else ""
+                        body.append(f"{mp}· {it['title']} [{t}|{src}]{rel}\n    {it['link']}{ncs}")
             head = (f"🆕 <b>주요 기사 {shown}건</b> " if as_html
                     else f"🆕 주요 기사 {shown}건 ") + f"({now.strftime('%m/%d %H:%M')})"
             lines = [head] + body
@@ -3630,6 +3627,24 @@ def nocut_label(x, now=None):
     today = (now or datetime.datetime.now(KST)).date()
     hm = d.strftime("%H:%M") if d.date() == today else f"{d.month}/{d.day} {d:%H:%M}"
     return f"노컷 {hm}" + (f" {x['w']}" if x["w"] else "")
+
+
+# check 알림의 노컷 기출고 꼬리 — 기사 줄 **아래 따로 한 줄**(0-57, 사용자 10/20 "텔레그램 check에는 노컷 기출고가
+# 다소 헷갈리게 표기돼 있어"). 0-54는 기사 줄 끝에 ' 📰노컷 15:46 이은지'를 붙여, [15:50|뉴시스] 바로 뒤라
+# 그 기사의 또 다른 매체·시각처럼 읽혔고 '기출고'라는 뜻도 안 보였다. 뉴스레이다 배지와 같은 말 '노컷 기출고'를 쓰고,
+# 노컷 기사 제목을 같이 보여 짝이 맞는지 알림만 보고 판단하게 한다(뉴스레이다와 같은 이유 — 오짝은 눈으로 거른다).
+NOCUT_TAIL_TITLE_MAX = 32
+
+def nocut_tail(x, now=None, as_html=True):
+    """'   └ [노컷 기출고] 15:46 이은지 · 노컷 제목' 한 줄(앞에 줄바꿈 포함). HTML이면 제목에 노컷 기사 링크."""
+    lab = nocut_label(x, now)[len("노컷 "):]
+    t = clean_title_display(x.get("t") or "") if x.get("t") else ""
+    if len(t) > NOCUT_TAIL_TITLE_MAX:
+        t = t[:NOCUT_TAIL_TITLE_MAX].rstrip() + "…"
+    if as_html:
+        tt = (f' · <a href="{tg_escape(x["l"])}">{tg_escape(t)}</a>' if x.get("l") else f" · {tg_escape(t)}") if t else ""
+        return f"\n    └ <b>[노컷 기출고]</b> {tg_escape(lab)}{tt}"
+    return f"\n    └ [노컷 기출고] {lab}" + (f" · {t}" if t else "")
 
 
 def _attach_nocut(conn, groups, start, end, pool=None):
