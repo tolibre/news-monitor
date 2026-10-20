@@ -1822,7 +1822,7 @@ GROUP_GATE_MODE = {
     "과기정통부": "strict",
 }
 
-def scope_gate(title, kws):
+def scope_gate(title, kws, mode=None):
     """폴백 기사(제목에 출입처 키워드가 없는 기사)의 소관 관문. **check 전용.**
 
     (통과여부, 사유) 반환. 사유는 Actions 로그/alerts 파일에 남겨
@@ -1839,7 +1839,7 @@ def scope_gate(title, kws):
     spec = GROUP_SCOPE.get(g)
     if not spec:
         return True, "관문없음"      # 어휘 미정의 그룹은 통과 (보수적)
-    mode = GROUP_GATE_MODE.get(g, "normal")
+    mode = mode or GROUP_GATE_MODE.get(g, "normal")     # mode 인자: 뉴스레이다 '관련 약함'(0-58)이 normal로 부른다
     t = clean(title or "").rsplit(" - ", 1)[0].strip()
     for w in spec["strong"]:
         if w in t:
@@ -3673,6 +3673,46 @@ def _attach_nocut(conn, groups, start, end, pool=None):
                                 "pd": render_page._fmt_date(x["p"]), "w": x["w"]}
 
 
+# ==================== 뉴스레이다 '관련 약함' 접기 (0-58, 원본판 과기·우주만) ====================
+# 사용자(10/20): "뉴스레이더 과기부, 우주항공청에 내게 필요없는 기사가 너무 많다" → 검토(0-57 D) → "접기로 하자".
+# picks 28개 보고: 고른 묶음 비율 공정위 4.0%·방미통위 5.1%인데 과기 1.4%(보고당 71묶음)·우주 2.2%.
+# 판정은 check가 이미 쓰는 것을 그대로 쓴다 — 소관 관문(scope_gate, 과기도 strict 아닌 **normal**: strict면 '9조4000억 AI 국가 예산'처럼
+# 고른 기사가 더 접힌다) + check 전용 노이즈(대학연구·기업수혜·지자체) + check 수준 잡문. [단독]은 늘 아님(check 단독 구제와 같은 이유).
+# 기사마다 wk=1을 달고, 페이지가 **묶음 기사 전부가 wk일 때만** 그 묶음을 섹션 끝 '관련 약함' 접힌 줄로 내린다.
+# 지우지 않는 이유: 접히는 것 중 'AI·데이터 혁신 3법 국회 통과' 같은 정책 기사가 섞인다 — 뉴스레이다는 빠뜨리지 않는 쪽(프로젝트 규칙 2).
+# 순위·체크·보고 양식·건수 불변(데이터 순서 그대로, 표시만). 변형판은 그룹 이름이 달라 동작 없음.
+LIVE_WEAK_FOLD_GROUPS = ("과기정통부", "우주항공청")
+LIVE_WEAK_GATE_MODE = "normal"
+
+def live_weak_title(title, group):
+    """뉴스레이다에서 '관련 약함'으로 접을 만한 기사인지(0-58). 사유 문자열(로그용) 또는 ''."""
+    if group not in LIVE_WEAK_FOLD_GROUPS or priority_mark(title) == "🔥":
+        return ""
+    ok, why = scope_gate(title, {group}, mode=LIVE_WEAK_GATE_MODE)
+    if not ok:
+        return why
+    r = noise_reason(title, strict=False, kws={group})
+    if r:
+        return f"노이즈:{r}"
+    if is_junk_title(title, strict=False):
+        return "잡문"
+    return ""
+
+
+def _attach_weak(groups):
+    """뉴스레이다 기사마다 '관련 약함'이면 wk=1(0-58). 반환: 단 기사 수."""
+    n = 0
+    for g in groups:
+        if g["name"] not in LIVE_WEAK_FOLD_GROUPS:
+            continue
+        for clu in g["clusters"]:
+            for it in clu:
+                if live_weak_title(it.get("t") or "", g["name"]):
+                    it["wk"] = 1
+                    n += 1
+    return n
+
+
 def _attach_seen(conn, start, end, groups):
     """페이지 기사마다 최초 수집 시각 q(ISO, 초 단위)를 단다. (0-24, 라이브 전용)
     '전체' 탭의 '확인 완료' 이후 새 기사 판별에 쓴다. 링크로 찾고, 링크가 없으면 제목으로."""
@@ -3809,6 +3849,7 @@ def _build_live_report(conn, spec, now, own):
             _attach_seen(conn, start, end, groups)
             if nc_pool:
                 _attach_nocut(conn, groups, start, end, nc_pool)
+            _attach_weak(groups)
             seg_sections.append((si, sections))
             seg_groups[si] = groups
             seg.update(raw=len(rows), n=sum(g["n"] for g in groups), dup=dup,
