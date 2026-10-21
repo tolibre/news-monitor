@@ -1272,7 +1272,18 @@ a.title:visited{color:var(--ink-900)}
 .sbody .stat{padding:8px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-100); margin-bottom:12px}
 .sbody .stat.err{border-color:var(--amber-600); background:var(--amber-50); color:var(--ink-900)}
 .sbody .hint{display:block; margin-top:8px}
-.foot{margin-top:32px; max-width:720px; font-size:12px; line-height:1.7; color:var(--ink-500); text-wrap:pretty}
+/* 꼬리말 '이 화면 보는 법'(0-59b) — 카드 + 항목표. 항목 이름은 화면의 실제 배지 */
+.foot{margin-top:32px; padding:16px; background:var(--surf-0); border:1px solid var(--line-300); border-radius:6px; font-size:13px; line-height:1.6; color:var(--ink-700)}
+.foot h3{margin:0 0 4px; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.02em; color:var(--ink-900)}
+.legend{margin:0}
+.legend > div{display:grid; grid-template-columns:120px minmax(0,720px); gap:16px; padding:8px 0; border-top:1px solid var(--line-200)}
+.legend > div:first-child{border-top:0}
+.legend dt{display:flex; align-items:center; gap:4px; align-self:start; min-height:21px; font-weight:600; color:var(--ink-900); white-space:nowrap}
+.legend dt .tag, .legend dt .rp{transform:none}
+.legend dt .sg{transform:none; font-weight:400}
+.legend dd{margin:0; text-wrap:pretty; word-break:keep-all}
+.legend b{color:var(--ink-900)}
+.foot-sync{margin:8px 0 0; padding-top:12px; border-top:1px solid var(--line-300); font-size:12px; color:var(--ink-500); word-break:keep-all}
 .foot a{color:var(--link)}
 
 .sm{display:none}
@@ -1323,6 +1334,8 @@ a.title:visited{color:var(--ink-900)}
   .seenbar{flex-wrap:nowrap; gap:8px; padding:4px 4px 4px 8px; font-size:12px; line-height:1.45}
   .seenbar > span:first-child{flex:1 1 0; min-width:0}
   .seenbar .sp{flex:0 0 auto}
+  .foot{padding:12px}
+  .legend > div{grid-template-columns:1fr; gap:4px}
 }
 /* 폴드 커버(≤400px): 출입처 칩 → 색 있는 텍스트 + 가운뎃점, 체크박스 20px (규격 8) */
 @media (max-width:400px){
@@ -1649,8 +1662,9 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     return n;
   }
   function dutyNote(){
-    return RAW && RAW.duty && RAW.duty.length ? '검색칸 옆 <b>휴일 특근</b> 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림은 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시). ' : '';
+    return RAW && RAW.duty && RAW.duty.length ? legendItem('휴일 특근', '검색칸 옆 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시).') : '';
   }
+  function legendItem(term, desc){ return '<div><dt>'+term+'</dt><dd>'+desc+'</dd></div>'; }
 
   // ---------- '여기까지 확인' 표시 (0-24, '전체' 탭 전용. 기기 연동을 켜면 다른 기기와 맞춘다 — 0-26) ----------
   // {보고id: {at: 확인 시점의 마지막 수집 시각, prev: 그 전 확인 시각(되돌리기용), t: 누른 시각}}
@@ -2192,7 +2206,17 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       html += part;
     });
     if(t.all && !MERGED) html += drawByline(t.rep, now).html;
-    html += '<p class="foot">구간은 기사 <b>수집 시각</b> 기준입니다(발행 시각은 오른쪽 숫자, 오늘 기사가 아니면 요일이 붙음). 끝난 구간에는 늦게 잡힌 기사가 끼어들지 않고 다음 구간에 들어갑니다. 수집 경로만 바뀌어 다시 들어온 기사(직전 24시간에 같은 제목이 이미 수집됨)는 회색 바탕에 “이미 나옴” 배지로 표시하고 건수에서 뺍니다. 묶음 아래 <b>노컷 기출고</b> 줄은 같은 사안을 노컷뉴스(본인·동료 기자)가 발행 앞뒤 12시간 안에 출고했다는 표시입니다(제목이 사실상 같거나 사안어 3개 이상이 겹칠 때, 사진·대담 녹취 제외). '+(weakShown ? '섹션 끝 <b>관련 약함</b>은 과기정통부·우주항공청 묶음 중 소관 어휘가 없거나 기업·대학·지자체 홍보성인 것을 접어 둔 것입니다([단독]은 접지 않음, 건수에는 포함, 검색·‘선택’ 보기에선 펼쳐 보임). ' : '')+'‘전체’는 보고 기간 전체를 출입처·기사묶음으로 다시 묶어 보여주고(구간이 달라도 같은 사안이면 한 묶음), 줄 앞 번호가 들어온 구간입니다. 맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다. '+dutyNote()+'체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p>';
+    // 0-59b: 꼬리말 = 12px 회색 글 벽 → '보는 법' 상자. 화면에 실제로 나오는 배지를 항목 이름으로 써서 눈으로 찾게 한다.
+    // 변형판 생성기 치환 기준 두 곳(맨 끝 섹션 설명 첫머리, 마지막 기기 연동 문장 끝 </p>까지)은 글자 그대로 둔다 — 여기 주석에 그 문구를 옮겨 적지 말 것(횟수 검사가 깨진다).
+    html += '<div class="foot"><h3>이 화면 보는 법</h3><dl class="legend">' +
+      legendItem('구간 <span class="sg">①②</span>', '기사가 <b>수집된 시각</b>으로 나눕니다. 끝난 구간에 늦게 잡힌 기사는 다음 구간으로 갑니다. 오른쪽 숫자는 발행 시각이고, 오늘 기사가 아니면 요일이 붙습니다.') +
+      legendItem('<span class="rp">이미 나옴</span>', '직전 24시간에 같은 제목이 이미 수집된 기사입니다(수집 경로만 바뀜). 회색 바탕으로 표시하고 건수에서 뺍니다.') +
+      legendItem('<span class="tag nc">노컷 기출고</span>', '같은 사안을 노컷뉴스(본인·동료 기자)가 발행 앞뒤 12시간 안에 출고했다는 표시입니다. 제목이 사실상 같거나 사안어가 3개 이상 겹칠 때만 붙습니다(사진·대담 녹취 제외).') +
+      (weakShown ? legendItem('관련 약함', '과기정통부·우주항공청 묶음 중 소관 어휘가 없거나 기업·대학·지자체 홍보성인 것을 섹션 끝에 접어 둡니다. [단독]은 접지 않고, 건수에는 포함하며, 검색·‘선택’ 보기에서는 펼쳐 보입니다.') : '') +
+      legendItem('보고 전체 탭', '보고 기간 전체를 출입처·사안 묶음으로 다시 모읍니다. 구간이 달라도 같은 사안이면 한 묶음이고, 줄 앞 번호가 들어온 구간입니다.') +
+      legendItem('맨 끝 섹션', '맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다.') +
+      dutyNote() +
+      '</dl><p class="foot-sync">체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p></div>';
     document.getElementById('main').innerHTML = html;
     syncBar();
   }
