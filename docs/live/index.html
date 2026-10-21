@@ -479,12 +479,14 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   var MERGED = false;         // '전체' 탭을 출입처·기사묶음으로 합쳐 그리는 중(0-22)
   var weakOpen = {};          // 관련 약함 접기(0-58) — 펼친 상자 id. 다시 그려도(여기까지 확인·새 수집) 펼친 채로
   var weakShown = false;      // 이번 그리기에서 접힌 줄을 하나라도 그렸나(꼬리말 설명용)
-  // 구간 탭 접기(0-24b) — 기본은 접힘('전체'·'→ 다음 보고'만). '구간별 보기'로 펼치면 이 브라우저에 기억.
-  var SEGSTORE = 'nm-live-segview-v1';
+  // 0-61: 구간 탭은 평소 접어 둔다(사용자 10/22 "이 섹션은 평소엔 접어놓고 싶어 — 모두에게서").
+  // 접힘 = '보고 전체' + '→ 다음 보고'(13:30~15:00 넘어감) + [구간별 ▸]. 펼침 기억은 이 브라우저에만.
+  // 저장키를 v2로 올렸다 — 0-24b 시절 펼쳐 둔 기억(v1)이 남은 기기도 처음엔 접힌 채로 열리게.
+  var SEGSTORE = 'nm-live-segview-v2';
   var segOpen = false;
   try{ segOpen = localStorage.getItem(SEGSTORE) === '1'; }catch(e){}
-  // 0-52: 구간 탭 접기(0-24b)는 없앴다 — 시작한 구간 탭은 늘 보이고, 시작 안 한 구간은 탭 대신 회색 글자로만.
-  function tabShown(t){ return t.all || t.over || segState(t.seg, Date.now()) !== 'future'; }
+  // 펼쳤을 때는 0-52 그대로: 시작한 구간만 탭, 시작 안 한 구간은 끝에 회색 글자.
+  function tabShown(t){ return t.all || t.over || (segOpen && segState(t.seg, Date.now()) !== 'future'); }
 
   // ---------- 당직 출입처 스위치 (0-44) ----------
   // data.json의 duty(당직 전용 그룹 이름들) 섹션은 서버가 늘 싣는다(당직 출입처는 날마다 수집, 알림 없음).
@@ -987,7 +989,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       if(allTab && seenAt(ui.rep) != null) ui.tab = allTab.key;
       // 구간이 하나뿐인 보고(14:00 보고)도 '전체' 탭으로 연다(0-49) — 내용은 같은데 '여기까지 확인'은 '전체' 탭에만 있다.
       if(allTab && own.length === 1) ui.tab = allTab.key;
-      // 0-52: 기본은 늘 '보고 전체' 탭(접기를 없애기 전 기본 화면과 같음). 구간 탭은 직접 고를 때만.
+      // 0-52: 기본은 늘 '보고 전체' 탭. 구간 탭은 직접 고를 때만(0-61부터는 '구간별 ▸'로 펼친 뒤).
       if(allTab) ui.tab = allTab.key;
     }
     // 고른 탭이 안 그려지는 탭(시작 안 한 구간)이면 '전체'로
@@ -1069,20 +1071,26 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     var tabs = tabList();
     var later = tabs.filter(function(t){ return t.seg && !t.over && segState(t.seg, now) === 'future'; });
     var order = tabs.filter(function(t){ return t.all; }).concat(tabs.filter(function(t){ return !t.all && tabShown(t); }));
+    // 0-61: 구간이 둘 이상인 보고만 접기 단추를 단다(14:00 보고는 구간 하나 = '보고 전체'와 같은 내용).
+    // 단추는 늘 '보고 전체' 바로 뒤 — 폰에서 펼쳤을 때 '접기'가 줄 끝으로 밀려 안 보이지 않게.
+    var ownSegs = tabs.filter(function(t){ return t.seg && !t.over; });
+    var tog = ownSegs.length > 1 ? '<button class="tab one tog" type="button" data-tog="1" aria-expanded="'+segOpen+'" title="'+(segOpen ? '구간 탭 접기' : '구간별로 나눠 보기 — '+esc(ownSegs.map(function(t){ return t.no+' '+t.seg.label; }).join(' · ')))+'">'+
+              '<span class="l">'+(segOpen ? '◂ 접기' : '구간별 ▸')+'</span></button>' : '';
     document.getElementById('tabs').innerHTML = order.map(function(t){
       if(t.all){
         var tot = t.rep.segments.reduce(function(a,s){ return a + s.n; }, 0);
+        var after = tog;
         var pk = allSegs(t.rep).reduce(function(a,s){ return a + segPickCount(t.rep, s); }, 0);
         var nw = newCount(t.rep);
         return '<button class="tab one" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'"><span class="l">보고 전체</span>'+
-               '<span class="s"><span class="mono">'+tot+'건</span>'+(nw?'<span class="nwt mono">새 '+nw+'</span>':'')+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
+               '<span class="s"><span class="mono">'+tot+'건</span>'+(nw?'<span class="nwt mono">새 '+nw+'</span>':'')+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>' + after;
       }
       var st = segState(t.seg, now), pk = segPickCount(t.rep, t.seg);
       var lab = t.over ? '→ 다음 보고 ' + esc(t.seg.label) : t.no + ' ' + esc(t.seg.label);
       var stl = st === 'live' ? '<span class="st-live">진행 중</span>' : '';
       return '<button class="tab one'+(t.over?' over':'')+'" type="button" data-t="'+t.key+'" aria-pressed="'+(t.key===ui.tab)+'" title="'+esc(t.seg.label)+' 구간'+(st==='live'?' (진행 중)':' (마감)')+'">'+
              '<span class="l">'+lab+'</span><span class="s">'+stl+'<span class="mono">'+t.seg.n+'건</span>'+(t.seg.dup ? '<span class="mono">+중복 '+t.seg.dup+'</span>' : '')+(pk?'<span class="pk mono">✓'+pk+'</span>':'')+'</span></button>';
-    }).join('') + (later.length ? '<span class="later" title="'+esc(later.map(function(t){ return t.no+' '+t.seg.label; }).join(' · '))+'">'+later.map(function(t){ return t.no; }).join('')+' 대기</span>' : '');
+    }).join('') + (segOpen && later.length ? '<span class="later" title="'+esc(later.map(function(t){ return t.no+' '+t.seg.label; }).join(' · '))+'">'+later.map(function(t){ return t.no; }).join('')+' 대기</span>' : '');
 
     syncBar();
   }
@@ -1229,7 +1237,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     // 0-59b: 꼬리말 = 12px 회색 글 벽 → '보는 법' 상자. 화면에 실제로 나오는 배지를 항목 이름으로 써서 눈으로 찾게 한다.
     // 변형판 생성기 치환 기준 두 곳(맨 끝 섹션 설명 첫머리, 마지막 기기 연동 문장 끝 </p>까지)은 글자 그대로 둔다 — 여기 주석에 그 문구를 옮겨 적지 말 것(횟수 검사가 깨진다).
     html += '<div class="foot"><h3>이 화면 보는 법</h3><dl class="legend">' +
-      legendItem('구간 <span class="sg">①②</span>', '기사가 <b>수집된 시각</b>으로 나눕니다. 끝난 구간에 늦게 잡힌 기사는 다음 구간으로 갑니다. 오른쪽 숫자는 발행 시각이고, 오늘 기사가 아니면 요일이 붙습니다.') +
+      legendItem('구간 <span class="sg">①②</span>', '평소엔 접혀 있고 <b>구간별 ▸</b>을 누르면 펼쳐집니다. 기사가 <b>수집된 시각</b>으로 나눕니다. 끝난 구간에 늦게 잡힌 기사는 다음 구간으로 갑니다. 오른쪽 숫자는 발행 시각이고, 오늘 기사가 아니면 요일이 붙습니다.') +
       legendItem('<span class="rp">이미 나옴</span>', '직전 24시간에 같은 제목이 이미 수집된 기사입니다(수집 경로만 바뀜). 회색 바탕으로 표시하고 건수에서 뺍니다.') +
       legendItem('<span class="tag nc">노컷 기출고</span>', '같은 사안을 노컷뉴스(본인·동료 기자)가 발행 앞뒤 12시간 안에 출고했다는 표시입니다. 제목이 사실상 같거나 사안어가 3개 이상 겹칠 때만 붙습니다(사진·대담 녹취 제외).') +
       (weakShown ? legendItem('관련 약함', '과기정통부·우주항공청 묶음 중 소관 어휘가 없거나 기업·대학·지자체 홍보성인 것을 섹션 끝에 접어 둡니다. [단독]은 접지 않고, 건수에는 포함하며, 검색·‘선택’ 보기에서는 펼쳐 보입니다.') : '') +
