@@ -1150,7 +1150,6 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .seenc b{color:var(--ink-900)}
 .seenc .nwc{color:var(--blue-700); font-weight:700}
 .seenc .btn{height:32px; padding:0 12px; font-size:12px}
-.seenc .btn.lnk{border-color:transparent; background:none; padding:0 4px; color:var(--ink-500); text-decoration:underline; text-underline-offset:2px}
 @media (min-width:561px){ main .seenbar{display:none} }
 
 .beats{display:flex; gap:4px; overflow-x:auto; padding-block:0 8px; scrollbar-width:thin}
@@ -1356,6 +1355,7 @@ a.title:visited{color:var(--ink-900)}
   .topic{padding:4px 8px}
   .seenbar{flex-wrap:nowrap; gap:8px; padding:4px 4px 4px 8px; font-size:12px; line-height:1.45}
   .seenc{display:none !important}   /* 0-62: 폰은 보기 범위 줄에 자리가 없어 본문 위 확인 바(예전 그대로) */
+  #bar-unseen{display:none !important}   /* 0-63: 폰은 본문 위 확인 바의 '확인 취소'로 */
   .seenbar > span:first-child{flex:1 1 0; min-width:0}
   .seenbar .sp{flex:0 0 auto}
   .foot{padding:12px}
@@ -1432,6 +1432,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     <span class="bfresh" id="bfresh"></span>
     <span class="count">선택 <span id="segpart"><span class="lg">이 구간 </span><span class="sm">구간 </span><b class="mono" id="n-seg">0</b> · </span><span class="lg">보고 </span>전체 <b class="mono" id="n-all">0</b></span>
     <span class="spacer"></span>
+    <button class="btn" type="button" id="bar-unseen" hidden title="방금 누른 ‘여기까지 확인’을 취소합니다">확인 취소</button>
     <button class="btn sec" type="button" id="bar-seen" hidden>여기까지 확인</button>
     <button class="btn" type="button" id="make-seg"><span class="lg">이 </span>구간 양식</button>
     <button class="btn primary" type="button" id="make-all"><span id="all-pre" class="lg">보고 </span>전체 양식</button>
@@ -1940,7 +1941,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       h = '<div class="stat'+(sync.err ? ' err' : '')+'">'+
           (sync.err ? esc(sync.err) : (cfg.last ? '마지막으로 맞춘 시각 <b>'+fmtAt(cfg.last)+'</b>' : '처음 맞추는 중…'))+
           (cfg.gist ? ' · <a href="https://gist.github.com/'+esc(cfg.gist)+'" target="_blank" rel="noopener">gist 보기</a>' : '')+'</div>'+
-          '<p>체크·해제와 여기까지 확인·되돌리기가 바로 다른 기기로 가고, 화면으로 돌아올 때마다 받아 옵니다. '+
+          '<p>체크·해제와 여기까지 확인·확인 취소가 바로 다른 기기로 가고, 화면으로 돌아올 때마다 받아 옵니다. '+
           '같은 기사를 두 기기에서 다르게 바꿨다면 <b>나중에 바꾼 쪽</b>이 남습니다. 오프라인일 때 바꾼 것은 이 기기에 두었다가 다음에 합칩니다.</p>'+
           '<p class="hint">구간별 보기 펼침·마지막 탭 같은 화면 설정은 기기마다 따로입니다(데스크톱과 폰 화면이 달라서).</p>'+
           '<div class="row2"><button class="btn sec" type="button" id="snow"'+(sync.busy ? ' disabled' : '')+'>지금 맞추기</button>'+
@@ -2305,7 +2306,8 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     var m = seenMarks[r.id], a = seenAt(r.id), last = D.last_seen ? T(D.last_seen) : null;
     var can = last != null && (a == null || last > a);
     var btn = '<button class="btn sec" type="button" id="seen-mark"'+(can?'':' disabled')+'>여기까지 확인'+(last!=null?' <span class="lg">('+hm(new Date(last))+' 수집분)</span>':'')+'</button>';
-    var undo = m && m.at ? '<button class="btn" type="button" id="seen-undo">되돌리기</button>' : '';
+    // 0-63: '되돌리기' → '확인 취소'(사용자 10/22 "확인 취소 버튼도 만들면 좋겠다" — 있었지만 흐린 글자라 못 찾음). 직전 확인 한 번을 취소해 그 전 확인 시점으로.
+    var undo = m && m.at ? '<button class="btn" type="button" id="seen-undo" title="방금 누른 ‘여기까지 확인’을 취소합니다'+(m.prev ? ' — '+fmtAt(T(m.prev))+' 수집분 확인으로 돌아갑니다' : ' — 확인 기록이 없어집니다')+'">확인 취소</button>' : '';
     var msg;
     // 0-56: 좁은 화면은 안내를 한 줄로(.sm)
     if(a == null) msg = '<span class="lg">다 본 뒤 누르면 다음부터 그 뒤 기사에 <span class="nw">새</span> 표시가 붙습니다.</span><span class="sm">다 보고 누르면 이후 기사에 <span class="nw">새</span> 표시</span>';
@@ -2314,7 +2316,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       var st = a == null ? '' : '<span title="마지막으로 ‘여기까지 확인’한 수집 시각과 그 뒤 들어온 기사 수">확인 <b>'+fmtAt(a)+'</b>까지 · <span class="nwc">새 '+newCount(r)+'</span></span>';
       var tip = (a != null ? '마지막 확인 '+fmtAt(a)+' 수집분까지 · 그 뒤 새 '+newCount(r)+'건 — ' : '') +
                 '다 본 뒤 누르면 다음부터 그 뒤 기사에 ‘새’ 표시가 붙습니다' + (last != null ? '('+hm(new Date(last))+' 수집분까지)' : '');
-      return st + undo.replace('class="btn"', 'class="btn lnk"').replace('id="seen-undo"', 'id="hseen-undo"') +
+      return st + undo.replace('id="seen-undo"', 'id="hseen-undo"') +
              '<button class="btn sec" type="button" id="hseen-mark"'+(can?'':' disabled')+' title="'+tip+'">'+(can ? '여기까지 확인' : '확인함 ✓')+'</button>';
     }
     return '<div class="seenbar"><span>'+msg+'</span><span class="sp">'+undo+btn+'</span></div>';
@@ -2410,6 +2412,8 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       bs.disabled = !can;
       bs.innerHTML = can ? '여기까지 확인' : '확인함 ✓ <span class="lg">'+(a != null ? hm(new Date(a)) : '')+'</span>';
     }
+    // 0-63: 하단 바 '확인 취소' — 확인 기록이 있을 때만. 폰은 본문 위 확인 바에 같은 단추가 있어 CSS로 숨김(하단 바 자리 부족)
+    document.getElementById('bar-unseen').hidden = bs.hidden || seenAt(r.id) == null;
     document.getElementById('make-all').disabled = !nall;
     document.getElementById('all-pre').textContent = t.over ? '현재 보고 ' : '보고 ';
   }
@@ -2552,6 +2556,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     saveSeen(); var y = window.scrollY; draw(); window.scrollTo(0, y);
   }
   document.getElementById('bar-seen').addEventListener('click', function(){ seenAction('mark'); });
+  document.getElementById('bar-unseen').addEventListener('click', function(){ seenAction('undo'); });
   document.getElementById('seenc').addEventListener('click', function(e){   // 0-62: 머리 줄 끝 확인 자리(본문 위 바와 id가 겹치지 않게 h- 접두)
     var sb = e.target.closest('#hseen-mark, #hseen-undo');
     if(sb) seenAction(sb.id === 'hseen-undo' ? 'undo' : 'mark');
