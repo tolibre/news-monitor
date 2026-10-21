@@ -1333,12 +1333,13 @@ a.title:visited{color:var(--ink-900)}
   .dsw .c{display:none}
 }
 /* 관련 약함 접기(0-58) — 섹션 끝 한 줄. 묶음 들여쓰기(.more 24·28px)와 달리 섹션 왼쪽에 붙인다 */
-section > .more.wk{display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; min-height:40px; margin:14px 0 4px; padding:0 14px; border:1px solid var(--blue-100); border-radius:4px; background:var(--blue-50); color:var(--blue-700); font-size:13px; font-weight:700; text-align:left; word-break:keep-all}
-section > .more.wk::before{content:'▸'; font-size:12px; transition:transform .12s}
+section > .more.wk{display:flex; align-items:center; gap:10px; width:100%; box-sizing:border-box; min-height:46px; margin:16px 0 6px; padding:0 16px; border:0; border-radius:6px; background:var(--primary); color:var(--on-primary); font-size:14px; font-weight:800; text-align:left; word-break:keep-all; box-shadow:0 1px 3px rgba(0,0,0,.25)}
+section > .more.wk::before{content:'▸'; font-size:13px; transition:transform .12s}
+section > .more.wk[aria-expanded="true"]{background:var(--blue-50); color:var(--blue-700); box-shadow:inset 0 0 0 2px var(--primary)}
 section > .more.wk[aria-expanded="true"]::before{transform:rotate(90deg)}
-section > .more.wk:hover{text-decoration:none; background:var(--blue-100)}
-section > .more.wk .wkn{margin-left:auto; padding:1px 8px; border-radius:10px; background:var(--blue-600); color:var(--on-primary); font-size:12px}
-.weakbox{margin-top:4px; padding-top:2px; border-left:3px solid var(--blue-100); padding-left:0}
+section > .more.wk:hover{text-decoration:none; background:var(--primary-hover); color:var(--on-primary)}
+section > .more.wk .wkn{margin-left:auto; padding:2px 10px; border-radius:11px; background:var(--on-primary); color:var(--primary); font-size:12px; font-weight:800}
+.weakbox{margin-top:4px; padding-top:2px; border-left:4px solid var(--primary); padding-left:0}
 </style>
 </head><body>
 <header>
