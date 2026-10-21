@@ -17,6 +17,7 @@
   /* 역할 */
   --link:var(--blue-600); --primary:var(--blue-600); --primary-hover:var(--blue-700); --on-primary:#FFFFFF;
   --appbar:var(--navy-900); --appbar-ink:#FFFFFF; --appbar-ink-2:#C3D0E4; --appbar-line:#3A5683;
+  --ptag-bg:#F0B55A; /* 앱 바(늘 어두움) 위 '지난 보고' 배지 — amber(검토) 계열 */
   --rep-bg:#EEF1F5; --dis-bg:#EEF1F5; --dis-ink:#9AA3AF; --dis-line:#E8ECF1;
   --new-bg:var(--navy-900); --new-ink:#FFFFFF; --on-org:#FFFFFF;
   --sh-dropdown:0 2px 6px rgba(16,24,40,.10); --sh-modal:0 12px 32px rgba(16,24,40,.18); --veil:rgba(16,24,40,.45);
@@ -99,7 +100,7 @@ header{position:sticky; top:0; z-index:20; background:var(--blue-50); border-bot
 .ttags:empty{display:none}
 .ttags span{font-size:11px; font-weight:700; border-radius:999px; padding:1px 8px; white-space:nowrap; line-height:1.45}
 .ttags .dtag{color:var(--appbar); background:var(--appbar-ink)}
-.ttags .ptag{color:#14171A; background:#F2C94C}
+.ttags .ptag{color:#14171A; background:var(--ptag-bg)}
 h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.02em; color:var(--appbar-ink)}
 .brand{display:flex; align-items:center; gap:8px; color:var(--appbar-ink); font-weight:700; font-size:13px; letter-spacing:-.01em; white-space:nowrap; text-decoration:none; padding-right:12px; border-right:1px solid var(--appbar-line)}
 .brand svg{width:20px; height:20px; flex:0 0 auto; color:#3B86EE}
@@ -117,6 +118,7 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .reports .rgrp button{border-radius:0; margin-left:-1px}
 .reports .rgrp button:first-child{border-radius:2px 0 0 2px; margin-left:0}
 .reports .rgrp button:last-child{border-radius:0 2px 2px 0}
+.reports .cur{font-weight:600}
 .reports button[aria-pressed="true"]{background:var(--appbar-ink); border-color:var(--appbar-ink); color:var(--appbar); font-weight:600; position:relative}
 .reports .dtag{align-self:center; font-size:11px; font-weight:700; color:var(--appbar); background:var(--appbar-ink); border-radius:999px; padding:1px 8px; white-space:nowrap}
 .filters{padding-top:8px}
@@ -154,7 +156,8 @@ h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.
 .beat .c{font-size:11px; font-weight:500; font-variant-numeric:tabular-nums}
 .beat:hover{border-color:var(--og)}
 .beat[aria-pressed="true"]{background:var(--og); border-color:var(--og); color:var(--on-org)}
-.beat.ball{--og:var(--ink-900); --ob:var(--surf-0); border-color:var(--line-300)}
+.beat.ball{--og:var(--ink-700); --ob:var(--surf-0); border-color:var(--line-300)}
+.beat.ball[aria-pressed="true"]{background:var(--blue-100); border-color:var(--blue-500); color:var(--blue-700)}
 .controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 8px; align-items:center}
 .seg{display:flex; border:1px solid var(--line-300); border-radius:2px; overflow:hidden; background:var(--surf-0)}
 .seg button{height:30px; border:0; background:var(--surf-0); color:var(--ink-700); font:inherit; font-size:13px; padding:0 12px; cursor:pointer; border-right:1px solid var(--line-300)}
@@ -183,7 +186,7 @@ main{padding-block:4px 112px}
 .seghead:first-child{margin-top:16px}
 section{margin-top:16px}
 .sec-head{display:flex; align-items:baseline; gap:8px; padding:0 0 4px; border-bottom:2px solid var(--og)}
-.sec-head h2{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.02em; color:var(--og)}
+.sec-head h2{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.02em; color:var(--og); text-wrap:balance}
 .sec-head .n{font-size:12px; color:var(--ink-500)}
 .sec-head .nwc{color:var(--blue-700); font-weight:700}
 .topic{background:var(--surf-0); border-bottom:1px solid var(--line-200); padding:8px 12px}
@@ -193,7 +196,7 @@ section{margin-top:16px}
 .row.rep{background:var(--rep-bg)}
 .row.on{background:var(--blue-100); box-shadow:inset 2px 0 0 var(--blue-700)}
 .sg{flex:0 0 auto; font-size:13px; color:var(--ink-500); line-height:1; transform:translateY(1px)}
-.sg.live{color:var(--green-600); font-weight:700}
+.sg.live{color:var(--ink-700); font-weight:700}
 .badge, .nw, .tag, .rp{
   flex:0 0 auto; display:inline-flex; align-items:center; height:18px; padding:0 6px;
   border-radius:999px; font-size:10.5px; font-weight:700; line-height:1; white-space:nowrap; transform:translateY(-1px);
@@ -214,14 +217,14 @@ a.title:visited{color:var(--ink-900)}
 .meta{flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline; font-size:12px; color:var(--ink-500); white-space:nowrap; font-variant-numeric:tabular-nums}
 .more{margin-top:4px; margin-left:24px; border:0; background:none; padding:2px 0; cursor:pointer; font:inherit; font-size:12px; color:var(--link); font-weight:600}
 .more:hover{text-decoration:underline}
-.ncl{margin:2px 0 0 24px; display:flex; gap:6px; align-items:baseline; min-width:0; font-size:12px; color:var(--ink-500); font-variant-numeric:tabular-nums}
+.ncl{margin:2px 0 0 24px; display:flex; gap:4px 8px; align-items:baseline; min-width:0; font-size:12px; color:var(--ink-500); font-variant-numeric:tabular-nums}
 .ncl > span{flex:0 0 auto; white-space:nowrap}
 .tag.nc{background:var(--o-me-bg); color:var(--o-me); transform:none}
 .ncl .nct{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-700); text-decoration:none}
 .ncl a.nct:hover{color:var(--link); text-decoration:underline}
 .dupes{margin-top:4px; margin-left:24px; padding-left:12px; border-left:1px solid var(--line-300); display:grid; gap:4px}
 .dupes a.title{font-size:13px; color:var(--ink-700)}
-.empty{padding:36px 0; text-align:center; color:var(--ink-500); font-size:13px}
+.empty{padding:32px 0; text-align:center; color:var(--ink-500); font-size:13px}
 
 .bar{position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--surf-0); border-top:1px solid var(--line-300); box-shadow:var(--sh-dropdown); padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px))}
 .bar-in{max-width:1080px; margin:0 auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
@@ -260,23 +263,23 @@ a.title:visited{color:var(--ink-900)}
 .spanel{max-width:520px}
 .ppanel{max-width:720px}
 .pvq{padding:0 16px 8px}
-.pvq input{width:100%; height:34px; padding:0 10px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:14px}
-.pvday{margin:10px 0 4px; font-size:12px; font-weight:700; color:var(--ink-500)}
+.pvq input{width:100%; height:32px; padding:0 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:14px}
+.pvday{margin:12px 0 4px; font-size:12px; font-weight:700; color:var(--ink-500)}
 .pvday:first-child{margin-top:0}
-.pvrep{display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:8px 10px; margin:0 0 4px; border:1px solid var(--line-200); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:14px; cursor:pointer}
+.pvrep{display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:8px 12px; margin:0 0 4px; border:1px solid var(--line-200); border-radius:2px; background:var(--surf-0); color:var(--ink-900); font:inherit; font-size:14px; cursor:pointer}
 .pvrep:hover{background:var(--blue-50); border-color:var(--blue-500)}
 .pvrep .c{margin-left:auto; color:var(--ink-500); font-size:12px; white-space:nowrap}
 .pvrep .pk{color:var(--blue-700); font-weight:700}
 .pvtag{font-size:11px; font-weight:700; padding:0 6px; border-radius:999px; border:1px solid var(--blue-500); color:var(--blue-700); white-space:nowrap}
-.pvhit{padding:7px 0; border-bottom:1px solid var(--line-200)}
+.pvhit{padding:8px 0; border-bottom:1px solid var(--line-200)}
 .pvhit a.t{color:var(--ink-900); text-decoration:none; font-size:14px}
 .pvhit a.t:hover{text-decoration:underline}
-.pvhit .m{display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:2px; font-size:12px; color:var(--ink-500)}
+.pvhit .m{display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:2px; font-size:12px; color:var(--ink-500)}
 .pvhit .m button{border:0; background:none; padding:0; color:var(--link); font:inherit; cursor:pointer; text-decoration:underline}
 .pvhit .pk{color:var(--blue-700); font-weight:700}
 .pvnote{color:var(--ink-500); font-size:12px}
-.reports .pastbtn{border-style:dashed; white-space:nowrap; flex:0 0 auto}
-.reports .ptag{align-self:center; font-size:11px; font-weight:700; color:var(--appbar); background:#F2C94C; border-radius:999px; padding:1px 8px; white-space:nowrap}
+.reports .pastbtn{white-space:nowrap; flex:0 0 auto}
+.reports .ptag{align-self:center; font-size:11px; font-weight:700; color:#14171A; background:var(--ptag-bg); border-radius:999px; padding:1px 8px; white-space:nowrap}
 .sbody{padding:12px 16px 16px; font-size:13px; color:var(--ink-700); overflow:auto}
 .sbody p{margin:0 0 12px}
 .sbody b{color:var(--ink-900)}
@@ -289,7 +292,7 @@ a.title:visited{color:var(--ink-900)}
 .sbody .stat{padding:8px 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-100); margin-bottom:12px}
 .sbody .stat.err{border-color:var(--amber-600); background:var(--amber-50); color:var(--ink-900)}
 .sbody .hint{display:block; margin-top:8px}
-.foot{margin-top:40px; font-size:12px; color:var(--ink-500)}
+.foot{margin-top:32px; max-width:720px; font-size:12px; line-height:1.7; color:var(--ink-500); text-wrap:pretty}
 .foot a{color:var(--link)}
 
 .sm{display:none}
@@ -306,7 +309,7 @@ a.title:visited{color:var(--ink-900)}
 }
 @media (max-width:560px){
   .lg{display:none} .sm{display:inline}
-  .brand{padding-right:8px} h1{font-size:15px}
+  .brand{padding-right:8px} h1{font-size:16px}
   .bar-in{flex-wrap:nowrap; gap:8px}
   .bar .count{font-size:12px; white-space:nowrap}
   .btn{padding:0 8px; font-size:12px}
@@ -326,18 +329,18 @@ a.title:visited{color:var(--ink-900)}
   .tblk{flex-direction:row; align-items:center; gap:8px; flex:1 1 0; min-width:0}
   .tline{flex:0 1 auto; min-width:0; flex-wrap:nowrap}
   h1{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
-  .fresh{flex:0 0 auto; margin-left:auto; gap:6px; font-size:11px; white-space:nowrap}
-  .fresh button{height:24px} .fresh button.ic{width:24px}
-  .controls{gap:6px}
-  .seg{flex:1 1 auto} .seg button{flex:1 1 auto; padding:0 6px; white-space:nowrap}
+  .fresh{flex:0 0 auto; margin-left:auto; gap:4px; font-size:11px; white-space:nowrap}
+  .fresh button{height:28px} .fresh button.ic{width:28px}
+  .controls{gap:4px 8px}
+  .seg{flex:1 1 auto} .seg button{flex:1 1 auto; padding:0 8px; white-space:nowrap}
   .qbtn{flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-700); cursor:pointer}
   .qbtn svg{width:16px; height:16px}
   .qbtn[aria-expanded="true"]{background:var(--blue-100); border-color:var(--blue-500); color:var(--blue-700)}
   #q{display:none; order:9; flex:1 1 100%}
   .controls.qopen #q{display:block}
-  .dsw{gap:6px; padding:0 2px}
-  .topic{padding:6px 10px}
-  .seenbar{flex-wrap:nowrap; gap:8px; padding:4px 4px 4px 10px; font-size:12px; line-height:1.45}
+  .dsw{gap:4px; padding:0 4px}
+  .topic{padding:4px 8px}
+  .seenbar{flex-wrap:nowrap; gap:8px; padding:4px 4px 4px 8px; font-size:12px; line-height:1.45}
   .seenbar > span:first-child{flex:1 1 0; min-width:0}
   .seenbar .sp{flex:0 0 auto}
 }
@@ -353,13 +356,13 @@ a.title:visited{color:var(--ink-900)}
   .dsw .c{display:none}
 }
 /* 관련 약함 접기(0-58) — 섹션 끝 한 줄. 묶음 들여쓰기(.more 24·28px)와 달리 섹션 왼쪽에 붙인다 */
-section > .more.wk{display:flex; align-items:center; gap:10px; width:100%; box-sizing:border-box; min-height:46px; margin:16px 0 6px; padding:0 16px; border:0; border-radius:6px; background:var(--primary); color:var(--on-primary); font-size:14px; font-weight:800; text-align:left; word-break:keep-all; box-shadow:0 1px 3px rgba(0,0,0,.25)}
-section > .more.wk::before{content:'▸'; font-size:13px; transition:transform .12s}
-section > .more.wk[aria-expanded="true"]{background:var(--blue-50); color:var(--blue-700); box-shadow:inset 0 0 0 2px var(--primary)}
+section > .more.wk{display:flex; align-items:center; gap:8px; width:100%; min-height:36px; margin:12px 0 4px; padding:0 12px; border:1px solid var(--blue-600); border-radius:2px; background:var(--blue-50); color:var(--blue-700); font-size:13px; font-weight:600; text-align:left; word-break:keep-all; transition:background-color 120ms ease-out, border-color 120ms ease-out}
+section > .more.wk::before{content:'▸'; font-size:12px; transition:transform 120ms ease-out}
+section > .more.wk:hover{text-decoration:none; background:var(--blue-100); border-color:var(--blue-500)}
+section > .more.wk[aria-expanded="true"]{background:var(--surf-0)}
 section > .more.wk[aria-expanded="true"]::before{transform:rotate(90deg)}
-section > .more.wk:hover{text-decoration:none; background:var(--primary-hover); color:var(--on-primary)}
-section > .more.wk .wkn{margin-left:auto; padding:2px 10px; border-radius:11px; background:var(--on-primary); color:var(--primary); font-size:12px; font-weight:800}
-.weakbox{margin-top:4px; padding-top:2px; border-left:4px solid var(--primary); padding-left:0}
+section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:center; height:18px; padding:0 8px; border-radius:999px; background:var(--new-bg); color:var(--new-ink); font-size:10.5px; font-weight:700}
+.weakbox{margin-top:4px; border-left:2px solid var(--line-300)}
 </style>
 </head><body>
 <header>
@@ -1041,7 +1044,7 @@ section > .more.wk .wkn{margin-left:auto; padding:2px 10px; border-radius:11px; 
     rb.innerHTML = '<span class="rgrp">' + D.reports.map(function(x){
       var cur = T(x.display_from) <= now && now < T(x.display_until);
       var full = x.title.replace(' 보고',''), short = full.replace(/^\d+\/\d+\((.)\) /, '$1 ');
-      return '<button type="button" data-r="'+x.id+'" aria-pressed="'+(x.id===ui.rep)+'" title="'+esc(x.title)+'"><span class="lg">'+esc(full)+'</span><span class="sm">'+esc(short)+'</span>'+(cur?' ●':'')+'</button>';
+      return '<button type="button" data-r="'+x.id+'" aria-pressed="'+(x.id===ui.rep)+'" title="'+esc(x.title)+'"><span class="lg">'+esc(full)+'</span><span class="sm">'+esc(short)+'</span>'+(cur?'<span class="lg cur"> · 진행 중</span><span class="sm" aria-label="진행 중"> ●</span>':'')+'</button>';
     }).join('') + '</span><button type="button" class="pastbtn" id="pastbtn" title="끝난 보고 다시 보기·지난 2주 기사 검색"><span class="lg">지난 보고 </span><span class="sm">지난 </span>▾</button>';
 
   }
