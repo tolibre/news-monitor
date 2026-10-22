@@ -1294,7 +1294,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       legendItem('<span class="rp">이미 나옴</span>', '직전 24시간에 같은 제목이 이미 수집된 기사입니다(수집 경로만 바뀜). 회색 바탕으로 표시하고 건수에서 뺍니다.') +
       legendItem('<span class="tag nc">노컷 기출고</span>', '같은 사안을 노컷뉴스(본인·동료 기자)가 발행 앞뒤 12시간 안에 출고했다는 표시입니다. 제목이 사실상 같거나 사안어가 3개 이상 겹칠 때만 붙습니다(사진·대담 녹취 제외).') +
       (weakShown ? legendItem('관련 약함', '과기정통부·우주항공청 묶음 중 소관 어휘가 없거나 기업·대학·지자체 홍보성인 것을 섹션 끝에 접어 둡니다. [단독]은 접지 않고, 건수에는 포함하며, 검색·‘선택’ 보기에서는 펼쳐 보입니다.') : '') +
-      Object.keys(wlShown).map(function(g){ var w = wlOf(g); return w ? legendItem(esc(w.label), esc(w.desc)) : ''; }).join('') +
+      (function(){ var seen = {}; return Object.keys(wlShown).map(function(g){ var w = wlOf(g); if(!w) return ''; var k = w.label + '\n' + w.desc; if(seen[k]) return ''; seen[k] = 1; return legendItem(esc(w.label), esc(w.desc)); }).join(''); })() +   // 0-72: 같은 이름·설명은 한 번만
       legendItem('보고 전체 탭', '보고 기간 전체를 출입처·사안 묶음으로 다시 모읍니다. 구간이 달라도 같은 사안이면 한 묶음이고, 줄 앞 번호가 들어온 구간입니다.') +
       legendItem('맨 끝 섹션', '맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다.') +
       dutyNote() +
