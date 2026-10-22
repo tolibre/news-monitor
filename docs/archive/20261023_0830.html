@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>오전 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+.masthead{padding-block:14px 10px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.window{font-size:12.5px; color:var(--muted); letter-spacing:.02em}
+.navline{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-block:10px 0}
+.navline a{
+  font-size:12px; font-weight:500; text-decoration:none;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid transparent; border-radius:999px; padding:4px 11px;
+}
+.navline a:hover{border-color:var(--accent)}
+.tallies{display:flex; flex-wrap:wrap; gap:6px 16px; margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.tallies b{font-weight:600; font-size:14px}
+.t-scoop b{color:var(--scoop)} .t-flash b{color:var(--flash)}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 10px; scrollbar-width:thin}
+.beat{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:6px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:999px; padding:5px 11px; font-size:13px; font-weight:500;
+  cursor:pointer; white-space:nowrap;
+}
+.beat:hover{border-color:var(--accent); color:var(--ink)}
+.beat .c{font-size:11.5px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.beat[aria-pressed="true"] .c{color:rgba(255,255,255,.8)}
+
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 12px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{
+  border:0; background:var(--surface); color:var(--ink-2);
+  font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{
+  flex:1 1 180px; min-width:0; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:6px 10px;
+}
+#q::placeholder{color:var(--muted)}
+#q:focus,.seg button:focus-visible,.beat:focus-visible,.more:focus-visible,
+.bar button:focus-visible,.panel button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:0 96px}
+section{margin-top:26px; scroll-margin-top:170px}
+.sec-head{
+  display:flex; align-items:baseline; gap:9px;
+  padding-bottom:7px; border-bottom:2px solid var(--ink); margin-bottom:2px;
+}
+.sec-head h2{margin:0; font-size:15.5px; font-weight:700; letter-spacing:-.005em}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{
+  background:var(--surface); border-bottom:1px solid var(--line-soft);
+  padding:9px 12px 9px 11px;
+}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{
+  flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer;
+  accent-color:var(--pick); transform:translateY(2px);
+}
+.tag{
+  flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:1.5px 6px; border-radius:4px; transform:translateY(-1px);
+}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{
+  color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45;
+  text-underline-offset:3px;
+}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{
+  flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline;
+  font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.more{
+  margin-top:5px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--accent); font-weight:500;
+}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:5px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes[hidden]{display:none}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:40px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- selection bar ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:var(--shadow);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13.5px; font-weight:600}
+.bar .count b{color:var(--pick); font-size:16px}
+.bar .spacer{margin-left:auto}
+.btn{
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  font:inherit; font-size:13px; font-weight:500; padding:7px 14px; border-radius:7px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08); color:#fff}
+
+/* ---------- report panel ---------- */
+.veil{
+  position:fixed; inset:0; z-index:40; background:var(--veil);
+  display:flex; align-items:flex-end; justify-content:center; padding:16px;
+}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{
+  background:var(--surface); border-radius:12px; width:100%; max-width:660px;
+  max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  border:1px solid var(--line);
+}
+.panel-head{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{
+  flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px;
+  border:1px solid var(--line); border-radius:8px; resize:vertical;
+  background:var(--surface-2); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8;
+}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+
+@media (max-width:560px){
+  .tallies{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+  section{scroll-margin-top:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="navline"><a href="./">‹ 지난 다이제스트</a><a href="../">↻ 최신 다이제스트</a></div>
+    <div class="masthead">
+      <h1 id="label">오전 다이제스트</h1>
+      <span class="window mono" id="window"></span>
+      <div class="tallies">
+        <span>표시 <b class="mono" id="n-shown">0</b>건</span>
+        <span>주제 <b class="mono" id="n-topic">0</b>개</span>
+        <span class="t-scoop">단독 <b class="mono" id="n-scoop">0</b></span>
+        <span class="t-flash">속보 <b class="mono" id="n-flash">0</b></span>
+        <span>원문 <b class="mono" id="n-raw">0</b>건</span>
+      </div>
+    </div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색 (예: 담합, 연합뉴스)" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <span class="count"><b class="mono" id="n-pick">0</b>건 선택</span>
+    <span class="hint">체크한 기사만 보고 양식으로 묶습니다</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="clear">선택 해제</button>
+    <button class="btn primary" type="button" id="make">보고 양식 만들기</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="selectall">전체 선택</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"label": "오전 다이제스트", "start": "10/23 06:00", "end": "10/23 08:30", "raw": 37, "groups": [{"name": "공정위", "clusters": [[{"t": "[단독] 공정위, CJ프레시웨이 현장조사…“식자재 입찰 담합 의혹”", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8693189&ref=A", "m": "🔥", "p": "07:00", "n": 2}], [{"t": "'이름만 AI' 광고 제한…판단 기준 마련", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/MYH20261023052545pOW", "m": "", "p": "05:26", "n": 1}], [{"t": "형사재판 무죄인데 행정재판 '심리 없이 패소'…오늘 재판소원 변론", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837550", "m": "", "p": "06:00", "n": 1}], [{"t": "\"장수 초과, 140만원 더 내세요\"…웨딩사진 고르러 간 새신부 울린 스튜디오", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610230628469892", "m": "", "p": "07:01", "n": 1}], [{"t": "[2026 국감] NXT 김학수 해명에도…장외거래소 의문 ‘현재진행형’", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1704895/?sc=Naver", "m": "", "p": "07:02", "n": 1}], [{"t": "마뗑킴, 모회사 삼킨다…권오일 회장의 '패션 왕국' 재건축", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102014554302439", "m": "", "p": "07:06", "n": 1}], [{"t": "내수 부진에 담합까지 '진퇴양난' 삼양사…해외시장 돌파구", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102116495159566", "m": "", "p": "07:11", "n": 1}]], "n": 7}, {"name": "방미통위", "clusters": [[{"t": "[단독]TV홈쇼핑, 허위·과장광고 판매 112억…환불은 달랑 6억", "s": "동아", "l": "https://www.donga.com/news/Economy/article/all/20261022/134892156/1", "m": "🔥", "p": "05:01", "n": 1}], [{"t": "‘국감서 쫓겨났던 이진숙 돌아왔다’…헌재 “국감 포괄 배제 안돼” 판결", "s": "문화", "l": "https://www.munhwa.com/article/11625586?ref=naver", "m": "", "p": "05:02", "n": 1}], [{"t": "[여백] 당신이 'AI 연인'과 사랑할 가능성은", "s": "대전", "l": "https://www.daejonilbo.com/news/articleView.html?idxno=2308777", "m": "", "p": "07:00", "n": 1}]], "n": 3}, {"name": "과기정통부", "clusters": [[{"t": "[단독]알뜰폰 100명 들어오면 98명 떠나…\"이통3사 보조금 경쟁에\"", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/23/2026102219352823611", "m": "🔥", "p": "06:00", "n": 1}], [{"t": "[단독] '해킹' KB·신한 \"취약점 없다\"더니…당국 점검 도마", "s": "IT조선", "l": "https://it.chosun.com/news/articleView.html?idxno=2023092172550", "m": "🔥", "p": "06:00", "n": 1}], [{"t": "[단독] \"현장 영상 실시간 공유하며 대응하자\"던 국가재난안전통신망…정작 인파 밀집 지역서 안 터질까 ‘사진·영상 자제’ 공문", "s": "JTBC", "l": "https://news.jtbc.co.kr/article/NB12324452?influxDiv=NAVER", "m": "🔥", "p": "06:00", "n": 1}], [{"t": "[오늘의 국감] (23일, 금)", "s": "뉴스1", "l": "https://www.news1.kr/politics/assembly/6329237", "m": "", "p": "05:00", "n": 1}], [{"t": "국토부·예산처·과기부 등 종합국감…부동산·해킹 대응 도마, 미래대응기금 공방도", "s": "뉴시스", "l": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE51UnR6N0pNNndNbTJjNllmSHpld09YT3pXS2MxN1lPSEd1cktuQ2xjVzRQanlOUVcxY2QwcjJ3Yi1QM24yaEZjRFk4Tk9CbHA4eEJHdXFUb09kQTloSUVrTw?oc=5", "m": "", "p": "05:00", "n": 1}], [{"t": "전 세계 웹사이트 ‘해킹 비상’… 국내 서버 11만곳 노출 우려", "s": "서울", "l": "https://www.seoul.co.kr/news/economy/IT/2026/10/23/20261023001005?wlog_tag3=naver", "m": "", "p": "05:02", "n": 1}], [{"t": "\"허위 카드정보로 결제 가능\"...전세계 사이트 75%가 'PHP' 사용", "s": "머니투데이", "l": "https://www.mt.co.kr/world/2026/10/23/2026102219260945918", "m": "", "p": "05:30", "n": 1}], [{"t": "프로그래밍 언어 버그 하나에…전 세계 인터넷 교란 위기[긴급 진단-PHP 버그 비상①]", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837531", "m": "", "p": "06:00", "n": 1}], [{"t": "한국판 최대 소비축제 열린다…'코리아 그랜드 페스티벌' 29일 개막", "s": "뉴스1", "l": "https://www.news1.kr/industry/sb-founded/6329118", "m": "", "p": "06:10", "n": 1}], [{"t": "로그인 없이 서버 공격…'위험도 9.2' PHP 취약점, 구형 웹 비상", "s": "뉴스1", "l": "https://www.news1.kr/it-science/security-hacking/6329034", "m": "", "p": "06:25", "n": 1}], [{"t": "PHP '보안 취약' 이틀째 비상…해킹될까 전 세계 초긴장", "s": "MBN", "l": "http://www.mbn.co.kr/pages/news/newsView.php?news_seq_no=5226618", "m": "", "p": "07:57", "n": 1}], [{"t": "청와대, 'PHP 취약점' 대응에 민관군 긴급회의...\"원팀 신속 조치\"", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0101_202610230800282549", "m": "", "p": "08:00", "n": 1}], [{"t": "[오늘의 국감일정] 재경위·교육위·과방위 등 8개 상임위", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261022001309", "m": "", "p": "05:00", "n": 2}], [{"t": "PHP 취약점에 전 세계 '해킹 주의보'...정부 비상대응에 민간도 가세", "s": "테크M", "l": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE8telVzWVU2WTk3NTBJTTVTa3RST2x4TjBLZ25XLVZKVUpiQWVPc0JoYUZVWGhGOS1JMi1SYVk0ODJBNlFMTEJ6cVFSeHFESC1uM1lwTjJJU1NGZm9UclZxQTRzY3dmd9IBakFVX3lxTE5iREY3U28xRC1UR1ZpOEhxYThwRW02RG5VT0swZ3VNUExrbENGSmNaOHBPTGY2M1RjajIxd3hTM0JpZkpXcjhfcUZoUWdIOGkxTVlqSVgxX0lqQWc0dS1VWW11SkpteWlyMmc?oc=5", "m": "", "p": "16:01", "n": 1}], [{"t": "메모리 반도체 중국 추격 거세…AI 반도체는 한국 앞질렀다", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=02141846645615872&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "05:49", "n": 1}], [{"t": "[PHP 비상] '자바 강국' 한국은 안전?…\"변두리 시스템·중소기업은 아니다\"", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102216040631725", "m": "", "p": "06:01", "n": 1}], [{"t": "국회 상임위 8곳 국정감사⋯미래기금ㆍ초광역특구법 쟁점 [국감]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2639156", "m": "", "p": "06:40", "n": 1}], [{"t": "“기술이 행정 덜어줄수록 돌봄 사람에게 머물어”", "s": "이투데이", "l": "https://bravo.etoday.co.kr/view/atc_view/20305", "m": "", "p": "07:02", "n": 1}], [{"t": "한겨레 \"李, 논쟁과 토론 봉쇄하려는 듯한 태도 깊은 우려\"", "s": "미디어오늘", "l": "https://www.mediatoday.co.kr/news/articleView.html?idxno=337931", "m": "", "p": "07:22", "n": 1}], [{"t": "두산연강재단, 과학교사 학술시찰 견문록 출판기념회 개최", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=02896246645615872&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "08:24", "n": 1}]], "n": 20}, {"name": "우주항공청", "clusters": [[{"t": "[단독] 100억 투입 인공위성 사업, 실패하고도 ‘쉬쉬’", "s": "조선", "l": "https://news.google.com/rss/articles/CBMigwFBVV95cUxOakNETTJxOFNzZnNqVGlGZTk0aGtOeHpVWlNjUGxGUG40TUlOX0tJQ0ktMkV6bFpvWW1uRlZpZlZ1UmNENnQwMnNPa2RMUWItUVNSeUwtTWhCN3ZtR0dOa1IteUwxbDJPYzhiUVJJbjE2dTZtcDhSbVVxdGQ3dGZfZ2V2Yw?oc=5", "m": "🔥", "p": "05:00", "n": 2}], [{"t": "사천에어쇼 국제에어쇼로 도약…개막식에 KF-21 등 국산 항공기 시범비행", "s": "문화", "l": "https://www.munhwa.com/article/11625618?ref=naver", "m": "", "p": "07:12", "n": 1}], [{"t": "곡소리 난 증시에도 웃었다…10월 급락장 뚫은 종목들 [1분 브리프]", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102223065858750", "m": "", "p": "08:00", "n": 1}]], "n": 3}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var main = document.getElementById('main');
+  var state = {beat:null, filter:'all', q:''};
+  var picked = new Set();
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+
+  // stable ids + flat index
+  var ALL = {};
+  D.groups.forEach(function(g, gi){
+    g.clusters.forEach(function(c, ci){
+      c.forEach(function(it, ii){
+        it.id = gi+'-'+ci+'-'+ii;
+        it.g = g.name;
+        it.ord = gi*100000 + ci*100 + ii;
+        ALL[it.id] = it;
+      });
+    });
+  });
+
+  document.getElementById('label').textContent = D.label;
+  document.getElementById('window').textContent = D.start + ' — ' + D.end;
+  document.getElementById('n-raw').textContent = D.raw.toLocaleString();
+
+  var scoop=0, flash=0, topics=0;
+  D.groups.forEach(function(g){
+    g.clusters.forEach(function(c){
+      topics++;
+      c.forEach(function(it){ if(it.m===SCOOP) scoop++; else if(it.m===FLASH) flash++; });
+    });
+  });
+  document.getElementById('n-topic').textContent = topics;
+  document.getElementById('n-scoop').textContent = scoop;
+  document.getElementById('n-flash').textContent = flash;
+
+  var beats = document.getElementById('beats');
+  D.groups.forEach(function(g){
+    var b = document.createElement('button');
+    b.className='beat'; b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span>'+g.name+'</span><span class="c mono">'+g.n+'</span>';
+    b.addEventListener('click', function(){
+      state.beat = (state.beat===g.name) ? null : g.name;
+      [].forEach.call(beats.children, function(el,i){
+        el.setAttribute('aria-pressed', String(D.groups[i].name===state.beat));
+      });
+      render();
+    });
+    beats.appendChild(b);
+  });
+
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){
+        b.setAttribute('aria-pressed', String(b===btn));
+      });
+      render();
+    });
+  });
+
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ state.q = q.value.trim().toLowerCase(); render(); }, 120);
+  });
+
+  function keep(it){
+    if(state.filter==='mark' && !it.m) return false;
+    if(state.filter==='spread' && it.n < 2) return false;
+    if(state.filter==='picked' && !picked.has(it.id)) return false;
+    if(state.q && (it.t+' '+it.s).toLowerCase().indexOf(state.q) === -1) return false;
+    return true;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function itemRow(it){
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>'
+            : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(picked.has(it.id)?' on':'')+'" data-id="'+it.id+'">' +
+      '<input class="pick" type="checkbox" id="p'+it.id+'" '+(picked.has(it.id)?'checked':'')+
+      ' aria-label="보고에 포함">' + tag +
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>' +
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>' +
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '') + '</span></div>';
+  }
+
+  // 큰 묶음(30건 이상)은 접어도 몇 건인지 보이게 하고 기본 펼침으로 둔다.
+  // (C 세션(0-14) 결과 — 접기 자체는 안전하나 53건짜리 묶음이 여전히 나오므로
+  //  대표 1건 뒤에 대량이 숨는 화면을 피하기 위한 D 세션 자체 판단)
+  var AUTO_EXPAND = 30;
+
+  function render(){
+    var html = '', shown = 0;
+    D.groups.forEach(function(g){
+      if(state.beat && g.name !== state.beat) return;
+      var blocks = '', gcount = 0;
+      g.clusters.forEach(function(c, ci){
+        var items = c.filter(keep);
+        if(!items.length) return;
+        gcount += items.length; shown += items.length;
+        var lead = items[0], rest = items.slice(1);
+        var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+        var body = itemRow(lead);
+        if(rest.length){
+          var id = 'c'+g.name.replace(/\s/g,'')+ci;
+          var bigCluster = items.length >= AUTO_EXPAND;
+          body += '<button class="more" type="button" aria-expanded="'+(bigCluster?'true':'false')+'" aria-controls="'+id+'">'+
+                  (bigCluster ? '접기 (' : '+') + rest.length + '건 같은 사안' + (bigCluster ? ')' : '') + '</button>'+
+                  '<div class="dupes" id="'+id+'"'+(bigCluster?'':' hidden')+'>'+rest.map(itemRow).join('')+'</div>';
+        }
+        blocks += '<div class="'+cls+'">'+body+'</div>';
+      });
+      if(!gcount) return;
+      html += '<section id="sec-'+g.name+'"><div class="sec-head"><h2>'+g.name+'</h2>'+
+              '<span class="n mono">'+gcount+'건</span></div>'+blocks+'</section>';
+    });
+    main.innerHTML = html || '<p class="empty">조건에 맞는 기사가 없습니다.</p>';
+    document.getElementById('n-shown').textContent = shown;
+
+    [].forEach.call(main.querySelectorAll('.more'), function(btn){
+      btn.addEventListener('click', function(){
+        var box = document.getElementById(btn.getAttribute('aria-controls'));
+        var open = box.hidden;
+        box.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+      });
+    });
+  }
+
+  // one delegated handler for checkboxes
+  main.addEventListener('change', function(e){
+    var cb = e.target;
+    if(!cb.classList || !cb.classList.contains('pick')) return;
+    var row = cb.closest('.row'), id = row.getAttribute('data-id');
+    if(cb.checked){ picked.add(id); row.classList.add('on'); }
+    else { picked.delete(id); row.classList.remove('on'); }
+    syncBar();
+  });
+
+  function syncBar(){
+    var n = picked.size;
+    document.getElementById('n-pick').textContent = n;
+    document.getElementById('bar').hidden = (n === 0);
+  }
+
+  function buildReport(){
+    // 속보도 고를 수 있게 둔다 — 판정이 제목 말머리 기반이라 보고감이 섞인다.
+    // 쓸지 말지는 고르는 단계에서 정한다.
+    var items = [];
+    picked.forEach(function(id){ if(ALL[id]) items.push(ALL[id]); });
+    var rank = function(name){
+      var i = REPORT_ORDER.indexOf(name);
+      return i === -1 ? REPORT_ORDER.length : i;
+    };
+    items.sort(function(a,b){
+      // 1) 단독 먼저  2) 출입처순  3) 중요도순
+      var sa = (a.m === SCOOP) ? 0 : 1, sb = (b.m === SCOOP) ? 0 : 1;
+      if(sa !== sb) return sa - sb;
+      var ra = rank(a.g), rb = rank(b.g);
+      if(ra !== rb) return ra - rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil');
+  var report = document.getElementById('report');
+  var hint = document.getElementById('copyhint');
+  var hintDefault = hint.textContent;
+
+  function openPanel(){
+    var r = buildReport();
+    report.value = r.text;
+    document.getElementById('psub').textContent = r.n + '건 · 단독 상단 · 출입처순';
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false;
+    report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  document.getElementById('make').addEventListener('click', openPanel);
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+
+  document.getElementById('clear').addEventListener('click', function(){
+    picked.clear(); syncBar(); render();
+  });
+  document.getElementById('selectall').addEventListener('click', function(){
+    report.focus(); report.select();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){
+      report.focus(); report.select();
+      hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 ⌘C로 복사하세요.';
+      hint.classList.remove('ok');
+    };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report.value).then(done, fail);
+      } else { fail(); }
+    }catch(err){ fail(); }
+  });
+
+  render(); syncBar();
+})();
+</script>
+
+</body></html>
