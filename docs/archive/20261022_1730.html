@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>저녁 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+.masthead{padding-block:14px 10px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.window{font-size:12.5px; color:var(--muted); letter-spacing:.02em}
+.navline{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-block:10px 0}
+.navline a{
+  font-size:12px; font-weight:500; text-decoration:none;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid transparent; border-radius:999px; padding:4px 11px;
+}
+.navline a:hover{border-color:var(--accent)}
+.tallies{display:flex; flex-wrap:wrap; gap:6px 16px; margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.tallies b{font-weight:600; font-size:14px}
+.t-scoop b{color:var(--scoop)} .t-flash b{color:var(--flash)}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 10px; scrollbar-width:thin}
+.beat{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:6px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:999px; padding:5px 11px; font-size:13px; font-weight:500;
+  cursor:pointer; white-space:nowrap;
+}
+.beat:hover{border-color:var(--accent); color:var(--ink)}
+.beat .c{font-size:11.5px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.beat[aria-pressed="true"] .c{color:rgba(255,255,255,.8)}
+
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 12px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{
+  border:0; background:var(--surface); color:var(--ink-2);
+  font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{
+  flex:1 1 180px; min-width:0; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:6px 10px;
+}
+#q::placeholder{color:var(--muted)}
+#q:focus,.seg button:focus-visible,.beat:focus-visible,.more:focus-visible,
+.bar button:focus-visible,.panel button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:0 96px}
+section{margin-top:26px; scroll-margin-top:170px}
+.sec-head{
+  display:flex; align-items:baseline; gap:9px;
+  padding-bottom:7px; border-bottom:2px solid var(--ink); margin-bottom:2px;
+}
+.sec-head h2{margin:0; font-size:15.5px; font-weight:700; letter-spacing:-.005em}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{
+  background:var(--surface); border-bottom:1px solid var(--line-soft);
+  padding:9px 12px 9px 11px;
+}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{
+  flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer;
+  accent-color:var(--pick); transform:translateY(2px);
+}
+.tag{
+  flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:1.5px 6px; border-radius:4px; transform:translateY(-1px);
+}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{
+  color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45;
+  text-underline-offset:3px;
+}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{
+  flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline;
+  font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.more{
+  margin-top:5px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--accent); font-weight:500;
+}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:5px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes[hidden]{display:none}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:40px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- selection bar ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:var(--shadow);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13.5px; font-weight:600}
+.bar .count b{color:var(--pick); font-size:16px}
+.bar .spacer{margin-left:auto}
+.btn{
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  font:inherit; font-size:13px; font-weight:500; padding:7px 14px; border-radius:7px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08); color:#fff}
+
+/* ---------- report panel ---------- */
+.veil{
+  position:fixed; inset:0; z-index:40; background:var(--veil);
+  display:flex; align-items:flex-end; justify-content:center; padding:16px;
+}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{
+  background:var(--surface); border-radius:12px; width:100%; max-width:660px;
+  max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  border:1px solid var(--line);
+}
+.panel-head{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{
+  flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px;
+  border:1px solid var(--line); border-radius:8px; resize:vertical;
+  background:var(--surface-2); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8;
+}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+
+@media (max-width:560px){
+  .tallies{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+  section{scroll-margin-top:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="navline"><a href="./">‹ 지난 다이제스트</a><a href="../">↻ 최신 다이제스트</a></div>
+    <div class="masthead">
+      <h1 id="label">저녁 다이제스트</h1>
+      <span class="window mono" id="window"></span>
+      <div class="tallies">
+        <span>표시 <b class="mono" id="n-shown">0</b>건</span>
+        <span>주제 <b class="mono" id="n-topic">0</b>개</span>
+        <span class="t-scoop">단독 <b class="mono" id="n-scoop">0</b></span>
+        <span class="t-flash">속보 <b class="mono" id="n-flash">0</b></span>
+        <span>원문 <b class="mono" id="n-raw">0</b>건</span>
+      </div>
+    </div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색 (예: 담합, 연합뉴스)" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <span class="count"><b class="mono" id="n-pick">0</b>건 선택</span>
+    <span class="hint">체크한 기사만 보고 양식으로 묶습니다</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="clear">선택 해제</button>
+    <button class="btn primary" type="button" id="make">보고 양식 만들기</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="selectall">전체 선택</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"label": "저녁 다이제스트", "start": "10/22 13:30", "end": "10/22 17:30", "raw": 253, "groups": [{"name": "공정위", "clusters": [[{"t": "국감 소환된 김학수 NXT 대표 \"프리마켓 하한가 사태 죄송스럽게 생각\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837077", "m": "", "p": "15:27", "n": 1}, {"t": "이억원 \"루센트블록, 시장 필요성 있다면 추가 인가 검토\"", "s": "뉴스1", "l": "https://www.news1.kr/finance/general-stock/6329006", "m": "", "p": "16:57", "n": 1}, {"t": "[국감 26] 루센트블록에 기회 열리나…이억원 금융위원장 \"조각투자 거래소 추가 인가 검토\"", "s": "테크M", "l": "https://www.techm.kr/news/articleView.html?idxno=156402", "m": "", "p": "15:16", "n": 1}, {"t": "[2026국감]'루센트블록 기술탈취 의혹' 지적에…김학수 NXT 대표 \"참고한 바 없다\" 부인", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102215421922385", "m": "", "p": "15:42", "n": 1}], [{"t": "이찬진 “금감원 재취업 심사 대상 완화 필요… 전관 규제는 강화”", "s": "조선비즈", "l": "https://biz.chosun.com/stock/finance/2026/10/22/L23NJIPLIZEKVPYDSF2R3X5RJA/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "14:04", "n": 1}, {"t": "금융지주 재취업 금융당국 출신 절반이 금감원⋯이찬진 “전관 규제 강화” [국감]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2638995", "m": "", "p": "15:00", "n": 1}], [{"t": "[국감 26] 네이버·두나무 결합, 금융위가 막았나...국회, 합병 규제 완화 도마", "s": "테크M", "l": "https://www.techm.kr/news/articleView.html?idxno=156406", "m": "", "p": "15:18", "n": 1}, {"t": "금융당국, 네이버·두나무 결합 따른 독점 우려에 ‘안전장치’ 검토", "s": "경향", "l": "https://www.khan.co.kr/article/202610221556001", "m": "", "p": "15:56", "n": 1}], [{"t": "美기업 과징금 韓의 21배라는데…매출대비 과징금 카카오가 더 높았다", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837017", "m": "", "p": "15:34", "n": 2}], [{"t": "조달청, 불공정 조달 35곳 제재…\"87억 부당이득 환수\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003836830", "m": "", "p": "13:59", "n": 1}], [{"t": "국감 도마위에 오른 사내대출…금융당국도 “어떻게 규제할지 고민”", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10911455?ref=naver", "m": "", "p": "14:24", "n": 1}], [{"t": "대주주 40% 매각 vs 개미 10%만 매도, 주주 불평등 논란", "s": "조선", "l": "https://www.chosun.com/economy/stock-finance/2026/10/22/GVQHG6ISFNAAFGKLKJ7N5LIY34/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news", "m": "", "p": "15:31", "n": 1}], [{"t": "무늬만 AI 광고 제동…공정위, 부당광고 지침 마련", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/22/2026102290171.html", "m": "", "p": "15:56", "n": 1}], [{"t": "\"직원 없이 혼자 합니다\"…요즘 뜨는 '1인 창업' 뭐길래 [현장+]", "s": "한국경제", "l": "https://www.hankyung.com/article/202610228664g", "m": "", "p": "16:31", "n": 1}], [{"t": "\"자동 온도 조절이 인공지능?\"...‘가짜 AI’ 구별법은", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=04096726645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "13:45", "n": 1}], [{"t": "금융당국, 사내대출 DSR 규제 적용 검토…이억원 위원장 \"취지 공감\" [국감]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2639007", "m": "", "p": "15:16", "n": 1}], [{"t": "한경록 한솔제지 대표, 담합 사과에도…출판·인쇄업계 \"소송 불사\"", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261022000936", "m": "", "p": "15:52", "n": 1}], [{"t": "[현장] 소형 매장·가성비에 꽂혔다…불황에 달라진 프랜차이즈 창업 셈법", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102214143302532", "m": "", "p": "15:56", "n": 1}], [{"t": "대동유로모터스, 만트럭버스와 갈등...“100억 투자했는데 계약해지”", "s": "서울경제", "l": "https://www.sedaily.com/article/20104912?ref=naver", "m": "", "p": "15:59", "n": 1}], [{"t": "[2026 국감] \"30% 수수료·유출 늑장 대응\" 구글, \"청소년 혐오 노출\" 메...", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1704906/?sc=Naver", "m": "", "p": "16:50", "n": 1}]], "n": 20}, {"name": "방미통위", "clusters": [[{"t": "방미통위원장 \"YTN 사전처분 의결 절차에 문제 없어\"(종합)", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261022097151017?input=1195m", "m": "", "p": "15:36", "n": 2}, {"t": "청소년 SNS 일괄 규제에 선 그은 방미통위…\"획일적 제한 부적절\"", "s": "뉴스1", "l": "https://www.news1.kr/it-science/internet-platform/6328769", "m": "", "p": "16:32", "n": 1}, {"t": "김종철 방미통위원장, 쿠팡 납치광고 문제에 사실조사 진행…현재 심의·의결 단계", "s": "아주경제", "l": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE5EaVk5M1dIWVBFV2ZTdWZkOTFlVlNrRE16cXItZ0xSaW10UlZNZDlXYzVTbkNEY2xmUElXRGNhbURiWk1GRUtKY3FFUmVXNk1HaDQ0VWE0WFTSAVhBVV95cUxORGlZOTNXSFlQRVdmU3VmZDkxZVZTa0RNenFyLWdMUmltdFJWTWQ5V2M1U25DRGNsZlBJV0RjYW1EYlpNRkVLSmNxRVJlVzZNR2g0NFVhNFhU?oc=5", "m": "", "p": "12:53", "n": 1}, {"t": "[2026 국감]김종철 “청소년 보호책임 강화…플랫폼 '납치광고' 제재 심의”", "s": "전자", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTFBhbTBzRzlaaTVVckw0S2d2clV0X3MxYUVfWjN5MjNhU1VQTVZKNHVzTDRmbnN2NWtXVktHMDFsUmxFMGtSQXhtYzVhQUVrZw?oc=5", "m": "", "p": "13:57", "n": 2}, {"t": "방미통위원장 “YTN 사전처분 의결 절차 문제 없다”", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8692492&ref=A", "m": "", "p": "14:26", "n": 1}, {"t": "중1 편지 꺼낸 김남국 “SNS는 성장의 공간”…김종철 \"일률적 규제 부적절\" 화답", "s": "JTBC", "l": "https://news.jtbc.co.kr/article/NB12324355?influxDiv=NAVER", "m": "", "p": "15:39", "n": 1}, {"t": "[2026 국감] 김종철 위원장 \"청소년 SNS 획일적 규제 부적절…플랫폼 책임 강화 공감\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2017976", "m": "", "p": "15:43", "n": 1}], [{"t": "방미통위 \"해킹 피해보상 제대로 되는지 점검…이용자 보호 강화\"", "s": "뉴스1", "l": "https://www.news1.kr/it-science/internet-platform/6328754", "m": "", "p": "16:26", "n": 2}, {"t": "방미통위 위원장 \"해킹 사건, 사후 이용자 보호조치 담당…보충할 것\"", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/22/2026102214465199785", "m": "", "p": "15:01", "n": 2}, {"t": "[2026 국감] 김종철 “해킹 피해 보상 미흡하면 방미통위 개입”", "s": "데일리안", "l": "https://news.google.com/rss/articles/CBMi7gFBVV95cUxOSm4xMi0wakxjZGkzd3JZMkVxZk5vMlNDam5kaEVjc3N3c3M1RWVlSnluZHBKTF80OVhOLUowS1FHZk12bHVxeGN4aGtJNEZtSUU4T2FkVHlQQW1TdEZtaWRMZnZ3dGVySmNuZ3VBM3lTNGt1VEFtU090YXFGVkxaMTNyTGhUcGZreTl3Z1dSUlA1eFpzU0d3SjdPZXBWUVhCZzVoZjhlbkhDeWYyQk5VbjJSa3VrMVFYNWlGT296Z0JUTVAzRS02TzBMMVQ2RUFzclM3UklJOVQzeE9RMFlKbS05R2F0MUVjY2EwMmRR?oc=5", "m": "", "p": "15:05", "n": 2}, {"t": "김종철 \"해킹 사고 피해보상·구제는 방미통위 소관\"", "s": "지디넷코리아", "l": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE9lSHNOQzQzOVVQZzBYNnNWU0JFVG9BOUtWdlE1OTRqYlp5OG11WFNnNkJFOWg1Y184eXdNcVhUT0JUdFJmTXJGSGpLSVh3aGMwWkZuV2Rn?oc=5", "m": "", "p": "15:30", "n": 2}, {"t": "김종철 방미통위 위원장, 해킹 피해 보상 미흡 땐 개입 시사 [국감2026]", "s": "IT조선", "l": "https://news.google.com/rss/articles/CBMicEFVX3lxTFBTbGZxZmxFdzR5aWhISThMT3BiSXpKRlljUldxSG9BXzVtelp5dlAtZGlRRW5kSzh2UDF1NVZTeHd3SGMxTWFUZklfWVZZMmRDdDRiNkt0RkYyTjV2M011cTRYQkV6RTd3T3Y5bGRaQ3rSAXRBVV95cUxOSkVVSUpjZ0lDd29zS05FOW9jaGljSkYyMUVXR2RDNEJXUDFHQVY3WVhTRktVZmhYQnpxRzA1eUZZVWxSVnRyZjZ2emVPRklQRUFJcm1WMVhySGF4UHNmZXN4VENPV2Q4OTg1NnMxSjZ5czlfSw?oc=5", "m": "", "p": "15:31", "n": 2}, {"t": "[국감 26] 김종철 방미통위 \"통신사·플랫폽 해킹 피해 보상 미흡시 관여할 수 있어\"", "s": "테크M", "l": "https://www.techm.kr/news/articleView.html?idxno=156413", "m": "", "p": "15:38", "n": 1}, {"t": "김종철 방미통위원장 \"해킹 피해 보상 미흡할 시 방미통위 관여\"", "s": "아주경제", "l": "https://www.ajunews.com/view/20261022153020622", "m": "", "p": "15:52", "n": 1}, {"t": "\"해킹 피해 보상 부족하면 개입\"…방미통위, 보상 적정성 살핀다", "s": "파이낸셜뉴스", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5iSkx0bk50OU5PRmFudXMzX1d1dElTaTYxTDloSXhJcHFncEtwWUtqbTdSb0c0TmVqbjhtSkloNW1DTUJYSGx4eU1WMnlWVUNxNUxoRjNoTG1IQQ?oc=5", "m": "", "p": "16:23", "n": 2}, {"t": "[2026 국감] 김종철 방미통위원장 \"해킹 피해 보상 미흡하면 관여하겠다\"", "s": "더팩트", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE9tTmgxa0xLLWpoSFpLUTdJM0g4RjJDa09oLXJnNVN0MEQ1TGY1SXh3QVpkSmpDMmxscGJad3h6a3BEc2huNmxLNk5aaTdETE9aX0diU1JUaE82QdIBVEFVX3lxTE9BbEhyeXRIMExUYVVmNDltcDJkN2p4Zmw3RnQ2aVZOSXo3MjExYVA4aU9tU2VNeDAycVphNlNsa21JSi1XcWg2NldiS1hiRjRNQjZZaQ?oc=5", "m": "", "p": "16:28", "n": 2}], [{"t": "김장겸, 방미통위 부위원장 고발 예고…\"국감 위증\"", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxQNEFkeENhSWVYRjJ3bTFzM1pWZW00YXdHQV93b0xORXRtdEUtdFJwaVFMdS1rS0dzbnZwUFp2WF9XLTE3bDNFSGw3LU5tRG81dEtfTUNSSnBNdmF1b2JKcGFyY1A1MmVJWGtrRExtRkhyLVJQUGNCeUFTd1NvWVZqMg?oc=5", "m": "", "p": "14:32", "n": 2}, {"t": "김장겸, 방미통위 부위원장 고발 예고…\"국감서 위증\"", "s": "한국경제", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE1pRWszdHp2R3hjci1PeUZhVEFiU1hxUnFxQ3gtbmdfbWRYWU4wbXg2NF81c0ZKV1lPd2Y2dFE1ZWFaVGpMRXlfRHJMY0ZhTVEwRzhRTmptdzNxQQ?oc=5", "m": "", "p": "14:48", "n": 2}, {"t": "김장겸, 고민수 방미통위 부위원장 고발…“국감서 위증”", "s": "문화", "l": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE41amk5a2JMZm94b21aQk9RSGhIa1NLU3NITi1kdTBLOGJtWjBxQ0R4WVpvS2IwVmdrSm9MWi1zZEVUZUlsUjJBWlg4Z1hyS1Vr?oc=5", "m": "", "p": "15:44", "n": 2}], [{"t": "'이진숙 제척' 공방‥\"정신 승리\"·\"다수 폭력 제동\"", "s": "MBC", "l": "https://imnews.imbc.com/replay/2026/nw1400/article/6859927_36974.html", "m": "", "p": "14:06", "n": 1}, {"t": "쿠팡 '납치광고' 제재 수순…과방위 종감, 이진숙 제척 두고 여야 공방", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/22/2026102213571939601", "m": "", "p": "14:17", "n": 2}, {"t": "'이진숙 과방위 제척' 정면 대치...\"이해충돌\" vs \"다수 폭력\"", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0101_202610221435020695", "m": "", "p": "14:35", "n": 1}, {"t": "과방위 국감서 '이진숙 제척' 공방‥\"헌재 결정 지킬 것\"", "s": "MBC", "l": "https://imnews.imbc.com/news/2026/politics/article/6859938_36911.html", "m": "", "p": "14:37", "n": 1}, {"t": "'이진숙 제척' 여야 공방...\"엄중 경고\"·\"입틀막\"", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0101_202610221511513469", "m": "", "p": "15:11", "n": 1}, {"t": "與野, ‘이진숙 가처분’ 공방…“면죄부 아냐” “입틀막 사과해야”", "s": "매일경제", "l": "https://www.mk.co.kr/article/12182864", "m": "", "p": "15:29", "n": 1}, {"t": "'이진숙 제척' 과방위 충돌 격화...법사위는 '공소취소' 공방", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0101_202610221602416928", "m": "", "p": "16:02", "n": 1}], [{"t": "\"다른 인터넷 쓰려면 돈 두 번 내라니\"…원룸 세입자의 비애", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003836409", "m": "", "p": "15:08", "n": 1}, {"t": "[2026 국감] \"건물주는 리베이트 받는데 원룸 세입자는 인터넷 요금 이중부담\"", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTFBuUHQwd2RuaEVGaWlNc0JYU01RVmQxVVBYUVZUdTRsM3pTNloyQ1NITklmek5DODh3Z2I5Sms1NXNCUlRXcnRJVHM3cw?oc=5", "m": "", "p": "15:09", "n": 2}, {"t": "관리비 속 인터넷 요금…통신사 바꾸면 이중부담 [국감2026]", "s": "IT조선", "l": "https://news.google.com/rss/articles/CBMicEFVX3lxTE9rN0dDU0c4ZGVJQ195X05Qb1pBTFJlaGJURldVekZCc1dsa0hTSW1rVlRUUHQ2LXVxRTA3dno5LUN6RFVvV2ZmZ1FWVDJDSEJEVUI3eGpPX0RqdGY5aGxIUE9qLWFUUW5RSWh5ZVJhMUXSAXRBVV95cUxNcGVGMkx3Y2hLamNrMW5UVUNwQTREaUZZRVphOE44VFgxcVpocVNHeHg3QmZKdFN2SngzeVNtTy1SR3dSUW9fa1J0ekwtaHFfMUhxbnlMbnpuTVpQY3pjaW4za3g5ajMtUS1CekpxbmJtNkU1UQ?oc=5", "m": "", "p": "15:57", "n": 2}], [{"t": "재의결 없이 청문 사유 늘렸다?…YTN 청문 절차 적법성 두고 국감서 공방", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837062", "m": "", "p": "15:36", "n": 2}], [{"t": "발언권 얻기 위해 손 든 이진숙 의원", "s": "뉴시스", "l": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE1pUTBmX0hYOThXNXR4UlZWaWlteVBOZXdVVGVBTEZoMU1GanZfaVhZYjNVeHJlVlBmQjljbzE1M0FLOVVlb1pnOEh4OXAtTll4SUFVYUdqcXRCaTR1RnJuTQ?oc=5", "m": "", "p": "12:04", "n": 1}], [{"t": "'중2 여자' 채팅방에 35명 몰려…이정헌 \"어른들이 조치해야\"", "s": "JTBC", "l": "https://news.jtbc.co.kr/article/NB12324337?influxDiv=NAVER", "m": "", "p": "14:47", "n": 1}], [{"t": "국회 과방위, '이진숙 가처분'으로 싸우더니 '한준호 KBS'로 싸움", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008810423&plink=ORI&cooper=NAVER", "m": "", "p": "15:24", "n": 1}], [{"t": "장애인TV 공급 삼성만 남았는데 참여 난색…내년 보급도 불투명", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837207", "m": "", "p": "16:12", "n": 1}], [{"t": "이진숙 놓고 또 충돌한 과방위…YTN·방송 공공성·플랫폼 도마(종합) [2026 국감]", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE9reGlNR21TTm5Yek43NG5jYjBfOGZXd3JtSGNheHI3TEFhdTRqM3JTU3JRS0xiQXdsS0d6REdCa0xwZnl3dVVBNm5XYTBTUU9pbHV1Y0U0TDQ2ZnI0UmFIekVqWEU?oc=5", "m": "", "p": "13:28", "n": 2}], [{"t": "[2026 국감] 초등생 3명 중 1명, 낯선 사람과 채팅…김종철 \"보호 미흡 송구\"", "s": "더팩트", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTFBsNElUWEJzQ0NyQldkdkk3Q2J4dWtqSjhibktqeUNJcFQ1QVVlVkl2WWFjbDI4Zm1DR1hfcGpTb191ZHhCRXdFc19BRW5LQmZ2LTNWaTdnT1hEUdIBVEFVX3lxTE1DQmFMRC1KSmFfeVM0UkVtcE5aY21RcEdQZXlvNnQzcDlzM3gzVEM2UkcwdzVBcFVGMWdFSXpXUFJNUi0tQ19FVmswU3hEUHNGakVuVA?oc=5", "m": "", "p": "13:52", "n": 2}], [{"t": "국회 온라인 플랫폼 채팅 통해 아동·청소년 성범죄 무방비 노출", "s": "아주경제", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE9QNnd1ZklUeVl2UmJXT1hMRW9zYXBQX094bU12d3pnbGN2UlVSUUZjeTFSd1NSQVcwZWdtS0FpZkNaQ0xKUkEzMTJVa2RXZC14UEpmWVNmQU01d9IBWEFVX3lxTFByUDBNVHJMRWMxLUtiZms3WkhmQlhsbGNCWWQwV0kzd1BTMkhuY1Qtb3ZXTE9BTEFsdXB5VWhxMU5LdGY4ZHkxWFY3X0FzRWhUUi1ZYm5EY20?oc=5", "m": "", "p": "15:18", "n": 2}], [{"t": "건물 인터넷 단체계약에 이중요금 논란...방미통위 \"규정 개정하겠다\"", "s": "지디넷코리아", "l": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE5TRlhSY3VyWE44UFgxUzhqLXBKQ2ZMaVZIUUJ1eXBqYm9MZ3N6TGw1ZjNVbjM3RUdRaGJ2V3A1OGc1VFdTajdaUWJGYXRadHhSSUg1THR3?oc=5", "m": "", "p": "15:29", "n": 2}], [{"t": "[방미통위 1기 비전 ㊤] ‘국민 중심’에서 ‘미디어 기본사회’로…실행력은 시험대", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTFBPUE5NTVVCUExZM1AtZzdaeDNrMzU5VlNNWXV5bFFzRGx5OXcxNnhMNWg5cEFzLVh5ZHUzNHJvS1Ffbll4YVBkZnNhaTlWS1BMeEVhT3k3OE03cVNJQ3RQNWtxdzI?oc=5", "m": "", "p": "15:30", "n": 2}], [{"t": "\"장애인방송 접근성 확대에 예산 지원 필요\"", "s": "지디넷코리아", "l": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE5za1JtcXFEYU1ZRFJoVW1RX0h4SmdUZ1RlSlZ0NlhLeGMteUdqRVJ5dGpOVXRZUXBSeWNQVTAzeXJpTFd1VmZ5V2sxZnZiS0xOWmlkZklB?oc=5", "m": "", "p": "15:57", "n": 2}], [{"t": "'이진숙 제척' 가처분 인용에 과방위원장 \"취지 지켜 국감 운영\"", "s": "한국기자협회", "l": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE1lYTdYdlpOV0ZWUGNLUWFtajl3eTFub3FFUmlTdHN1N2x1SkFnNFFYRHFBekdvdnV2S2ctNUJrc0hiMGN6a0VYWEJRTG53N2NBM2pmWFNBekRwSFJwYjV4SUd3?oc=5", "m": "", "p": "13:28", "n": 1}], [{"t": "아·태 인권기구 \"인권위 세종 이전 깊은 우려\"…이 대통령에 서한", "s": "더팩트", "l": "https://news.tf.co.kr/read/life/2379460.htm", "m": "", "p": "13:34", "n": 1}], [{"t": "교육위 23일 종합감사…청소년 AI 챗봇 보호·'수시 먹통' 후속 대책 주목", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261022001005", "m": "", "p": "15:06", "n": 1}], [{"t": "尹 입틀막 재현? 오세훈 'PD수첩' 고소에 방문진 이사장 \"유감\"", "s": "미디어오늘", "l": "https://www.mediatoday.co.kr/news/articleView.html?idxno=337915", "m": "", "p": "15:09", "n": 1}], [{"t": "[2026 국감] 이진숙 “YTN 심의에 김종철 참여 적절한가” 金 “책임질 것”", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1704864/?sc=Naver", "m": "", "p": "15:43", "n": 1}], [{"t": "헌재 제동에 반격 나선 野…與 '강경파 압박' 지속", "s": "아주경제", "l": "https://www.ajunews.com/view/20261022153305641", "m": "", "p": "15:50", "n": 1}], [{"t": "\"피해 주지 말아야지\" \"현실 엉망\" 근로감독 후 방송비정규직 '벼랑끝'", "s": "미디어오늘", "l": "https://www.mediatoday.co.kr/news/articleView.html?idxno=337914", "m": "", "p": "15:55", "n": 1}], [{"t": "\"뒤에서 찍지 마!\" 이진숙 보좌진 향해 고성…과방위서 무슨 일이", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6595699?utm_source=naver&utm_medium=article&utm_campaign=20261022043124", "m": "", "p": "16:25", "n": 1}], [{"t": "과방위 파행 중 날아든 \"웃지 마세요\"…이진숙 정색 반응 '뭐?'", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6595712?utm_source=naver&utm_medium=article&utm_campaign=20261022043724", "m": "", "p": "16:38", "n": 1}]], "n": 49}, {"name": "과기정통부", "clusters": [[{"t": "[단독]국내 웹사이트, PHP 사용률 83%…치명적 취약점 대응 시급", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12090668?ref=naver", "m": "🔥", "p": "14:58", "n": 1}, {"t": "[단독]'해킹 구멍' PHP…국내 서버 10대 중 9대, '업데이트 불가'", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/22/2026102214461994494", "m": "🔥", "p": "15:28", "n": 1}, {"t": "전 세계 PHP 보안 비상…정부, 사이버위기 경보 '주의' 상향", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261022133900017?input=1195m", "m": "", "p": "15:11", "n": 1}, {"t": "靑, 'PHP 취약점'에 민·관·군 긴급회의…\"원팀으로 신속 조치\"", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261022151700001?input=1195m", "m": "", "p": "16:10", "n": 1}, {"t": "\"우리 홈페이지 괜찮을까\"…스틸리언, 'PHP 취약점' 무료 점검 서비스 시작", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003836993", "m": "", "p": "15:04", "n": 1}, {"t": "韓 웹 사이트 83%, '취약점 발견' PHP 사용…\"보안 업데이트 시급\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837178", "m": "", "p": "16:06", "n": 1}, {"t": "'PHP 취약점' 발견에 비상…금융당국, 금융권 긴급 지침 전파", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837342", "m": "", "p": "16:46", "n": 1}, {"t": "PHP 보안 취약점 \"즉각 업뎃\"…정부, 사이버위기경보 '주의'", "s": "뉴스1", "l": "https://www.news1.kr/it-science/security-hacking/6328651", "m": "", "p": "14:28", "n": 2}, {"t": "\"PHP 보안 결함 비상\"...이해민 AI 수석 \"매우 심각하게 보고 대응중\"", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261022095839", "m": "", "p": "09:59", "n": 1}, {"t": "과기부, PHP 보안 취약점 공개에 사이버위기 경보 ‘주의’로 상향", "s": "아시아투데이", "l": "https://news.google.com/rss/articles/CBMibkFVX3lxTE5malVfUGJaQlVHN1drRkZHMHVvSmxPOXRTSUZXV0R3V2Q3eENrNUlZOFRPODA4ZXVscXpXcnQ1SDlDc3VoaE1teU5sU19aZElFVnl4ZnVhOVlIYVpDWGdmN055S0wzeGpQcVBkZkh3?oc=5", "m": "", "p": "13:09", "n": 1}, {"t": "PHP 보안 우려에 정부, 사이버 위기 경보 ‘관심’→‘주의’ 상향", "s": "서울경제", "l": "https://www.sedaily.com/article/20104797?ref=naver", "m": "", "p": "13:32", "n": 1}, {"t": "\"로그인 없이 서버 뚫린다\"…정부, PHP 해킹 위협에 비상대응 [종합]", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2017896", "m": "", "p": "13:45", "n": 1}, {"t": "정부, 기업에 PHP 보안조치 안내…긴급패치 검토", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/MYH20261022134541SgT", "m": "", "p": "13:46", "n": 1}, {"t": "'PHP 보안 사태'에…정부, 주요 기업에 보안조치 안내", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008810152&plink=ORI&cooper=NAVER", "m": "", "p": "13:51", "n": 1}, {"t": "PHP 보안 구멍... 정부, 사이버위기 '주의' 발령", "s": "오마이뉴스", "l": "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003277693&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news", "m": "", "p": "14:11", "n": 1}, {"t": "스틸리언, ‘PHP2Shell’ 취약점 긴급 무료 점검 실시", "s": "매일경제", "l": "https://www.mk.co.kr/article/12182796", "m": "", "p": "14:42", "n": 1}, {"t": "PHP 보안 취약점 발견에 세계가 비상…“韓, 위험 호스트 세계 6위 규모”", "s": "전자", "l": "https://www.etnews.com/20261022000351", "m": "", "p": "15:13", "n": 1}, {"t": "\"PHP2shell 취약점 무료 점검\"...스틸리언, 서비스 출시", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261022151732", "m": "", "p": "15:18", "n": 1}, {"t": "전 세계 PHP 보안 비상…정부, 사이버위기 경보 '주의' 상향 발령", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008810409&plink=ORI&cooper=NAVER", "m": "", "p": "15:18", "n": 1}, {"t": "스틸리언, PHP 취약점 무료 점검 서비스 공개", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=04674006645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "15:37", "n": 1}, {"t": "靑 “PHP 취약점 공격 시 무인증 서버 장악…‘주의’로 경보 상향”", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10911681?ref=naver", "m": "", "p": "15:46", "n": 1}, {"t": "PHP 취약점에 전 세계 '해킹 주의보'...정부 비상대응에 민간도 가세", "s": "테크M", "l": "https://www.techm.kr/news/articleView.html?idxno=156414", "m": "", "p": "16:02", "n": 1}, {"t": "PHP 보안 비상에 정부, 사이버위기 경보 '관심'→'주의' 상향", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1704814/?sc=Naver", "m": "", "p": "16:07", "n": 1}, {"t": "PHP 보안 취약점에 국내외 비상…정부, 위기경보 '주의' 격상", "s": "매일", "l": "https://www.imaeil.com/page/view/2026102216102480403", "m": "", "p": "16:11", "n": 1}, {"t": "개인정보위 \"PHP 취약점 관련 예방조치\" 당부", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=04962646645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "16:16", "n": 1}, {"t": "PHP 보안 결함에 정부 사이버위기 ‘주의’ 발령…대응 나선 보안업계", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102213571167216", "m": "", "p": "16:17", "n": 1}, {"t": "청와대 국가안보실, ‘PHP 보안 취약점’ 민관군 긴급회의", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8692559&ref=A", "m": "", "p": "16:20", "n": 1}, {"t": "스틸리언, 'PHP2Shell' 취약점 무료 점검 서비스 공개", "s": "전자", "l": "https://www.etnews.com/20261022000410", "m": "", "p": "16:21", "n": 1}, {"t": "‘PHP 보안 취약점’ 난리에…개보위, 개인정보 유출 예방 조치 당부", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10911725?ref=naver", "m": "", "p": "16:21", "n": 1}, {"t": "국가안보실, PHP 보안 결함 긴급 점검…\"민관군 공조 강화\"", "s": "아주경제", "l": "https://www.ajunews.com/view/20261022161647923", "m": "", "p": "16:26", "n": 1}, {"t": "\"URL 입력해 PHP 취약점 영향 확인\"…스틸리언, 무료 점검 서비스 공개", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102216172702955", "m": "", "p": "16:26", "n": 1}, {"t": "개인정보위, PHP 취약점 악용한 개인정보 유출 주의 당부", "s": "아주경제", "l": "https://www.ajunews.com/view/20261022161815926", "m": "", "p": "16:28", "n": 1}, {"t": "\"개인정보 유출 위험 주의\"…정부, 'PHP 취약점' 예방 조치 당부", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102216291104400", "m": "", "p": "16:32", "n": 1}, {"t": "국가안보실, 'PHP 취약점'에 민·관·군 긴급회의…\"신속 대응\"", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1704896/?sc=Naver", "m": "", "p": "16:37", "n": 1}, {"t": "AI가 발견한 PHP 취약점에 전 세계 발칵…정부도 위기 경보", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=05129926645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "16:42", "n": 1}, {"t": "IT업계 PHP 취약점에 발칵…\"중소기업·소상공인 우려\"", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=05126646645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "16:42", "n": 1}, {"t": "개인정보위 “PHP 보안 취약점 주의…접근통제 등 관리 체계 강화해야”", "s": "세계", "l": "https://www.segye.com/newsView/20261022519765?OutUrl=naver", "m": "", "p": "16:45", "n": 1}, {"t": "개인정보위 \"PHP 보안 취약점 노출…보안 업데이트해야\"", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102216450798708", "m": "", "p": "16:45", "n": 1}, {"t": "PHP 치명적 취약점, AI가 발견···각국 기업·정부 비상", "s": "한겨레", "l": "https://www.hani.co.kr/arti/economy/it/1283666.html", "m": "", "p": "16:48", "n": 1}, {"t": "안보실, PHP 취약점 긴급회의…민간 사이버위기경보 '주의' 상향", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=05182406645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "16:55", "n": 1}, {"t": "오래 된 쇼핑몰 사이트 보안 위험... \"PHP 패치 적용 후 웹 재시작해야\"", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026102215510000144?did=NA", "m": "", "p": "16:59", "n": 1}], [{"t": "[PHP 비상] 배경훈·이해민, 정부인사도 긴급 당부…사이버경보 ‘주의’ 상향", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102213334553257", "m": "", "p": "13:35", "n": 1}, {"t": "\"PHP에 치명적 결함, 즉시 업데이트 하라\"…사이버위기 '주의' 발령", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/22/2026102213080746780", "m": "", "p": "13:40", "n": 1}, {"t": "전 세계 PHP '비상'…정부, 사이버위기경보 '주의' 격상", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102289377", "m": "", "p": "15:23", "n": 1}, {"t": "전 세계 'PHP 비상'에 긴급 대응…정부, 사이버위기 '주의'로 상향", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/AKR20261022153211lUn", "m": "", "p": "15:33", "n": 1}, {"t": "과기정통부, 'PHP 대응' 사이버위기 경보 주의 발령", "s": "지디넷코리아", "l": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE9JMUhoaTI1NnFFQTQ3TDlVcTVaZ3laQ2htVFkwY3c5NHRqaHJIdFNIeEhhWXM4UnBaM1F3VU5Jc3VWckx2anktdUVFNXI2WFdiZnBlVVh3?oc=5", "m": "", "p": "15:41", "n": 2}, {"t": "靑, 전세계 'PHP 비상'에 긴급회의…\"민관군 원팀 신속 조치\" 주문", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102216132873530", "m": "", "p": "16:13", "n": 1}, {"t": "사이버위기 경보 '주의' 격상…PHP 긴급 업데이트", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6595704?utm_source=naver&utm_medium=article&utm_campaign=20261022042424", "m": "", "p": "16:25", "n": 1}, {"t": "웹사이트 취약점에 사이버 위기경보 ‘주의’ 격상…정부 긴급 대응", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8692582&ref=A", "m": "", "p": "16:55", "n": 1}], [{"t": "SMR·핵융합 등 7대 미래기술 키운다…정부, 실행전략 마련", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261022116100017?input=1195m", "m": "", "p": "14:01", "n": 1}, {"t": "정부, 미래 성장 이끌 ‘7대 씨앗’ 전략 구체화", "s": "뉴스1", "l": "https://www.news1.kr/it-science/general-science/6328514", "m": "", "p": "14:45", "n": 2}, {"t": "'3대 메가' 잇는 '7대 SEED 프로젝트' 전략 수립 본격화", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/22/2026102210273267389", "m": "", "p": "14:00", "n": 2}, {"t": "SMR·핵융합·양자 등 7대 미래기술 육성…정부, 연내 이행전략 마련", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102210114823464", "m": "", "p": "14:00", "n": 1}, {"t": "정부, 7대 SEED 이행 전략 수립 본격화", "s": "전자", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE9NRURGOVdqU1ltd2RFc19ERDJnb3l2Y3QzbWxLRklfSG9icWJMeFNzakRuSkk2cHZvaTBHejMzc3ZRUUFVWk5BckJ4Rm9NZw?oc=5", "m": "", "p": "14:00", "n": 2}, {"t": "정부, 미래성장동력 ‘7대 SEED 프로젝트’ 분야별 전략 구체화", "s": "데일리안", "l": "https://news.google.com/rss/articles/CBMi7gFBVV95cUxQN0dMTVdWckNUbVBHVVROcHplTXlsbnluSk9WVVNHeWdDQlZUMWZ0YUp2MUFESEgzVzByZmQ1YnhZZG5LeG1wRGxrRU9wY24wY2VESWdzRF96VVFfVUhpR0pPUWliTlZRblJSc3BOdjlhVC1RdzAwNjduLTFmQlBpa1MyeEdkS3kzSXZ1Ync3NHg1eTdEclhScXUyWVBmMEtDRTdGZmlodUNRTDZSYWtFWTFobkN2ZUV0X0s5dXM1UDFNckRHS3Nld0JleHZkdGlBS0YzSjNSSGRsY0NFMXJ2ZEU2Y09XQmtFRzJYQlRn?oc=5", "m": "", "p": "14:02", "n": 2}, {"t": "SMR·양자·우주 등 7대 SEED 프로젝트 연내 이행전략 마련", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNUnlOODRBVHhLN0xTaXdfUE12WHZsSGNCektmRnphZzNsdHFlZHR4OTRWN3hCNkpMZW5nZGw0UHRWX1hVemlwTHVRZS1vdkJLYm8zOEhSckVobjJxaHljcWtoMTg0a280a2NEcG9mcDFoRk9rWVJVRWlSWnZKemEwaw?oc=5", "m": "", "p": "14:09", "n": 2}, {"t": "SMR·핵융합·양자 등 '7대 시드' 프로젝트 성과 목표 구체화", "s": "동아사이언스", "l": "https://www.dongascience.com/news/view/80488", "m": "", "p": "14:21", "n": 1}, {"t": "SMR·우주항공 등 7대 첨단기술 육성…연내 실행계획 수립 마련", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8692491&ref=A", "m": "", "p": "14:26", "n": 1}, {"t": "정부, SMR·양자 등 7대 미래기술 ‘올인’…육성전략 연내 마련", "s": "매일경제", "l": "https://www.mk.co.kr/article/12182837", "m": "", "p": "15:10", "n": 1}], [{"t": "전자발찌 끊으면 추적물질 자동 분사…'과학치안 공모전' 대상", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261022110100004?input=1195m", "m": "", "p": "15:00", "n": 2}, {"t": "전자발찌 훼손하면 특수물질 분사해 추적…과학치안 아이디어 대상", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003836992", "m": "", "p": "15:01", "n": 2}, {"t": "전자발찌 훼손하면 특수물질 분사해 추적…과학치안 공모전 대상", "s": "머니투데이", "l": "https://www.mt.co.kr/society/2026/10/22/2026102208571315730", "m": "", "p": "15:00", "n": 1}, {"t": "전자발찌 훼손돼도 끝까지 추적…‘과학치안 아이디어 공모전’ 대상", "s": "서울경제", "l": "https://www.sedaily.com/article/20104840?ref=naver", "m": "", "p": "15:01", "n": 1}, {"t": "\"전자발찌 훼손하면 추적물질 자동 분사\"…과학치안 아이디어 대상", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610221020234633", "m": "", "p": "15:01", "n": 1}, {"t": "경찰청, '과학치안 아이디어 공모전' 13팀에 1980만원 상금 수여", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/22/2026102290112.html", "m": "", "p": "15:01", "n": 1}, {"t": "전자발찌 훼손 땐 `추적용 물질` 분사…현장 경찰관들의 반짝 아이디어", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=04411606645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "15:02", "n": 1}, {"t": "전자발찌 끊는 순간 '칙'…경찰이 낸 기발한 아이디어", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008810598&plink=ORI&cooper=NAVER", "m": "", "p": "16:21", "n": 2}], [{"t": "페이커 우표ㆍ굿즈, 23일부터 구매 가능⋯가격ㆍ종류ㆍ구매처는?", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2638947", "m": "", "p": "14:16", "n": 1}, {"t": "페이커 기념우표 굿즈 출시…메탈카드 507개 한정판도 나온다", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=04191846645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "14:20", "n": 1}, {"t": "'페이커' 기념우표에 포토카드까지…한정판 굿즈 나온다", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000341541?division=NAVER", "m": "", "p": "14:24", "n": 1}], [{"t": "넘어지면 보호자에 알림…부산 ‘스마트 신발’ 장애인 보급 확대", "s": "국민", "l": "https://www.kmib.co.kr/article/20261022500953", "m": "", "p": "14:47", "n": 1}, {"t": "부산TP, 사회적 약자 위해 '스마트 신발 서비스' 확대 나서", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610221502205039", "m": "", "p": "15:05", "n": 1}, {"t": "부산TP-장애인부모회, ‘스마트 신발’ 지원 업무협약", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10911738?ref=naver", "m": "", "p": "16:26", "n": 1}], [{"t": "\"우리 회사도 PHP 해킹 위험?\"…스틸리언, 무료 점검 서비스", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261022130700017?input=1195m", "m": "", "p": "14:56", "n": 1}, {"t": "국가안보실, PHP 해킹 위험에 긴급대책회의…\"민·관·군 원팀으로 신속 조치해달라\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837193", "m": "", "p": "15:58", "n": 1}, {"t": "'PHP 해킹 우려'에…국가안보실, 민관군 합동 점검회의 개최", "s": "전자", "l": "https://www.etnews.com/20261022000392", "m": "", "p": "15:46", "n": 1}], [{"t": "KT, 양자암호통신 테스트베드 전국으로 확대…무선·위성 기술 실증", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2638920", "m": "", "p": "13:46", "n": 1}, {"t": "KT, 양자암호통신망 테스트 전국 확대…무선·위성 기술 검증", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/22/2026102290160.html", "m": "", "p": "15:27", "n": 1}], [{"t": "국가 R&D-수요기업 연결하는 'AI 중매쟁이'…'아폴로' 본격 가동", "s": "머니투데이", "l": "https://www.mt.co.kr/future/2026/10/22/2026102204174785111", "m": "", "p": "16:00", "n": 2}], [{"t": "UNIST \"병원균 잡는 세균, 먹잇감 표면 따라 공격 효과 달라\"", "s": "뉴스1", "l": "https://www.news1.kr/local/ulsan/6328435", "m": "", "p": "13:26", "n": 1}], [{"t": "종로구의회 유양순 의원, AI가 일상에서 더욱 안전하게…‘종로구 인공지능윤리 교육에 관한 조례’ 의결", "s": "서울", "l": "https://www.seoul.co.kr/news/publicnews/seoul_local/focus_seoul/2026/10/22/20261022500108?wlog_tag3=naver", "m": "", "p": "13:32", "n": 1}], [{"t": "오토앤, 커머스에 'AI 에이전트' 접목…인핸스 'AgentOS' 결합", "s": "머니투데이", "l": "https://www.mt.co.kr/future/2026/10/22/2026102213274190273", "m": "", "p": "15:30", "n": 1}], [{"t": "[내일의 국감](23일)", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261022119600001?input=1195m", "m": "", "p": "16:00", "n": 1}], [{"t": "포스텍 '해 지고 바람 없어도 재생에너지 성능 유지 운전법' 개발", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837206", "m": "", "p": "16:05", "n": 1}], [{"t": "부산TP, 장애인 대상 'IoT 기반 스마트신발 지원서비스' 추진", "s": "뉴스1", "l": "https://www.news1.kr/local/busan-gyeongnam/6328840", "m": "", "p": "16:05", "n": 1}], [{"t": "세종대 연구팀, 생활인구 예측하는 '설명 가능한 AI' 개발", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003837004", "m": "", "p": "16:15", "n": 1}], [{"t": "\"재난 알림 10분서 수초로\" 세종 AI 행정, 세계은행과 손잡다", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261022_0003836764", "m": "", "p": "16:36", "n": 1}], [{"t": "지뉴소프트, 대한원격탐사학회서 ‘초분광 파운데이션 모델·AI 반사율 복원 기술’ 발표", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12090652?ref=naver", "m": "", "p": "13:49", "n": 1}], [{"t": "[2026 국감] 김종민이 쏘아올린 공…산업부+과기부 통합론 고개", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261022001230", "m": "", "p": "16:39", "n": 2}], [{"t": "'글로벌 AI 허브' 주역들, 입지 선정 앞서 계획 구체화 주문", "s": "전자", "l": "https://www.etnews.com/20261022000250", "m": "", "p": "13:37", "n": 1}], [{"t": "AI 인류 종말론 현실성 있냐고요? 전문가에 물었더니", "s": "오마이뉴스", "l": "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003276543&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news", "m": "", "p": "13:56", "n": 1}], [{"t": "[아이포럼 2026] 포스트 HBM은?…\"메모리가 직접 계산하고, 고객과 함께...", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2017886", "m": "", "p": "14:03", "n": 1}], [{"t": "\"GMO 취급받는 유전자가위…6000억 투입하고 규제에 발 묶여\"", "s": "동아사이언스", "l": "https://www.dongascience.com/news/view/80487", "m": "", "p": "14:32", "n": 1}], [{"t": "인공지능사업단, AI 모델 개발 경험 공유·서비스 개선 모색", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102214142899785", "m": "", "p": "14:47", "n": 1}], [{"t": "세종시·세계은행, AI·디지털 분야 협력 확대", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261022000919", "m": "", "p": "14:48", "n": 1}], [{"t": "AI가 짚어낸 ‘웹의 아킬레스건’⋯세계 곳곳, 사이트 긴급 셧다운 [PHP 보안결함]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2638998", "m": "", "p": "15:08", "n": 1}], [{"t": "AICA, 'AI TECH 세미나' 개최…광주 국가 AI데이터센터 고도화 모색", "s": "전자", "l": "https://www.etnews.com/20261022000344", "m": "", "p": "15:09", "n": 1}], [{"t": "[아이TV] '제7회 아이뉴스24 D·N·A 혁신상' 영광의 수상자들", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2017975", "m": "", "p": "15:19", "n": 1}], [{"t": "국제과학관심포지엄 대전서 개최", "s": "대전", "l": "https://www.daejonilbo.com/news/articleView.html?idxno=2308816", "m": "", "p": "15:30", "n": 1}], [{"t": "GPU 과잉투자 경고에도…삼성·LG '풀베팅'", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261022000854", "m": "", "p": "15:36", "n": 1}], [{"t": "조선대 대학원생 3명, 이공계 우수장학생 선발…수소·암모니아 기반 무탄소 연구 역량 인정", "s": "전자", "l": "https://www.etnews.com/20261022000385", "m": "", "p": "15:41", "n": 1}], [{"t": "[아이포럼 2026] 진하영 이사 \"피지컬AI, GPT-2~3 단계⋯남은 과제는 '손기술'\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2017990", "m": "", "p": "15:48", "n": 1}], [{"t": "[아이포럼 2026] 이시행 연구원 \"피지컬 AI가 풀어야 할 가장 어려운 과제\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2017985", "m": "", "p": "15:49", "n": 1}], [{"t": "李대통령 또 \"헌법 어기며 중수청 지휘감독 포기하란 말이냐\"", "s": "프레시안", "l": "https://www.pressian.com/pages/articles/2026102216140545554?utm_source=naver&utm_medium=search", "m": "", "p": "16:19", "n": 1}], [{"t": "대덕 양자기업, 美 '양자 수도'서 현지 IR·네트워킹 가져", "s": "전자", "l": "https://www.etnews.com/20261022000409", "m": "", "p": "16:21", "n": 1}]], "n": 105}, {"name": "우주항공청", "clusters": [[{"t": "[단독]한국 최초 '달 궤도수송선', 한화에어로스페이스가 만든다", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/22/2026102211452328099", "m": "🔥", "p": "16:30", "n": 1}], [{"t": "‘대학생이 만든 초소형위성 우주로’…항우연, 7개 팀 선정", "s": "쿠키뉴스", "l": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE9rb1FWVGJldGZTYkpWUkV3SWhGbllSTWhfbXNHZWpZbUdoeU1DdWxodjB6R2J2WU0wQXd0NFVBYnA5a3JzaU9STDJSSS00blpFREZvQnlKVHNrZmdUNWJvTFE2Zw?oc=5", "m": "", "p": "08:22", "n": 2}, {"t": "대학생이 만든 위성 우주로…초소형위성 경연대회 7개 팀 선정", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102213582099982", "m": "", "p": "13:58", "n": 1}, {"t": "미래 주역들이 만든 초소형위성 우주로···수상팀 최종 선정", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=04532966645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "15:10", "n": 1}, {"t": "'누리호' 탑재 기회 주는 초소형 위성 경연대회에 7개 대학팀 선발", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/22/2026102216190867588", "m": "", "p": "16:56", "n": 1}], [{"t": "한국형 위성항법시스템 위성 1호기 시스템 상세설계 종합 점검 완료", "s": "전자", "l": "https://www.etnews.com/20261022000308", "m": "", "p": "14:35", "n": 1}, {"t": "한국형 GPS 설계 검토 완료…2029년 첫 위성 우주로 쏜다", "s": "매일경제", "l": "https://www.mk.co.kr/article/12182824", "m": "", "p": "15:04", "n": 1}, {"t": "우주청, '한국형 GPS' 위성 1호기 전체 설계 점검… 2029년 발사", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/22/2026102290158.html", "m": "", "p": "15:24", "n": 1}, {"t": "‘한국형 KPS’ 위성 1호기 본체 상세설계 점검…내달 통합설계 마무리", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12090683?ref=naver", "m": "", "p": "15:32", "n": 1}], [{"t": "한화에어로, 사천에어쇼에서 ‘국산 엔진’ 기술력 뽐낸다", "s": "부산", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE9XeUFoOHJtTHBaaGp3bHM5WEZNSjJpMzI3dTlhVXVYSUNHVUJ6OXZzVkhyc3AzaTFQUzBrcDc5QXk4alF6YXBQREpOMXdWR1JDNzJOMHVEWE1Bei0wY2ozV3JKRU9zUm1wcjl2U1NST1NVTXpQ?oc=5", "m": "", "p": "14:47", "n": 2}, {"t": "한화에어로, 사천에어쇼 참가…항공엔진·무인기·누리호 등 전시", "s": "문화", "l": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE9xNktNd0wwcGIwWWNucFZyajBET09JOE5JUlhwVXN3b0dwa21nSjk5WHhRQTZsTEVtdWFCZDV6VXZSeDRUSzctNXJGLURBeWJi?oc=5", "m": "", "p": "15:18", "n": 2}], [{"t": "한화에어로, 사천에어쇼서 미래 우주항공 기술 선보여", "s": "서울경제", "l": "https://www.sedaily.com/article/20104910?ref=naver", "m": "", "p": "15:55", "n": 1}, {"t": "한화에어로, 사천에어쇼서 미래 우주항공 기술 선보인다", "s": "부산", "l": "https://www.busan.com/view/busan/view.php?code=2026102210503979436", "m": "", "p": "16:34", "n": 1}], [{"t": "박재필 대표 \"우주 서비스 구매할 국방분야 예산·구독 집행 구조 제도화해야\"", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261022133124", "m": "", "p": "13:32", "n": 1}], [{"t": "우주청, 24日 '대한민국 우주로버 챌린지' 본선 개최", "s": "전자", "l": "https://www.etnews.com/20261022000311", "m": "", "p": "14:43", "n": 1}], [{"t": "[2026국감]우주 신산업 육성한다면서…R&D 성과는 특허·시제품 중심 평...", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102214494859630", "m": "", "p": "14:49", "n": 1}], [{"t": "'2026 국제 우주산업 콘퍼런스' 경상국립대학교 칠암캠퍼스에서개최", "s": "매일", "l": "https://www.imaeil.com/page/view/2026102214573008088", "m": "", "p": "15:01", "n": 1}], [{"t": "'우수한 아이디어' 위성이 되다", "s": "대전", "l": "https://www.daejonilbo.com/news/articleView.html?idxno=2308817", "m": "", "p": "15:29", "n": 1}], [{"t": "우주기업들 \"시장 필요…예측 가능한 수요 아쉬워\"", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261022151905", "m": "", "p": "15:49", "n": 1}], [{"t": "[人사이트] 김이을 쎄트렉아이 대표 “2031년 10㎝급 위성 도전…글로벌...", "s": "전자", "l": "https://www.etnews.com/20261022000020", "m": "", "p": "16:01", "n": 1}], [{"t": "\"튼튼한 우주산업 생태계 있어야 우주안보 역량 확보\"", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261022160454", "m": "", "p": "16:05", "n": 1}], [{"t": "[과학 핫이슈]반세기만의 인간 달 착륙…NASA 아르테미스 계획 주", "s": "전자", "l": "https://www.etnews.com/20261022000225", "m": "", "p": "16:31", "n": 1}], [{"t": "박완수 경남도지사 \"경남은 K-방산 중심이자 우주항공산업 심장…사천에...", "s": "더팩트", "l": "https://news.tf.co.kr/read/national/2379645.htm", "m": "", "p": "16:32", "n": 1}], [{"t": "김창섭 국정원 3차장 \"안보 최전선은 지상 아니라 우주\"", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261022163545", "m": "", "p": "16:36", "n": 1}], [{"t": "사천에어쇼 개막, 글로벌 우주항공·방산 산업전으로 도약", "s": "아시아투데이", "l": "https://www.asiatoday.co.kr/kn/view.php?key=20261022010007806", "m": "", "p": "16:58", "n": 1}]], "n": 25}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var main = document.getElementById('main');
+  var state = {beat:null, filter:'all', q:''};
+  var picked = new Set();
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+
+  // stable ids + flat index
+  var ALL = {};
+  D.groups.forEach(function(g, gi){
+    g.clusters.forEach(function(c, ci){
+      c.forEach(function(it, ii){
+        it.id = gi+'-'+ci+'-'+ii;
+        it.g = g.name;
+        it.ord = gi*100000 + ci*100 + ii;
+        ALL[it.id] = it;
+      });
+    });
+  });
+
+  document.getElementById('label').textContent = D.label;
+  document.getElementById('window').textContent = D.start + ' — ' + D.end;
+  document.getElementById('n-raw').textContent = D.raw.toLocaleString();
+
+  var scoop=0, flash=0, topics=0;
+  D.groups.forEach(function(g){
+    g.clusters.forEach(function(c){
+      topics++;
+      c.forEach(function(it){ if(it.m===SCOOP) scoop++; else if(it.m===FLASH) flash++; });
+    });
+  });
+  document.getElementById('n-topic').textContent = topics;
+  document.getElementById('n-scoop').textContent = scoop;
+  document.getElementById('n-flash').textContent = flash;
+
+  var beats = document.getElementById('beats');
+  D.groups.forEach(function(g){
+    var b = document.createElement('button');
+    b.className='beat'; b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span>'+g.name+'</span><span class="c mono">'+g.n+'</span>';
+    b.addEventListener('click', function(){
+      state.beat = (state.beat===g.name) ? null : g.name;
+      [].forEach.call(beats.children, function(el,i){
+        el.setAttribute('aria-pressed', String(D.groups[i].name===state.beat));
+      });
+      render();
+    });
+    beats.appendChild(b);
+  });
+
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){
+        b.setAttribute('aria-pressed', String(b===btn));
+      });
+      render();
+    });
+  });
+
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ state.q = q.value.trim().toLowerCase(); render(); }, 120);
+  });
+
+  function keep(it){
+    if(state.filter==='mark' && !it.m) return false;
+    if(state.filter==='spread' && it.n < 2) return false;
+    if(state.filter==='picked' && !picked.has(it.id)) return false;
+    if(state.q && (it.t+' '+it.s).toLowerCase().indexOf(state.q) === -1) return false;
+    return true;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function itemRow(it){
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>'
+            : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(picked.has(it.id)?' on':'')+'" data-id="'+it.id+'">' +
+      '<input class="pick" type="checkbox" id="p'+it.id+'" '+(picked.has(it.id)?'checked':'')+
+      ' aria-label="보고에 포함">' + tag +
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>' +
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>' +
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '') + '</span></div>';
+  }
+
+  // 큰 묶음(30건 이상)은 접어도 몇 건인지 보이게 하고 기본 펼침으로 둔다.
+  // (C 세션(0-14) 결과 — 접기 자체는 안전하나 53건짜리 묶음이 여전히 나오므로
+  //  대표 1건 뒤에 대량이 숨는 화면을 피하기 위한 D 세션 자체 판단)
+  var AUTO_EXPAND = 30;
+
+  function render(){
+    var html = '', shown = 0;
+    D.groups.forEach(function(g){
+      if(state.beat && g.name !== state.beat) return;
+      var blocks = '', gcount = 0;
+      g.clusters.forEach(function(c, ci){
+        var items = c.filter(keep);
+        if(!items.length) return;
+        gcount += items.length; shown += items.length;
+        var lead = items[0], rest = items.slice(1);
+        var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+        var body = itemRow(lead);
+        if(rest.length){
+          var id = 'c'+g.name.replace(/\s/g,'')+ci;
+          var bigCluster = items.length >= AUTO_EXPAND;
+          body += '<button class="more" type="button" aria-expanded="'+(bigCluster?'true':'false')+'" aria-controls="'+id+'">'+
+                  (bigCluster ? '접기 (' : '+') + rest.length + '건 같은 사안' + (bigCluster ? ')' : '') + '</button>'+
+                  '<div class="dupes" id="'+id+'"'+(bigCluster?'':' hidden')+'>'+rest.map(itemRow).join('')+'</div>';
+        }
+        blocks += '<div class="'+cls+'">'+body+'</div>';
+      });
+      if(!gcount) return;
+      html += '<section id="sec-'+g.name+'"><div class="sec-head"><h2>'+g.name+'</h2>'+
+              '<span class="n mono">'+gcount+'건</span></div>'+blocks+'</section>';
+    });
+    main.innerHTML = html || '<p class="empty">조건에 맞는 기사가 없습니다.</p>';
+    document.getElementById('n-shown').textContent = shown;
+
+    [].forEach.call(main.querySelectorAll('.more'), function(btn){
+      btn.addEventListener('click', function(){
+        var box = document.getElementById(btn.getAttribute('aria-controls'));
+        var open = box.hidden;
+        box.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+      });
+    });
+  }
+
+  // one delegated handler for checkboxes
+  main.addEventListener('change', function(e){
+    var cb = e.target;
+    if(!cb.classList || !cb.classList.contains('pick')) return;
+    var row = cb.closest('.row'), id = row.getAttribute('data-id');
+    if(cb.checked){ picked.add(id); row.classList.add('on'); }
+    else { picked.delete(id); row.classList.remove('on'); }
+    syncBar();
+  });
+
+  function syncBar(){
+    var n = picked.size;
+    document.getElementById('n-pick').textContent = n;
+    document.getElementById('bar').hidden = (n === 0);
+  }
+
+  function buildReport(){
+    // 속보도 고를 수 있게 둔다 — 판정이 제목 말머리 기반이라 보고감이 섞인다.
+    // 쓸지 말지는 고르는 단계에서 정한다.
+    var items = [];
+    picked.forEach(function(id){ if(ALL[id]) items.push(ALL[id]); });
+    var rank = function(name){
+      var i = REPORT_ORDER.indexOf(name);
+      return i === -1 ? REPORT_ORDER.length : i;
+    };
+    items.sort(function(a,b){
+      // 1) 단독 먼저  2) 출입처순  3) 중요도순
+      var sa = (a.m === SCOOP) ? 0 : 1, sb = (b.m === SCOOP) ? 0 : 1;
+      if(sa !== sb) return sa - sb;
+      var ra = rank(a.g), rb = rank(b.g);
+      if(ra !== rb) return ra - rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil');
+  var report = document.getElementById('report');
+  var hint = document.getElementById('copyhint');
+  var hintDefault = hint.textContent;
+
+  function openPanel(){
+    var r = buildReport();
+    report.value = r.text;
+    document.getElementById('psub').textContent = r.n + '건 · 단독 상단 · 출입처순';
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false;
+    report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  document.getElementById('make').addEventListener('click', openPanel);
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+
+  document.getElementById('clear').addEventListener('click', function(){
+    picked.clear(); syncBar(); render();
+  });
+  document.getElementById('selectall').addEventListener('click', function(){
+    report.focus(); report.select();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){
+      report.focus(); report.select();
+      hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 ⌘C로 복사하세요.';
+      hint.classList.remove('ok');
+    };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report.value).then(done, fail);
+      } else { fail(); }
+    }catch(err){ fail(); }
+  });
+
+  render(); syncBar();
+})();
+</script>
+
+</body></html>
