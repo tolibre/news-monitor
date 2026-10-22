@@ -1822,7 +1822,7 @@ GROUP_GATE_MODE = {
     "과기정통부": "strict",
 }
 
-def scope_gate(title, kws, mode=None):
+def scope_gate(title, kws, mode=None, group=None):
     """폴백 기사(제목에 출입처 키워드가 없는 기사)의 소관 관문. **check 전용.**
 
     (통과여부, 사유) 반환. 사유는 Actions 로그/alerts 파일에 남겨
@@ -1836,6 +1836,11 @@ def scope_gate(title, kws, mode=None):
         return True, "제목매칭"
     gs = display_groups(kws)
     g = gs[0] if gs else None
+    # group 인자(0-68): 판정할 그룹을 직접 준다 — 뉴스레이다 '관련 약함'이 섹션 이름으로 부른다.
+    # display_groups는 이 판의 검색어(KEYWORDS)만 보므로, 휴일 특근 당직 그룹(예: 사회정책팀 판의 국민연금)은
+    # 그룹을 못 찾아 '관문없음'으로 통과해 버렸다. 원본의 과기정통부·우주항공청은 그룹 이름이 곧 검색어라 결과가 같다.
+    if group is not None:
+        g = group
     spec = GROUP_SCOPE.get(g)
     if not spec:
         return True, "관문없음"      # 어휘 미정의 그룹은 통과 (보수적)
@@ -3688,7 +3693,7 @@ def live_weak_title(title, group):
     """뉴스레이다에서 '관련 약함'으로 접을 만한 기사인지(0-58). 사유 문자열(로그용) 또는 ''."""
     if group not in LIVE_WEAK_FOLD_GROUPS or priority_mark(title) == "🔥":
         return ""
-    ok, why = scope_gate(title, {group}, mode=LIVE_WEAK_GATE_MODE)
+    ok, why = scope_gate(title, {group}, mode=LIVE_WEAK_GATE_MODE, group=group)   # group= (0-68)
     if not ok:
         return why
     r = noise_reason(title, strict=False, kws={group})
