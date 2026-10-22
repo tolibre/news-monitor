@@ -1498,6 +1498,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   var MERGED = false;         // '전체' 탭을 출입처·기사묶음으로 합쳐 그리는 중(0-22)
   var weakOpen = {};          // 관련 약함 접기(0-58) — 펼친 상자 id. 다시 그려도(여기까지 확인·새 수집) 펼친 채로
   var weakShown = false;      // 이번 그리기에서 접힌 줄을 하나라도 그렸나(꼬리말 설명용)
+  var wlShown = {};          // 0-69: 이번 그리기에서 그린 섹션별 단어 접기(꼬리말 설명용)
   // 0-61: 구간 탭은 평소 접어 둔다(사용자 10/22 "이 섹션은 평소엔 접어놓고 싶어 — 모두에게서").
   // 접힘 = '보고 전체' + '→ 다음 보고'(13:30~15:00 넘어감) + [구간별 ▸]. 펼침 기억은 이 브라우저에만.
   // 저장키를 v2로 올렸다 — 0-24b 시절 펼쳐 둔 기억(v1)이 남은 기기도 처음엔 접힌 채로 열리게.
@@ -2161,14 +2162,17 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   // 접힌 상자 안 기사를 체크해 두었으면 처음부터 펼쳐 둔다(체크한 기사가 숨지 않게).
   function weakClu(all){ return all.length > 0 && all.every(function(x){ return x.wk; }); }
   function weakFoldOn(){ return !ui.q && ui.filter !== 'picked'; }
-  function weakLabel(open, nclu, nnew){
-    return open ? '관련 약함 접기' : '관련 약함 '+nclu+'묶음 보기'+(nnew ? ' · <span class="wkn">새 '+nnew+'</span>' : '');
+  // 0-69: 섹션별 단어 접기(D.wl[섹션] = {label, desc})면 그 이름으로, 아니면 '관련 약함'.
+  function wlOf(g){ return (g && D.wl && D.wl[g]) || null; }
+  function weakLabel(open, nclu, nnew, g){
+    var w = wlOf(g), lab = w ? w.label : '관련 약함';
+    return open ? lab+' 접기' : lab+' '+nclu+'묶음 보기'+(nnew ? ' · <span class="wkn">새 '+nnew+'</span>' : '');
   }
-  function weakBox(id, html, nclu, nnew, anyPicked){
+  function weakBox(id, html, nclu, nnew, anyPicked, g){
     if(!nclu) return '';
-    weakShown = true;
+    if(wlOf(g)) wlShown[g] = 1; else weakShown = true;
     var open = !!weakOpen[id] || anyPicked;
-    return '<button class="more wk" type="button" data-wk="'+nclu+'" data-nw="'+(nnew||0)+'" aria-expanded="'+open+'" aria-controls="'+id+'">'+weakLabel(open, nclu, nnew)+'</button>'+
+    return '<button class="more wk" type="button" data-wk="'+nclu+'" data-nw="'+(nnew||0)+'"'+(wlOf(g) ? ' data-wg="'+esc(g)+'"' : '')+' aria-expanded="'+open+'" aria-controls="'+id+'">'+weakLabel(open, nclu, nnew, g)+'</button>'+
            '<div class="weakbox" id="'+id+'"'+(open?'':' hidden')+'>'+html+'</div>';
   }
   // 노컷 기출고(0-54) — 묶음 기사 중 같은 주제로 발행 ±12시간 안에 노컷이 낸 기사가 있으면 대표 줄 아래 한 줄.
@@ -2192,6 +2196,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     var now = Date.now();
     ITEMS = {};
     weakShown = false;
+    wlShown = {};
     // 보여줄 구간들
     var t = curTab(), segs = t.all ? t.rep.segments.map(function(s){ return {rep:t.rep, seg:s}; }) : [{rep:t.rep, seg:t.seg}];
     MERGED = !!(t.all && t.rep.all);
@@ -2253,7 +2258,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
             if(items.some(function(it){ return isPicked(it.rid, it.sid, it.key); })) wp = true;
           } else blocks += b.html;
         });
-        if(gc || gdup) part += section(g.name, blocks, gc, gdup, 0, weakBox('w'+s.id+'-'+gi, wblocks, wn, 0, wp));
+        if(gc || gdup) part += section(g.name, blocks, gc, gdup, 0, weakBox('w'+s.id+'-'+gi, wblocks, wn, 0, wp, g.name));
       });
       if(!part) part = '<p class="empty">'+(s.raw ? '조건에 맞는 기사가 없습니다.' : (st==='live' ? '이 구간에 수집된 기사가 아직 없습니다.' : '이 구간에 수집된 기사가 없습니다.'))+'</p>';
       else if(st === 'live' && D.generated){
@@ -2269,6 +2274,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       legendItem('<span class="rp">이미 나옴</span>', '직전 24시간에 같은 제목이 이미 수집된 기사입니다(수집 경로만 바뀜). 회색 바탕으로 표시하고 건수에서 뺍니다.') +
       legendItem('<span class="tag nc">노컷 기출고</span>', '같은 사안을 노컷뉴스(본인·동료 기자)가 발행 앞뒤 12시간 안에 출고했다는 표시입니다. 제목이 사실상 같거나 사안어가 3개 이상 겹칠 때만 붙습니다(사진·대담 녹취 제외).') +
       (weakShown ? legendItem('관련 약함', '과기정통부·우주항공청 묶음 중 소관 어휘가 없거나 기업·대학·지자체 홍보성인 것을 섹션 끝에 접어 둡니다. [단독]은 접지 않고, 건수에는 포함하며, 검색·‘선택’ 보기에서는 펼쳐 보입니다.') : '') +
+      Object.keys(wlShown).map(function(g){ var w = wlOf(g); return w ? legendItem(esc(w.label), esc(w.desc)) : ''; }).join('') +
       legendItem('보고 전체 탭', '보고 기간 전체를 출입처·사안 묶음으로 다시 모읍니다. 구간이 달라도 같은 사안이면 한 묶음이고, 줄 앞 번호가 들어온 구간입니다.') +
       legendItem('맨 끝 섹션', '맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다.') +
       dutyNote() +
@@ -2353,7 +2359,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
           if(items.some(function(it){ return isPicked(it.rid, it.sid, it.key); })) wp = true;
         } else blocks += b.html;
       });
-      if(gc || gdup){ html += section(mg.name, blocks, gc, gdup, gnew, weakBox('wm'+r.id+'-'+mgi, wblocks, wn, wnew, wp)); any = true; }
+      if(gc || gdup){ html += section(mg.name, blocks, gc, gdup, gnew, weakBox('wm'+r.id+'-'+mgi, wblocks, wn, wnew, wp, mg.name)); any = true; }
     });
     var by = drawByline(r, now); if(by.any) any = true; html += by.html;
     if(!any){
@@ -2582,7 +2588,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     box.hidden = !open; btn.setAttribute('aria-expanded', String(open));
     if(btn.hasAttribute('data-wk')){      // 관련 약함 접기(0-58)
       if(open) weakOpen[box.id] = 1; else delete weakOpen[box.id];
-      btn.innerHTML = weakLabel(open, +btn.getAttribute('data-wk'), +btn.getAttribute('data-nw'));
+      btn.innerHTML = weakLabel(open, +btn.getAttribute('data-wk'), +btn.getAttribute('data-nw'), btn.getAttribute('data-wg'));
       return;
     }
     var mix = btn.getAttribute('data-mix') || '';

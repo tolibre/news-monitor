@@ -3689,6 +3689,15 @@ def _attach_nocut(conn, groups, start, end, pool=None):
 LIVE_WEAK_FOLD_GROUPS = ("과기정통부", "우주항공청")
 LIVE_WEAK_GATE_MODE = "normal"
 
+# ==================== 섹션별 단어 접기 (0-69, 2026-10-22) ====================
+# '관련 약함'(0-58)과 같은 접힌 줄을 쓰되, 판정은 '제목에 남길 단어가 있느냐'로 한다.
+#   {그룹: {"keep": [정규식, ...], "fold": [정규식, ...], "need": [정규식, ...], "label": "접힌 줄 이름", "desc": "꼬리말 설명"}}
+# 판정: 제목에 keep이 하나라도 있으면 안 접음. 아니면 ①fold 단어가 있거나 ②need가 주어졌는데 need 단어가 하나도 없으면 wk=1.
+# fold·need를 다 비우면 'keep이 없으면 접기'. [단독]은 늘 안 접는다. 묶음 기사 전부가 wk일 때만 접히는 것은 0-58과 같다.
+# 0-58 판정(소관 관문)은 제목에 출입처명이 있으면 무조건 통과라, 제목에 거의 늘 기관명이 들어가는 섹션(예: '○○교육청')엔 쓸 수 없다.
+# 원본은 비어 있다 — 변형판 생성기가 채운다(교육부판 교육청 섹션의 '다른 지역': 서울·경기만 펼쳐 둠).
+LIVE_FOLD_KEEP = {}
+
 def live_weak_title(title, group):
     """뉴스레이다에서 '관련 약함'으로 접을 만한 기사인지(0-58). 사유 문자열(로그용) 또는 ''."""
     if group not in LIVE_WEAK_FOLD_GROUPS or priority_mark(title) == "🔥":
@@ -3708,6 +3717,19 @@ def _attach_weak(groups):
     """뉴스레이다 기사마다 '관련 약함'이면 wk=1(0-58). 반환: 단 기사 수."""
     n = 0
     for g in groups:
+        rule = LIVE_FOLD_KEEP.get(g["name"])     # 0-69 섹션별 단어 접기
+        if rule:
+            keep, fold, need = rule.get("keep", []), rule.get("fold", []), rule.get("need", [])
+            for clu in g["clusters"]:
+                for it in clu:
+                    t = it.get("t") or ""
+                    if priority_mark(t) == "🔥" or any(re.search(p, t) for p in keep):
+                        continue
+                    hit = any(re.search(p, t) for p in fold) if fold else not need
+                    if hit or (need and not any(re.search(p, t) for p in need)):
+                        it["wk"] = 1
+                        n += 1
+            continue
         if g["name"] not in LIVE_WEAK_FOLD_GROUPS:
             continue
         for clu in g["clusters"]:
@@ -3889,6 +3911,9 @@ def build_live_data(conn, now):
         "last_seen": last_seen or "",
         "reports": reports,
     }
+    # 섹션별 단어 접기(0-69) — 접힌 줄 이름·설명. 비어 있으면(원본) 키를 싣지 않는다.
+    if LIVE_FOLD_KEEP:
+        out["wl"] = {g: {"label": r["label"], "desc": r.get("desc", "")} for g, r in LIVE_FOLD_KEEP.items()}
     # 당직 전용 그룹(0-44) — 페이지의 '당직' 스위치가 꺼져 있으면 이 섹션들을 걷어 낸다.
     # 비어 있으면(변형판) 키를 싣지 않는다 — 스위치도 안 그려진다.
     if DUTY_ONLY_GROUPS:
