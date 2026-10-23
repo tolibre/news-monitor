@@ -1084,6 +1084,9 @@ header{position:sticky; top:0; z-index:20; background:var(--blue-50); border-bot
 h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.02em; color:var(--appbar-ink)}
 .brand{display:flex; align-items:center; gap:8px; color:var(--appbar-ink); font-weight:700; font-size:13px; letter-spacing:-.01em; white-space:nowrap; text-decoration:none; padding-right:12px; border-right:1px solid var(--appbar-line)}
 .brand svg{width:20px; height:20px; flex:0 0 auto; color:#3B86EE}
+.brand .who{font-weight:700}   /* 0-75 판 주인(이름·출입처) — 변형판 생성기가 이 span을 바꾼다 */
+.brand .bt + .who::before{content:'·'; margin-right:6px; opacity:.55}
+.brand .whob{font-weight:500; color:var(--appbar-ink-2)}
 .fresh{font-size:12px; color:var(--appbar-ink-2); display:flex; align-items:center; gap:8px}
 .fresh button{height:22px; padding:0 8px; font-size:11px}
 .fresh button.ic{width:22px; padding:0; font-size:13px; line-height:1}
@@ -1221,7 +1224,6 @@ a.title:visited{color:var(--ink-900)}
 .ncl{margin:2px 0 0 24px; display:flex; gap:4px 8px; align-items:baseline; min-width:0; font-size:12px; color:var(--ink-500); font-variant-numeric:tabular-nums}
 .ncl > span{flex:0 0 auto; white-space:nowrap}
 .tag.nc{background:var(--o-me-bg); color:var(--o-me); transform:none}
-.tag.nm{background:var(--red-50); color:var(--red-600); transform:none}   /* 0-74 정책부장판 '노컷 미출고' — 원본은 데이터에 nm이 없어 안 쓰임 */
 .ncl .nct{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-700); text-decoration:none}
 .ncl a.nct:hover{color:var(--link); text-decoration:underline}
 .dupes{margin-top:4px; margin-left:24px; padding-left:12px; border-left:1px solid var(--line-300); display:grid; gap:4px}
@@ -1314,6 +1316,7 @@ a.title:visited{color:var(--ink-900)}
    ③머리는 아래로 스크롤하면 접히고 조금만 올리면 다시 나온다(JS: 머리 자동 접기) */
 @media (max-width:900px){
   .reports .lg, .brand .bt{display:none} .reports .sm{display:inline}
+  .brand .bt + .who::before{display:none}
   .brand{border-right:0; padding-right:0}
   .tabs, .beats{scrollbar-width:none}
   .tabs::-webkit-scrollbar, .beats::-webkit-scrollbar{display:none}
@@ -1324,6 +1327,7 @@ a.title:visited{color:var(--ink-900)}
 @media (max-width:560px){
   .lg{display:none} .sm{display:inline}
   .brand{padding-right:8px} h1{font-size:16px}
+  .brand .whob{display:none}
   .bar-in{flex-wrap:nowrap; gap:8px}
   .bar .count{font-size:12px; white-space:nowrap}
   .btn{padding:0 8px; font-size:12px}
@@ -1362,6 +1366,9 @@ a.title:visited{color:var(--ink-900)}
   .foot{padding:12px}
   .legend > div{grid-template-columns:1fr; gap:4px}
 }
+@media (max-width:400px){   /* 0-75: 좁은 폰은 판 주인 이름 자리를 위해 로고를 숨긴다(360px에서 제목이 30px 잘렸다) */
+  .brand svg{display:none} .brand .who{font-size:12px}
+}
 /* 폴드 커버(≤400px): 출입처 칩 → 색 있는 텍스트 + 가운뎃점, 체크박스 20px (규격 8) */
 @media (max-width:400px){
   .beats{gap:0}
@@ -1398,7 +1405,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
 <header>
   <div class="appbar">
     <div class="wrap top">
-      <a class="brand" href="./" title="뉴스레이다 — 처음 화면으로"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="#fff" fill-opacity=".8"/><circle cx="22" cy="11" r="2" fill="#fff"/></svg><span class="bt">뉴스레이다</span></a>
+      <a class="brand" href="./" title="뉴스레이다 — 처음 화면으로"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.5"/><path d="M16 16 L16 3 A13 13 0 0 1 27.3 9.5 Z" fill="#fff" fill-opacity=".8"/><circle cx="22" cy="11" r="2" fill="#fff"/></svg><span class="bt">뉴스레이다</span><span class="who">김광일<span class="whob"> (과학·방송·경쟁 담당)</span></span></a>
       <div class="tblk">
         <div class="tline"><h1 id="title">보고 준비</h1><span class="ttags" id="ttags"></span></div>
         <span class="fresh" id="freshbox"><span id="fresh">불러오는 중…</span><button type="button" id="reload" class="ic" aria-label="새로고침" title="새로고침">↻</button><button type="button" id="sync" class="sync off" title="체크·‘여기까지 확인’을 다른 기기와 맞추기"><span class="lg">기기 </span>연동</button></span>
@@ -2182,8 +2189,6 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   function ncLine(items){
     var nc = items[0].nc || null;
     if(!nc) items.forEach(function(x){ if(x.nc && (!nc || (x.nc.pd + x.nc.p) < (nc.pd + nc.p))) nc = x.nc; });
-    // 0-74: 정책부장판은 노컷이 안 쓴 핵심 묶음 대표 줄에 nm(이유 문구)을 단다 — 원본·동료판 데이터엔 없다.
-    if(!nc && items[0].nm) return '<div class="ncl" title="같은 사안의 노컷뉴스 기사를 찾지 못함(각 판 수집 범위 기준)"><span class="tag nm">노컷 미출고</span><span>'+esc(items[0].nm)+'</span></div>';
     // 대표 줄이 노컷 기사면 그 줄이 곧 표시다 — 같은 내용을 한 줄 더 달지 않는다.
     if(!nc || (items[0].s || '').indexOf('노컷') !== -1) return '';
     var t = nc.l ? '<a class="nct" href="'+esc(nc.l)+'" target="_blank" rel="noopener" title="'+esc(nc.t)+'">'+esc(nc.t)+'</a>'
@@ -2276,7 +2281,6 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       legendItem('구간 <span class="sg">①②</span>', '평소엔 접혀 있고 머리줄 오른쪽 <b>구간별 ▸</b>을 누르면 펼쳐집니다. 기사가 <b>수집된 시각</b>으로 나눕니다. 끝난 구간에 늦게 잡힌 기사는 다음 구간으로 갑니다. 오른쪽 숫자는 발행 시각이고, 오늘 기사가 아니면 요일이 붙습니다.') +
       legendItem('<span class="rp">이미 나옴</span>', '직전 24시간에 같은 제목이 이미 수집된 기사입니다(수집 경로만 바뀜). 회색 바탕으로 표시하고 건수에서 뺍니다.') +
       legendItem('<span class="tag nc">노컷 기출고</span>', '같은 사안을 노컷뉴스(본인·동료 기자)가 발행 앞뒤 12시간 안에 출고했다는 표시입니다. 제목이 사실상 같거나 사안어가 3개 이상 겹칠 때만 붙습니다(사진·대담 녹취 제외).') +
-      (D && D.nm ? legendItem('<span class="tag nm">노컷 미출고</span>', esc(D.nm)) : '') +   // 0-74 정책부장판
       (weakShown ? legendItem('관련 약함', '과기정통부·우주항공청 묶음 중 소관 어휘가 없거나 기업·대학·지자체 홍보성인 것을 섹션 끝에 접어 둡니다. [단독]은 접지 않고, 건수에는 포함하며, 검색·‘선택’ 보기에서는 펼쳐 보입니다.') : '') +
       (function(){ var seen = {}; return Object.keys(wlShown).map(function(g){ var w = wlOf(g); if(!w) return ''; var k = w.label + '\n' + w.desc; if(seen[k]) return ''; seen[k] = 1; return legendItem(esc(w.label), esc(w.desc)); }).join(''); })() +   // 0-72: 같은 이름·설명은 한 번만
       legendItem('보고 전체 탭', '보고 기간 전체를 출입처·사안 묶음으로 다시 모읍니다. 구간이 달라도 같은 사안이면 한 묶음이고, 줄 앞 번호가 들어온 구간입니다.') +
