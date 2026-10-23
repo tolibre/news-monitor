@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>밤 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+.masthead{padding-block:14px 10px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.window{font-size:12.5px; color:var(--muted); letter-spacing:.02em}
+.navline{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-block:10px 0}
+.navline a{
+  font-size:12px; font-weight:500; text-decoration:none;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid transparent; border-radius:999px; padding:4px 11px;
+}
+.navline a:hover{border-color:var(--accent)}
+.tallies{display:flex; flex-wrap:wrap; gap:6px 16px; margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.tallies b{font-weight:600; font-size:14px}
+.t-scoop b{color:var(--scoop)} .t-flash b{color:var(--flash)}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 10px; scrollbar-width:thin}
+.beat{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:6px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:999px; padding:5px 11px; font-size:13px; font-weight:500;
+  cursor:pointer; white-space:nowrap;
+}
+.beat:hover{border-color:var(--accent); color:var(--ink)}
+.beat .c{font-size:11.5px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.beat[aria-pressed="true"] .c{color:rgba(255,255,255,.8)}
+
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 12px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{
+  border:0; background:var(--surface); color:var(--ink-2);
+  font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{
+  flex:1 1 180px; min-width:0; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:6px 10px;
+}
+#q::placeholder{color:var(--muted)}
+#q:focus,.seg button:focus-visible,.beat:focus-visible,.more:focus-visible,
+.bar button:focus-visible,.panel button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:0 96px}
+section{margin-top:26px; scroll-margin-top:170px}
+.sec-head{
+  display:flex; align-items:baseline; gap:9px;
+  padding-bottom:7px; border-bottom:2px solid var(--ink); margin-bottom:2px;
+}
+.sec-head h2{margin:0; font-size:15.5px; font-weight:700; letter-spacing:-.005em}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{
+  background:var(--surface); border-bottom:1px solid var(--line-soft);
+  padding:9px 12px 9px 11px;
+}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{
+  flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer;
+  accent-color:var(--pick); transform:translateY(2px);
+}
+.tag{
+  flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:1.5px 6px; border-radius:4px; transform:translateY(-1px);
+}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{
+  color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45;
+  text-underline-offset:3px;
+}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{
+  flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline;
+  font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.more{
+  margin-top:5px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--accent); font-weight:500;
+}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:5px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes[hidden]{display:none}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:40px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- selection bar ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:var(--shadow);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13.5px; font-weight:600}
+.bar .count b{color:var(--pick); font-size:16px}
+.bar .spacer{margin-left:auto}
+.btn{
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  font:inherit; font-size:13px; font-weight:500; padding:7px 14px; border-radius:7px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08); color:#fff}
+
+/* ---------- report panel ---------- */
+.veil{
+  position:fixed; inset:0; z-index:40; background:var(--veil);
+  display:flex; align-items:flex-end; justify-content:center; padding:16px;
+}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{
+  background:var(--surface); border-radius:12px; width:100%; max-width:660px;
+  max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  border:1px solid var(--line);
+}
+.panel-head{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{
+  flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px;
+  border:1px solid var(--line); border-radius:8px; resize:vertical;
+  background:var(--surface-2); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8;
+}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+
+@media (max-width:560px){
+  .tallies{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+  section{scroll-margin-top:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="navline"><a href="./">‹ 지난 다이제스트</a><a href="../">↻ 최신 다이제스트</a></div>
+    <div class="masthead">
+      <h1 id="label">밤 다이제스트</h1>
+      <span class="window mono" id="window"></span>
+      <div class="tallies">
+        <span>표시 <b class="mono" id="n-shown">0</b>건</span>
+        <span>주제 <b class="mono" id="n-topic">0</b>개</span>
+        <span class="t-scoop">단독 <b class="mono" id="n-scoop">0</b></span>
+        <span class="t-flash">속보 <b class="mono" id="n-flash">0</b></span>
+        <span>원문 <b class="mono" id="n-raw">0</b>건</span>
+      </div>
+    </div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색 (예: 담합, 연합뉴스)" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <span class="count"><b class="mono" id="n-pick">0</b>건 선택</span>
+    <span class="hint">체크한 기사만 보고 양식으로 묶습니다</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="clear">선택 해제</button>
+    <button class="btn primary" type="button" id="make">보고 양식 만들기</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="selectall">전체 선택</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"label": "밤 다이제스트", "start": "10/23 17:30", "end": "10/23 22:00", "raw": 106, "groups": [{"name": "공정위", "clusters": [[{"t": "심리없는 상고기각, 재판권 침해?…'재판소원 1호' 공개변론", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261023177400004?input=1195m", "m": "", "p": "19:33", "n": 1}, {"t": "\"대법, 위법 심리불속행\" vs \"사실상 재판 불복\"…재판소원 변론", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839254", "m": "", "p": "19:30", "n": 1}, {"t": "4시간 이어진 '재판소원 1호' 공개변론…쟁점은 대법 '이유 없는 기각'", "s": "뉴스1", "l": "https://www.news1.kr/society/court-prosecution/6330485", "m": "", "p": "20:19", "n": 1}, {"t": "판결 이유 알 수 없는 ‘심리불속행’, 기본권 침해?…‘재판소원 1호’ 변론", "s": "경향", "l": "https://www.khan.co.kr/article/202610231832001", "m": "", "p": "18:32", "n": 1}, {"t": "'재판소원 1호' 녹십자 사건 첫 공개변론…심리불속행 두고 '격론'", "s": "더팩트", "l": "https://news.tf.co.kr/read/life/2380239.htm", "m": "", "p": "19:38", "n": 1}, {"t": "헌재 ‘재판소원 1호’ 공개변론...대법원 심리불속행 기각 놓고 공방", "s": "서울경제", "l": "https://www.sedaily.com/article/20105558?ref=naver", "m": "", "p": "20:44", "n": 1}], [{"t": "최휘영 \"패노메논 합작법인 이달 말 설립\"…정부 역할도 검토(종합)", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261023139551005?input=1195m", "m": "", "p": "18:34", "n": 2}, {"t": "최휘영 \"유홍준 논란 감사…'패노메논' 합작법인, 이달 설립\"(종합)", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839138", "m": "", "p": "17:40", "n": 1}, {"t": "[2026국감]최휘영 \"'패노메논' 합작법인 이달 말 설립…정부 개입 검토\"", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102318050442013", "m": "", "p": "18:05", "n": 1}, {"t": "최희영 \"패노메논 합작법인 이달 말 출범…정부 개입 검토\"", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1705556/?sc=Naver", "m": "", "p": "19:00", "n": 1}], [{"t": "형사 무죄·행정 패소한 녹십자…헌재서 '판결 이유' 공방", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=05815446645615872&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "17:43", "n": 1}, {"t": "담합 형사재판 무죄였는데 행정소송 패소…녹십자 재판소원 쟁점은", "s": "머니투데이", "l": "https://www.mt.co.kr/society/2026/10/23/2026102317302138960", "m": "", "p": "17:57", "n": 1}, {"t": "‘백신담합 무죄’ 녹십자 행정소송 패소 뒤집힐까... 헌재 재판소원 첫 변론", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2639576", "m": "", "p": "18:00", "n": 1}, {"t": "형사 무죄·행정 패소 엇갈린 녹십자…헌재서 대법원 '심리불속행' 법리공방", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610231650421991", "m": "", "p": "18:08", "n": 1}], [{"t": "국감서 쿠팡이츠 수수료·배달비 부담 논란…김명규 대표 \"개선하겠다\"", "s": "뉴스1", "l": "https://www.news1.kr/industry/distribution/6330373", "m": "", "p": "17:48", "n": 1}], [{"t": "공정위, CJ프레시웨이 '식자재 입찰 담합 의혹' 현장 조사", "s": "MBC 뉴스", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE5TdklfM2tDREtQQ2V3aG5uZXkxSjNiZ0w3aUZrUUtIRmVYUzRMeDhfUkpzemZHRU5obUFQNEJzMEk3LWN1ZEV2bFZMbEhfVm1YS2FhTzZuM0hYOFltYWRvRjJWUWp2aVBaMHdNNWpYZVlZTGpa0gF0QVVfeXFMUGVjWFFvNlBHYVJaRFF2c01vNkdqX05Yc0cyZ3N5YkIyYUNWWWxmaHdXVHlyLVFrX1JoaGl5Nzd4RnU3ODRBNndVU2E3Q2xlekEzTmF4b3Q1VENrQ3Q2SjR0LWlzWS1PWUItZDE5UTdwOWRnMzY?oc=5", "m": "", "p": "14:56", "n": 1}], [{"t": "트립닷컴 '환불 불가' 조건 국감 도마…미신고 영업도 질타 [2026 국감]", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610231704282392", "m": "", "p": "17:22", "n": 1}], [{"t": "약손명가 ‘화장품 구매 강요’ 논란…보상은 “재판 결과 따를 것”", "s": "조선비즈", "l": "https://biz.chosun.com/industry/business-venture/2026/10/23/554BAGMNC5H2DCAPHKJY66JYCY/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "17:24", "n": 1}], [{"t": "외국인 결제 장벽에 OTA 환불 제한까지…국감서 관광정책 점검 질타(종...", "s": "뉴스1", "l": "https://www.news1.kr/industry/hotel-tourism/6330356", "m": "", "p": "17:27", "n": 1}], [{"t": "\"아들 회사 화장품 강매, 위반인지 몰랐다\"…약손명가 갑질 해명 들어보니", "s": "머니투데이", "l": "https://www.mt.co.kr/future/2026/10/23/2026102316285420657", "m": "", "p": "17:30", "n": 1}], [{"t": "쿠팡이츠, 할인 전 가격에 수수료 부과···시정권고도 거부", "s": "경향", "l": "https://www.khan.co.kr/article/202610231733011", "m": "", "p": "17:33", "n": 1}], [{"t": "상조회사 선수금 투자에 제동 … 공정위, 소비자보호지침 시행", "s": "매일경제", "l": "https://www.mk.co.kr/article/12184431", "m": "", "p": "17:46", "n": 1}], [{"t": "'필라왕' 피해 국감 도마…장기 선불회원권 보호장치 촉구 [2026 국감]", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610231731492234", "m": "", "p": "17:48", "n": 1}], [{"t": "JYP 단독 상표권 논란 뒤 '50 대 50'…패노메논 계약에 무슨 변화?", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000341895?division=NAVER", "m": "", "p": "18:21", "n": 1}], [{"t": "‘모두의 창업’ 선정 논란부터 배달앱 수수료까지…중기부 종감서 쟁점 [국감]", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2639585", "m": "", "p": "17:48", "n": 1}, {"t": "[2026 국감] '모두의 창업' 키우고 성장지원은 축소...쿠팡이츠 수수료도 질타(종합)", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261023001215", "m": "", "p": "17:51", "n": 1}], [{"t": "[2026국감]대한항공 '4조 마일리지' 소멸 내역 제출 거부…국토부 \"공정위와 검토\"", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102318551964959", "m": "", "p": "18:55", "n": 2}], [{"t": "\"같은 차, 다른 가격\"…리스 견적 16곳 한 화면에 모았다[VC 요람]", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=05779366645615872&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "17:30", "n": 1}], [{"t": "‘국감 마지막날’ 최휘영 “국중박 신뢰 훼손…K컬처에 여사 큰 도움”", "s": "서울경제", "l": "https://www.sedaily.com/article/20105518?ref=naver", "m": "", "p": "18:19", "n": 1}], [{"t": "축구·야구는 80억원, e스포츠는 9000만원…\"지원 편차 너무 커\" [2026 국...", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102320291180135", "m": "", "p": "20:35", "n": 1}]], "n": 30}, {"name": "방미통위", "clusters": [[{"t": "[단독] ‘나혼산’ 전현무 ‘즉흥여행’ 방미심위 안건으로···‘법정 제재’ 위기", "s": "경향", "l": "https://sports.khan.co.kr/article/202610231713003?pt=nv", "m": "🔥", "p": "17:14", "n": 1}], [{"t": "'막말 논란' 원안위원에 與野 호된 꾸짖음… 朴위원\" 사과하겠다\"", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/23/2026102315261738728", "m": "", "p": "18:35", "n": 1}, {"t": "박종운 원안위원, SNS 막말 논란에 ‘사과’…과방위 국정감사 증인 참석", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12090918?ref=naver", "m": "", "p": "19:31", "n": 1}], [{"t": "112억 팔고 환불은 고작 5%…'과장광고' 홈쇼핑 배짱", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839186", "m": "", "p": "18:38", "n": 2}], [{"t": "KT클라우드 고객사 292곳 데이터 영구 삭제…이용자 보호는 '법 사각지대'", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839003", "m": "", "p": "18:36", "n": 1}], [{"t": "김종철 \"통합진흥원 설립법 조속히 입법돼야\"...시미재 \"보완 필요\"", "s": "매일경제", "l": "http://mbn.mk.co.kr/pages/news/newsView.php?category=mbn00006&news_seq_no=5226817", "m": "", "p": "19:50", "n": 1}], [{"t": "“데이터 날아가도 통지 의무 없어”…클라우드법 사각지대·핑퐁 민원 도마 [2026 국감]", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102317112904646", "m": "", "p": "17:36", "n": 1}], [{"t": "G1방송 사장 국감에서 허위 증언 논란, 과방위 고발 여부 검토", "s": "미디어오늘", "l": "https://www.mediatoday.co.kr/news/articleView.html?idxno=337951", "m": "", "p": "18:00", "n": 1}], [{"t": "\"온라인 불법도박 68조원 규모, 사이트 차단만으론 한계”", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261023185900", "m": "", "p": "18:59", "n": 1}]], "n": 9}, {"name": "과기정통부", "clusters": [[{"t": "홍범식 LGU+ 대표 \"해킹 은폐 사실이면 책임…미흡했던 점 송구\"(종합)", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839089", "m": "", "p": "17:07", "n": 1}, {"t": "\"해킹 은폐 땐 위약금 면제하라\"…LG U+ 압박 [국감2026]", "s": "IT조선", "l": "https://it.chosun.com/news/articleView.html?idxno=2023092172677", "m": "", "p": "17:14", "n": 1}, {"t": "[2026 국감] PHP 보안 구멍부터 LG유플 해킹 은폐 논란까지…사이버 보안 도마(종합)", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1705529/?sc=Naver", "m": "", "p": "17:32", "n": 1}, {"t": "PHP 보안, 관건은 시간 싸움… 수백만 건의 해킹 시도, AI로 잡는다", "s": "중앙", "l": "https://www.joongang.co.kr/article/25472336", "m": "", "p": "17:48", "n": 1}, {"t": "LGU+ 해킹 은폐 의혹에 \"사법 판단 따라 합당한 책임 다할 것\"", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/AKR20261023180222Bot", "m": "", "p": "18:03", "n": 1}, {"t": "'국감 출석' 홍범식 LGU+ 대표 \"해킹 은폐 확인되면 합당한 책임\"", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261023001234", "m": "", "p": "19:31", "n": 1}, {"t": "LGU+ 위약금 면제 놓고 여야 압박…홍범식 \"사법당국 판단 따를 것\"", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610231854086239", "m": "", "p": "19:37", "n": 1}], [{"t": "정부사이트 닫고 15년 된 게임도 종료…'PHP 취약점' 전세계 초비상", "s": "뉴스1", "l": "https://www.news1.kr/it-science/security-hacking/6330461", "m": "", "p": "19:16", "n": 1}, {"t": "배경훈 “PHP 취약점 계기로 범부처 종합대책 마련하겠다”", "s": "경향", "l": "https://www.khan.co.kr/article/202610231708001", "m": "", "p": "17:08", "n": 2}, {"t": "배경훈 \"PHP 취약점, 범부처 대책 마련할 것\"", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/MYH20261023183246nuW", "m": "", "p": "18:33", "n": 1}, {"t": "[종합] PHP 취약점부터 5G·AIDC까지⋯과방위, ICT 현안 집중 점검", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2018537", "m": "", "p": "20:07", "n": 1}], [{"t": "여야, 과방위 종합감사서 'PHP 취약' 정부 대응 질타…\"느리고 안일\"(종합)", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839190", "m": "", "p": "18:31", "n": 2}, {"t": "국감 막바지…여야, '해킹'엔 한목소리 질타·'미래기금' 두곤 충돌(종합)", "s": "뉴스1", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE1feGdwcXhld1c3WkFrZV9IQnY4TjRVU1dxTVlHNDR4Rk1WUjI2RWJxek9kSmthUXdiUGk4X0tZdnlyQngtWTgyWmVvZ1hSc2R1enBGSmRXU0lXQQ?oc=5", "m": "", "p": "16:57", "n": 1}, {"t": "\"해킹은 빠른데 정부는 느려\"…여야, 보안 대응 질타 [국감2026]", "s": "IT조선", "l": "https://it.chosun.com/news/articleView.html?idxno=2023092172696", "m": "", "p": "17:26", "n": 1}], [{"t": "정부, PHP 사용 현황 파악 나선다…호스팅·홈페이지 업체와 협의", "s": "뉴스1", "l": "https://www.news1.kr/it-science/security-hacking/6330426", "m": "", "p": "18:43", "n": 1}, {"t": "PHP 경보 높였지만…\"취약 버전, 패치 현황 파악 안돼\"", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6596391?utm_source=naver&utm_medium=article&utm_campaign=20261023051636", "m": "", "p": "17:17", "n": 1}], [{"t": "최형두 \"AI G3 강국 필수 인프라는 해저케이블\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839176", "m": "", "p": "18:04", "n": 1}, {"t": "野 최형두 \"'AI 필수 인프라' 해저케이블, 국가 AI 전략에 포함해야\"", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/23/2026102390221.html", "m": "", "p": "18:27", "n": 1}], [{"t": "SNS 막말 논란 박종운 원안위원, 부적절한 언행 인정…\"사과\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261023_0003839204", "m": "", "p": "18:37", "n": 1}, {"t": "회의 중 막말 논란 원안위원 \"노후 원전 안전 따져 묻다 격앙…반성\"", "s": "뉴스1", "l": "https://www.news1.kr/it-science/general-science/6330481", "m": "", "p": "20:02", "n": 1}], [{"t": "AI 데이터센터 건립 문턱 낮춘다… 내년 기술 실증에 2000억 투입", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026102314380001990?did=NA", "m": "", "p": "17:04", "n": 1}], [{"t": "KT 클라우드 데이터 소실됐는데…과기부·방미통위는 '민원 핑퐁'만", "s": "뉴스1", "l": "https://www.news1.kr/it-science/cc-newmedia/6330295", "m": "", "p": "17:26", "n": 1}], [{"t": "AI 사업 자료 제출 공방…배경훈 \"최선 다해 제공\"", "s": "뉴스1", "l": "https://www.news1.kr/it-science/internet-platform/6330333", "m": "", "p": "17:37", "n": 1}], [{"t": "\"페이커 기념우표 사자\"…새벽부터 줄 섰다", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102318331", "m": "", "p": "17:53", "n": 1}], [{"t": "보안 논란 번진 李대통령 '제미나이'…배경훈 \"직무상 비밀 유출 아냐\"", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/23/2026102390219.html", "m": "", "p": "18:10", "n": 1}], [{"t": "PHP투셸 사이버위기 경보 상향…점검만으론 못 막는다", "s": "IT조선", "l": "https://it.chosun.com/news/articleView.html?idxno=2023092172697", "m": "", "p": "18:16", "n": 1}], [{"t": "\"저도 딸만 둘 키웁니다만 이런 차별이 어딨겠나\" [국감 말말말]", "s": "뉴스1", "l": "https://www.news1.kr/politics/assembly/6330475", "m": "", "p": "19:41", "n": 1}], [{"t": "국정감사 ‘마무리’…경남 현안은?", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8693874&ref=A", "m": "", "p": "19:54", "n": 1}], [{"t": "\"맞혀보세요\" 과기부총리도 틀렸다…감쪽같은 'AI 안경'", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008812536&plink=ORI&cooper=NAVER", "m": "", "p": "20:39", "n": 1}], [{"t": "\"프론티어AI=AI대장동인가?\"…배경훈, 野추궁에 발끈", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxQN1Y5QU5DaWdBTE9yd3BKTGZlOEx3YjZldGlVRTFmRHBjMWlGakRmdE5hTDZFaHl0RUViNkFya0VIeG5qb1hFeUVZaGJ6ajgyeXhpV2RvYkJsY0RDV0NNRXlNVlFIeUtZVVNzLXFmZ2Z3d0o3NFF2SlBram5LZV81Vw?oc=5", "m": "", "p": "17:07", "n": 2}], [{"t": "[2026 국감] 7년째 '반쪽짜리 5G' 지적⋯배경훈 \"연말까지 SA 도입 의무\"", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTFBmUDFQVG5ub0U3TzlRLXdRMjhTbk1nMDRBWmdlUGxQcTZOaVdBdUc2ZmJ4c0ZJZWhKb01mOGRaUFlvUUx4akdnZ3dxOA?oc=5", "m": "", "p": "17:13", "n": 2}], [{"t": "[2026 국감] 종일 프런티어AI 공방…배경훈 \"국가적인 전략자산 차원, 반드시 확보\"", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261023001207", "m": "", "p": "17:40", "n": 2}], [{"t": "LGU+ `해킹 서버 폐기` 해명 도마…KISA “동기화돼도 침입 흔적은 별개” [2026국감]", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE50U0g5Q0tocGJ3SjB1cHY0RlM2SVRUcHc4LThMV1JHUGVpdmhXM1R2a2NoUV9NWWJkZ1J3SGpvYkI5UnVMNEdtRkg5cVVwWVB0QnMzYzlDWHM3TkNGd2lLVTBxOGQ?oc=5", "m": "", "p": "18:10", "n": 2}], [{"t": "[2026 국감] OTT·유튜브 구독료 줄인상에⋯배경훈 \"이용자 부담 점검\"", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiTEFVX3lxTE82bEk3MjRPcTJWR24tMXpUbVlXcW10eGtoM3JidDFJb0hEY0htTGZuYlA3eGhNY0stYXdyNWxpRU9KLVdnRTJBYWxmc1Q?oc=5", "m": "", "p": "18:26", "n": 2}], [{"t": "AI데이터센터, 속도전 나선 정부…조경태 “주민 수용성이 먼저”", "s": "부산", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE9SeTdfb0lvVWR2N3M3emFUdnA2a1pfTnZualVJREhoS1BKZi0xVDRyVmtTTWNQMGxtX2Jyc3lDS09MUmFDM0pFTHQ5LS1JNVpPR09FWEkzM3ZZN1lyUW5TSUhfOXBUWTZzbEYtc0x3dGVCMnJs?oc=5", "m": "", "p": "19:06", "n": 2}], [{"t": "\"PASS 축소·폐지?, 과기정통부가 행안부와 충분히 협의해야\"", "s": "지디넷코리아", "l": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE9kLVNSX1ZQbHlsbTJIeVFONVdGU29WVjBwaDM5alRoUk5ieURkaGFXTU1yWjlOQUlxU2RNcGtmVU13MmU5amExUFMxZnBjNHhqQXBiNHp3?oc=5", "m": "", "p": "19:07", "n": 2}], [{"t": "국가R&D ‘AI워싱’ 우려…“AI 과제 30.6%, 관련성 불분명”[2026 국감]", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE5kb3dTRjMzTXFFZ1NCQk1teTBNd0hfNlloRW02aEprWHB6WGFKeDY4SjVyYWp5emJpQkNGV2NUVExIdGRZTlVQckdLMUlzMmJNX2NtNHk2R3pRYjlXemNSMlYweE0?oc=5", "m": "", "p": "13:17", "n": 1}], [{"t": "[국감 26] \"수차례 사업 추진 과정 상세히 답했다\"...배경훈, 프런티어AI 질의에 격앙", "s": "테크M", "l": "https://www.techm.kr/news/articleView.html?idxno=156462", "m": "", "p": "17:12", "n": 1}], [{"t": "[2026 국감] \"모두의 AI 오류 피해 누가 배상하나\"…배경훈 \"참여 기업 책임 분담 명확히 할 것\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2018483", "m": "", "p": "17:13", "n": 1}], [{"t": "김우영 “블록체인 육성 방안 필요”…부총리 “도입 필요”(종합)", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=05841686645615872&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "17:54", "n": 1}], [{"t": "AIDC 인허가 일괄 처리…무인車 판매 연내 허용", "s": "서울경제", "l": "https://www.sedaily.com/article/20105505?ref=naver", "m": "", "p": "18:04", "n": 1}], [{"t": "AI데이터센터 인허가 일괄처리…내년 상반기 ‘AIDC 특구’ 지정", "s": "부산", "l": "https://www.busan.com/view/busan/view.php?code=2026102317324373997", "m": "", "p": "18:05", "n": 1}], [{"t": "공공부문 타결 이제 2곳…아직 갈 길 먼 ‘원청 교섭’", "s": "서울경제", "l": "https://www.sedaily.com/article/20105542?ref=naver", "m": "", "p": "18:43", "n": 1}], [{"t": "배경훈 \"양자산업 초기 시장 창출, 정부가 마중물 역할”", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261023185008", "m": "", "p": "18:51", "n": 1}], [{"t": "[2026 국감] KT-MS 클라우드 전환 사업 우려…\"데이터 주권 차원에서 접근해야\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2018525", "m": "", "p": "18:52", "n": 1}]], "n": 45}, {"name": "우주항공청", "clusters": [[{"t": "100억원 투입한 한국 위성 실패…우주청 “원인 조사 中”", "s": "매일경제", "l": "https://news.google.com/rss/articles/CBMiRkFVX3lxTE5EajdaaFM1RVBYRVFpVC1OemZuN2Jyb1h0TVdudlhiT19iWm11RTZaeGNQTFlGVk54cnRTdjN2YVJpNGYyd3c?oc=5", "m": "", "p": "15:32", "n": 1}], [{"t": "부산대, 전기추력기 탑재 초소형위성 개발 착수", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8693835&ref=A", "m": "", "p": "19:41", "n": 1}], [{"t": "우주청, 혁신제품 지정제도 운영···기업 판로 넓힌다", "s": "헬로디디", "l": "https://news.google.com/rss/articles/CBMiakFVX3lxTFBJQ0Z3NlJwdnJSMVByMjdjcEl2Y0VZRkY1ellMZm10T2ZEcEktWkdEbUZ4SHc5emVSUmRjUFNYS0NwNTBlZlg2b19ET190U0pmTm50ekI5em1BMlBaNGRaMXYwYUJtWE1OVlE?oc=5", "m": "", "p": "17:20", "n": 2}], [{"t": "김민석 “K-방산 경쟁력 강화 위해 입법·예산 적극 지원”", "s": "서울경제", "l": "https://www.sedaily.com/article/20105473?ref=naver", "m": "", "p": "17:37", "n": 1}]], "n": 4}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var main = document.getElementById('main');
+  var state = {beat:null, filter:'all', q:''};
+  var picked = new Set();
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+
+  // stable ids + flat index
+  var ALL = {};
+  D.groups.forEach(function(g, gi){
+    g.clusters.forEach(function(c, ci){
+      c.forEach(function(it, ii){
+        it.id = gi+'-'+ci+'-'+ii;
+        it.g = g.name;
+        it.ord = gi*100000 + ci*100 + ii;
+        ALL[it.id] = it;
+      });
+    });
+  });
+
+  document.getElementById('label').textContent = D.label;
+  document.getElementById('window').textContent = D.start + ' — ' + D.end;
+  document.getElementById('n-raw').textContent = D.raw.toLocaleString();
+
+  var scoop=0, flash=0, topics=0;
+  D.groups.forEach(function(g){
+    g.clusters.forEach(function(c){
+      topics++;
+      c.forEach(function(it){ if(it.m===SCOOP) scoop++; else if(it.m===FLASH) flash++; });
+    });
+  });
+  document.getElementById('n-topic').textContent = topics;
+  document.getElementById('n-scoop').textContent = scoop;
+  document.getElementById('n-flash').textContent = flash;
+
+  var beats = document.getElementById('beats');
+  D.groups.forEach(function(g){
+    var b = document.createElement('button');
+    b.className='beat'; b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span>'+g.name+'</span><span class="c mono">'+g.n+'</span>';
+    b.addEventListener('click', function(){
+      state.beat = (state.beat===g.name) ? null : g.name;
+      [].forEach.call(beats.children, function(el,i){
+        el.setAttribute('aria-pressed', String(D.groups[i].name===state.beat));
+      });
+      render();
+    });
+    beats.appendChild(b);
+  });
+
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){
+        b.setAttribute('aria-pressed', String(b===btn));
+      });
+      render();
+    });
+  });
+
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ state.q = q.value.trim().toLowerCase(); render(); }, 120);
+  });
+
+  function keep(it){
+    if(state.filter==='mark' && !it.m) return false;
+    if(state.filter==='spread' && it.n < 2) return false;
+    if(state.filter==='picked' && !picked.has(it.id)) return false;
+    if(state.q && (it.t+' '+it.s).toLowerCase().indexOf(state.q) === -1) return false;
+    return true;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function itemRow(it){
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>'
+            : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(picked.has(it.id)?' on':'')+'" data-id="'+it.id+'">' +
+      '<input class="pick" type="checkbox" id="p'+it.id+'" '+(picked.has(it.id)?'checked':'')+
+      ' aria-label="보고에 포함">' + tag +
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>' +
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>' +
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '') + '</span></div>';
+  }
+
+  // 큰 묶음(30건 이상)은 접어도 몇 건인지 보이게 하고 기본 펼침으로 둔다.
+  // (C 세션(0-14) 결과 — 접기 자체는 안전하나 53건짜리 묶음이 여전히 나오므로
+  //  대표 1건 뒤에 대량이 숨는 화면을 피하기 위한 D 세션 자체 판단)
+  var AUTO_EXPAND = 30;
+
+  function render(){
+    var html = '', shown = 0;
+    D.groups.forEach(function(g){
+      if(state.beat && g.name !== state.beat) return;
+      var blocks = '', gcount = 0;
+      g.clusters.forEach(function(c, ci){
+        var items = c.filter(keep);
+        if(!items.length) return;
+        gcount += items.length; shown += items.length;
+        var lead = items[0], rest = items.slice(1);
+        var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+        var body = itemRow(lead);
+        if(rest.length){
+          var id = 'c'+g.name.replace(/\s/g,'')+ci;
+          var bigCluster = items.length >= AUTO_EXPAND;
+          body += '<button class="more" type="button" aria-expanded="'+(bigCluster?'true':'false')+'" aria-controls="'+id+'">'+
+                  (bigCluster ? '접기 (' : '+') + rest.length + '건 같은 사안' + (bigCluster ? ')' : '') + '</button>'+
+                  '<div class="dupes" id="'+id+'"'+(bigCluster?'':' hidden')+'>'+rest.map(itemRow).join('')+'</div>';
+        }
+        blocks += '<div class="'+cls+'">'+body+'</div>';
+      });
+      if(!gcount) return;
+      html += '<section id="sec-'+g.name+'"><div class="sec-head"><h2>'+g.name+'</h2>'+
+              '<span class="n mono">'+gcount+'건</span></div>'+blocks+'</section>';
+    });
+    main.innerHTML = html || '<p class="empty">조건에 맞는 기사가 없습니다.</p>';
+    document.getElementById('n-shown').textContent = shown;
+
+    [].forEach.call(main.querySelectorAll('.more'), function(btn){
+      btn.addEventListener('click', function(){
+        var box = document.getElementById(btn.getAttribute('aria-controls'));
+        var open = box.hidden;
+        box.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+      });
+    });
+  }
+
+  // one delegated handler for checkboxes
+  main.addEventListener('change', function(e){
+    var cb = e.target;
+    if(!cb.classList || !cb.classList.contains('pick')) return;
+    var row = cb.closest('.row'), id = row.getAttribute('data-id');
+    if(cb.checked){ picked.add(id); row.classList.add('on'); }
+    else { picked.delete(id); row.classList.remove('on'); }
+    syncBar();
+  });
+
+  function syncBar(){
+    var n = picked.size;
+    document.getElementById('n-pick').textContent = n;
+    document.getElementById('bar').hidden = (n === 0);
+  }
+
+  function buildReport(){
+    // 속보도 고를 수 있게 둔다 — 판정이 제목 말머리 기반이라 보고감이 섞인다.
+    // 쓸지 말지는 고르는 단계에서 정한다.
+    var items = [];
+    picked.forEach(function(id){ if(ALL[id]) items.push(ALL[id]); });
+    var rank = function(name){
+      var i = REPORT_ORDER.indexOf(name);
+      return i === -1 ? REPORT_ORDER.length : i;
+    };
+    items.sort(function(a,b){
+      // 1) 단독 먼저  2) 출입처순  3) 중요도순
+      var sa = (a.m === SCOOP) ? 0 : 1, sb = (b.m === SCOOP) ? 0 : 1;
+      if(sa !== sb) return sa - sb;
+      var ra = rank(a.g), rb = rank(b.g);
+      if(ra !== rb) return ra - rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil');
+  var report = document.getElementById('report');
+  var hint = document.getElementById('copyhint');
+  var hintDefault = hint.textContent;
+
+  function openPanel(){
+    var r = buildReport();
+    report.value = r.text;
+    document.getElementById('psub').textContent = r.n + '건 · 단독 상단 · 출입처순';
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false;
+    report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  document.getElementById('make').addEventListener('click', openPanel);
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+
+  document.getElementById('clear').addEventListener('click', function(){
+    picked.clear(); syncBar(); render();
+  });
+  document.getElementById('selectall').addEventListener('click', function(){
+    report.focus(); report.select();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){
+      report.focus(); report.select();
+      hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 ⌘C로 복사하세요.';
+      hint.classList.remove('ok');
+    };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report.value).then(done, fail);
+      } else { fail(); }
+    }catch(err){ fail(); }
+  });
+
+  render(); syncBar();
+})();
+</script>
+
+</body></html>
