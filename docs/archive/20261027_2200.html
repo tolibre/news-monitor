@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>밤 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+.masthead{padding-block:14px 10px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.window{font-size:12.5px; color:var(--muted); letter-spacing:.02em}
+.navline{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-block:10px 0}
+.navline a{
+  font-size:12px; font-weight:500; text-decoration:none;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid transparent; border-radius:999px; padding:4px 11px;
+}
+.navline a:hover{border-color:var(--accent)}
+.tallies{display:flex; flex-wrap:wrap; gap:6px 16px; margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.tallies b{font-weight:600; font-size:14px}
+.t-scoop b{color:var(--scoop)} .t-flash b{color:var(--flash)}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 10px; scrollbar-width:thin}
+.beat{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:6px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:999px; padding:5px 11px; font-size:13px; font-weight:500;
+  cursor:pointer; white-space:nowrap;
+}
+.beat:hover{border-color:var(--accent); color:var(--ink)}
+.beat .c{font-size:11.5px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.beat[aria-pressed="true"] .c{color:rgba(255,255,255,.8)}
+
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 12px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{
+  border:0; background:var(--surface); color:var(--ink-2);
+  font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{
+  flex:1 1 180px; min-width:0; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:6px 10px;
+}
+#q::placeholder{color:var(--muted)}
+#q:focus,.seg button:focus-visible,.beat:focus-visible,.more:focus-visible,
+.bar button:focus-visible,.panel button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:0 96px}
+section{margin-top:26px; scroll-margin-top:170px}
+.sec-head{
+  display:flex; align-items:baseline; gap:9px;
+  padding-bottom:7px; border-bottom:2px solid var(--ink); margin-bottom:2px;
+}
+.sec-head h2{margin:0; font-size:15.5px; font-weight:700; letter-spacing:-.005em}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{
+  background:var(--surface); border-bottom:1px solid var(--line-soft);
+  padding:9px 12px 9px 11px;
+}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{
+  flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer;
+  accent-color:var(--pick); transform:translateY(2px);
+}
+.tag{
+  flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:1.5px 6px; border-radius:4px; transform:translateY(-1px);
+}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{
+  color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45;
+  text-underline-offset:3px;
+}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{
+  flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline;
+  font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.more{
+  margin-top:5px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--accent); font-weight:500;
+}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:5px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes[hidden]{display:none}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:40px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- selection bar ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:var(--shadow);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13.5px; font-weight:600}
+.bar .count b{color:var(--pick); font-size:16px}
+.bar .spacer{margin-left:auto}
+.btn{
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  font:inherit; font-size:13px; font-weight:500; padding:7px 14px; border-radius:7px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08); color:#fff}
+
+/* ---------- report panel ---------- */
+.veil{
+  position:fixed; inset:0; z-index:40; background:var(--veil);
+  display:flex; align-items:flex-end; justify-content:center; padding:16px;
+}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{
+  background:var(--surface); border-radius:12px; width:100%; max-width:660px;
+  max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  border:1px solid var(--line);
+}
+.panel-head{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{
+  flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px;
+  border:1px solid var(--line); border-radius:8px; resize:vertical;
+  background:var(--surface-2); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8;
+}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+
+@media (max-width:560px){
+  .tallies{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+  section{scroll-margin-top:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="navline"><a href="./">‹ 지난 다이제스트</a><a href="../">↻ 최신 다이제스트</a></div>
+    <div class="masthead">
+      <h1 id="label">밤 다이제스트</h1>
+      <span class="window mono" id="window"></span>
+      <div class="tallies">
+        <span>표시 <b class="mono" id="n-shown">0</b>건</span>
+        <span>주제 <b class="mono" id="n-topic">0</b>개</span>
+        <span class="t-scoop">단독 <b class="mono" id="n-scoop">0</b></span>
+        <span class="t-flash">속보 <b class="mono" id="n-flash">0</b></span>
+        <span>원문 <b class="mono" id="n-raw">0</b>건</span>
+      </div>
+    </div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색 (예: 담합, 연합뉴스)" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <span class="count"><b class="mono" id="n-pick">0</b>건 선택</span>
+    <span class="hint">체크한 기사만 보고 양식으로 묶습니다</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="clear">선택 해제</button>
+    <button class="btn primary" type="button" id="make">보고 양식 만들기</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="selectall">전체 선택</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"label": "밤 다이제스트", "start": "10/27 17:30", "end": "10/27 22:00", "raw": 83, "groups": [{"name": "공정위", "clusters": [[{"t": "게임하기 좋다더니 성능 제한?...삼성전자 \"200억 과징금 불복\"", "s": "YTN", "l": "https://news.google.com/rss/articles/CBMib0FVX3lxTFAySy1UVFVDc0xqWVNUU2NRR1o0am04Qm0yTU5zQndmUzRtNlg2S2dHWV9KUDE3bXF2YUNNQkZzOGpYV0VFNGJqREpSZG9qdk44YTVXbDdsWHFQYnJyWWsxNWhTVndPMmpETDlSenNfaw?oc=5", "m": "", "p": "13:10", "n": 1}, {"t": "공정위, 삼성 'GOS 광고' 과징금 201억‥삼성 \"법적 대응\"", "s": "MBC 뉴스", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE00NUl3Uno2VUl5am5HMHh3WTVqT2REWFlaa2dZU1lfcVB1V3hOaUZxM3UweFVMbUJ0eGxEaWJraWhSbEYyd3kwejZxUzVhdW93WktNVFVxdEs4MlVFWEl4RGVXTFVvUlZVdy1qa3A3bzhWVVU5?oc=5", "m": "", "p": "15:12", "n": 1}, {"t": "공정위, ‘갤럭시 게임성능 제한’ 미고지에 201억 과징금…삼성 “법적 대응”", "s": "채널A", "l": "https://news.google.com/rss/articles/CBMiXkFVX3lxTFBiZ0tfQi1nbzMtdXFfY1pQOXNMaUNlT0Y2VDFZVTExOUZpbFFsc0JVaHZHM1ZlUGIxY2VVY1hVRzdlWXVOUjI0dHZwQkZiSTlGUHZiV3prNTB6WVBJSGfSAWNBVV95cUxQdkdSNjZvSTlYSEY4eFE2Y3R3NUppb2thaWh1X2hzNVRCMTJ4RlctYy1PSHczdndwZkJESHAwWkF0cHR0cUZicGtwQS1NUXlaaldjODE4c3BxWnkxYi0xbDRzblE?oc=5", "m": "", "p": "16:47", "n": 1}, {"t": "‘최고 성능’ 광고했지만 게임 켜면 제한…공정위, 삼성전자에 과징금 200억", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8696488&ref=A", "m": "", "p": "17:17", "n": 1}, {"t": "“소송도 종결됐는데 왜?”…삼성전자, ‘GOS 사태’ 공정위 제재에 법적 대응", "s": "동아", "l": "https://news.google.com/rss/articles/CBMidkFVX3lxTE8tdWR5QmZLUm5CVVlUWG9NNUloUEliOEkzUGtvbEs1elVoN2JqX1FVQlFQYjBzbTF5Z0hPdmNzeUtfc2h5TkcyWTZ5U1V0MTc5QUFHTDNQZDVYYnBtVTlOS05HQVRieHRUTF9ONjdpNFBtaVhKY0HSAWZBVV95cUxNbjFBVlJoWU1BWnhjVENodGxDempXUjRuZjhxNDhVRkxmQ01YN1ZudWFjd0Y2b3N5ZXRWempRU1ozZVJBeWdpTHlkX19RNHliTXRJRmxUNllQQ2dkeEt6V1hueU93a2c?oc=5", "m": "", "p": "17:31", "n": 1}, {"t": "“소송도 종결됐는데 왜?”…삼성전자, ‘GOS 사태’ 공정위 제재에 반발", "s": "동아", "l": "https://www.donga.com/news/Economy/article/all/20261027/134919204/1", "m": "", "p": "17:32", "n": 1}, {"t": "갤럭시 성능제한 누락 … 삼성 과징금 200억", "s": "매일경제", "l": "https://www.mk.co.kr/article/12187408", "m": "", "p": "17:43", "n": 1}, {"t": "법원은 ‘기만’ 아니라는데…삼성에 200억 때린 공정위", "s": "서울경제", "l": "https://www.sedaily.com/article/20106783?ref=naver", "m": "", "p": "17:49", "n": 1}, {"t": "삼성, 갤럭시 GOS 과징금 불복… \"기만광고 아니다\"", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610271816500261", "m": "", "p": "18:17", "n": 1}, {"t": "갤S21 최적화 방식 안 알렸다고…공정위, 삼성전자에 '뒷북 과징금'", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102788081", "m": "", "p": "18:23", "n": 1}, {"t": "“4년 전 고쳤는데”…공정위, 갤럭시폰 과징금에 삼성 \"소송 예고\"", "s": "한국경제", "l": "https://magazine.hankyung.com/business/article/202610278885b", "m": "", "p": "18:38", "n": 1}, {"t": "게임 끝판왕이라더니 버벅...삼성전자 부당광고 과징금 2백억...삼성 \"법적 대응\"", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0102_202610271842030308", "m": "", "p": "18:42", "n": 1}, {"t": "삼성전자, 스마트폰 게임 성능 제한 숨겼다가 과징금 201억 철퇴", "s": "국민", "l": "https://www.kmib.co.kr/article/20261027501960", "m": "", "p": "18:48", "n": 1}, {"t": "공정위, 4년만 '갤럭시' 과징금 201억... 삼성 \"법적 대응\" 반발", "s": "오마이뉴스", "l": "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003279357&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news", "m": "", "p": "18:51", "n": 1}, {"t": "‘성능 최고’라더니 게임 실행하면 성능 뚝…공정위, 삼성전자 제재", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8696597&ref=A", "m": "", "p": "19:21", "n": 1}, {"t": "‘게임 성능 제한’ 고지 안 한 삼성전자에 200억대 과징금", "s": "경향", "l": "https://www.khan.co.kr/article/202610272056015", "m": "", "p": "20:56", "n": 1}], [{"t": "중수청 \"담합 자진신고 접수, 수사기관이 해야\"…공소청과 충돌", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=04897046645617184&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "17:08", "n": 1}, {"t": "\"우리가 리니언시 맡겠다\"… 중수청·공소청 '충돌'", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610271825276946", "m": "", "p": "18:26", "n": 1}], [{"t": "정은경 \"비만치료제 관리급여 편입 검토\"", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6598019?utm_source=naver&utm_medium=article&utm_campaign=20261027054124", "m": "", "p": "17:42", "n": 1}, {"t": "비만치료제 관리급여 편입 검토…\"산후조리원 부가서비스 조사\"", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/MYH20261027201119c0m", "m": "", "p": "20:12", "n": 1}], [{"t": "“‘기성금 부당 산정’ 삼성중공업 공정위가 조사해야”", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8696705&ref=A", "m": "", "p": "20:01", "n": 1}], [{"t": "“215만원짜리 마사지 해야 예약 가능!”…정부, 산후조리원 ‘끼워팔기...", "s": "문화", "l": "https://www.munhwa.com/article/11626719?ref=naver", "m": "", "p": "20:42", "n": 1}], [{"t": "李 질책에 \"엄단\"…심판 독립성 흔드는 국무회의", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPVUNEdlVtcl9LbmlmU3FwUVFiLV83VzZBTV9lSlJpdFBzZWUzaUdzbndUTF9hUWJKeXlsa3NCRGF1b0kwUlFOZjhQb25LMFdZRnJCSGJabXhfeE8xbnRMVDVJZDJDTlMybHZ1bWxMcVZ0WmI3cV9NZVJNTUVKX0F3dQ?oc=5", "m": "", "p": "18:00", "n": 2}], [{"t": "대상, ‘전분당 담합’ 과징금 2341억원…6차례 나눠 낸다", "s": "이데일리", "l": "https://www.edaily.co.kr/News/Read?newsId=05136486645617184&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article", "m": "", "p": "17:36", "n": 1}], [{"t": "“새 먹거리 찾자”… 치킨 너머 바라보는 치킨 프랜차이즈", "s": "부산", "l": "https://www.busan.com/view/busan/view.php?code=2026102717372307761", "m": "", "p": "17:38", "n": 1}], [{"t": "한국은 좁다…'아메리카노의 나라'로 향하는 K-커피 프랜차이즈", "s": "아주경제", "l": "https://www.ajunews.com/view/20261027153218475", "m": "", "p": "17:54", "n": 1}], [{"t": "“삼성重 하도급 단가 후려치기” 협력업체 피해 진상조사 요구", "s": "경남", "l": "https://www.knnews.co.kr/news/articleView.php?idxno=1553778", "m": "", "p": "20:40", "n": 1}]], "n": 27}, {"name": "방미통위", "clusters": [[{"t": "방미통위, 유료방송 채널 묶음판매 실태점검 착수", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE05WlNFMkY1M1RaekNYSEItWk1MZTRSaFRSRWNHUDNMclVuanF2dHNmUkxPTHFHZkwwQXIxaGVmSWpVdTZBb3lTa0x5RQ?oc=5", "m": "", "p": "17:12", "n": 4}], [{"t": "3년 끈 구글·애플 인앱결제 제재 결론 나나", "s": "IT조선", "l": "https://news.google.com/rss/articles/CBMicEFVX3lxTFBKVU05RXE2TnB5emRqNUxDNm5NMTZiNmVmcTc3VTRMYjgtWkhqTmQ3RmtsVml3Q1huY1NBbU9mbXRfTE9seU4xVzIyN0RRMWFhbXBGSE5LUnlhelBNR01Db2o5WVgzRTRFYVFCNzl2YXrSAXRBVV95cUxPNUFpTkpsdkJfVi1HLWRabW50S0hTN2pGNlZXU3pnX2lzMXZwa2h4VGtmUFpmWVlBUldfRV9vUWo1TGZxOU03ZHc3QlM4dVd1RmdfNk9QWTFUSWdSSGszNFN3ZUVIdVlLT1BkeTRIQTVsdU02Qg?oc=5", "m": "", "p": "17:48", "n": 2}], [{"t": "방미통위, 구글·애플 과징금 637억원 가닥…시정조치 범위 이견", "s": "연합뉴스", "l": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9kTUx6MVZnYVFkWVpSUEE4c1l2MW52MFlneDZ2TFVhb2VoLXBxUGQwYzN1VnJWaVBlZ1g2Rm9iN3Z0eEFOaWx1YUVkTU5OWl9KRzFYZUdhSW1rRHPSAWBBVV95cUxNWTJBUmZyUE12ZGNyRlpxeUFNbGxBSEFsWU9LY1pSenFkQndzLUZaY2Vxd1MtaWl5MDh1NFpFLW93VlRnNXJBcWFYWEFkTndGb1gzV0Q2SjhfcUJ3RVVCbkw?oc=5", "m": "", "p": "08:42", "n": 1}], [{"t": "\"우리 며느리가…\" 시어머니 영상 '조회수 400만' 터진 이유", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102787601", "m": "", "p": "17:52", "n": 1}], [{"t": "가자전쟁 후 첫 이스라엘 총선 개막…네타냐후 운명 달렸다", "s": "한겨레", "l": "https://www.hani.co.kr/arti/international/arabafrica/1284480.html", "m": "", "p": "19:56", "n": 1}], [{"t": "극우 압력으로 극장에서 영화 내렸던 바이마르 공화국", "s": "오마이뉴스", "l": "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003279071&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news", "m": "", "p": "17:51", "n": 1}], [{"t": "임만균 서울시의회 의장 “정쟁보다 민생…협치하되 잘못된 정책엔 단호 대응”", "s": "서울경제", "l": "https://www.sedaily.com/article/20106804?ref=naver", "m": "", "p": "17:56", "n": 1}], [{"t": "인권위 세종 이전 추진에…인권단체 우려 목소리 내는 이유는", "s": "쿠키뉴스", "l": "https://www.kukinews.com/article/view/kuk202610270234", "m": "", "p": "18:16", "n": 1}]], "n": 8}, {"name": "과기정통부", "clusters": [[{"t": "[단독] 멜론 차트 2위가 AI 음악?…정부, 표시 의무 확대 검토", "s": "뉴스1", "l": "https://www.news1.kr/it-science/internet-platform/6333828", "m": "🔥", "p": "17:58", "n": 1}], [{"t": "서버 뚫릴 수 있다는데…\"국내 PHP 보안패치 적용률 고작 3.9%\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261027_0003843592", "m": "", "p": "18:41", "n": 1}, {"t": "한국 PHP 보안패치율 세계 181위 '하위권'…정부 \"패치 독려 중\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2019565", "m": "", "p": "17:12", "n": 1}, {"t": "“韓 PHP 보안패치율 3.9% 그쳐”…정부, 대응 독려", "s": "전자", "l": "https://www.etnews.com/20261027000434", "m": "", "p": "18:11", "n": 1}], [{"t": "NIPA, 일본서 고령자 돌봄 서비스 실증", "s": "IT조선", "l": "https://it.chosun.com/news/articleView.html?idxno=2023092172909", "m": "", "p": "17:12", "n": 1}, {"t": "NIPA, 일본 고령자 돌봄 현장서 AI 서비스 6종 실증", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2019573", "m": "", "p": "17:16", "n": 1}, {"t": "NIPA, 국산 AI 돌봄 서비스 일본서 검증…해외 사업화 지원", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261027172604", "m": "", "p": "17:29", "n": 1}], [{"t": "\"정부 기술 민간에 이전 … K원전 글로벌 생산 거점될 것\"", "s": "매일경제", "l": "https://www.mk.co.kr/article/12187341", "m": "", "p": "17:26", "n": 1}, {"t": "배경훈 “韓, 글로벌 SMR 공급거점으로…민간 원전 운영·소유 논의해야”", "s": "서울경제", "l": "https://www.sedaily.com/article/20106762?ref=naver", "m": "", "p": "17:37", "n": 1}], [{"t": "한·영 원자력 연구기관, 연구협력 강화 위해 맞손", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261027175700017?input=1195m", "m": "", "p": "18:48", "n": 1}, {"t": "한·영 원자력 연구기관, SMR·차세대 원자로 공동 연구 협력", "s": "전자", "l": "https://www.etnews.com/20261027000451", "m": "", "p": "20:28", "n": 1}], [{"t": "배경훈 부총리, K-원자력 특별홍보관 참관", "s": "뉴시스", "l": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE1BOW9hcWJiejBHTEkwUlJjS0hzRmhCWWNVX1M3eDRZNDM1SmhhLXdtb2hpVHptQWVQak1QcVZBckdldnItUTZLZmIyaHp6aVo0UE91a1BoRXA2cVhfa0k2NQ?oc=5", "m": "", "p": "13:35", "n": 1}], [{"t": "바다 위 해킹 막는다…KISA, 선박용 침해사고 성능 시험장 공개", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261027030600017?input=1195m", "m": "", "p": "15:00", "n": 1}], [{"t": "수자원공사, ‘2026 대한민국 SNS 대상’ 공공기업 부문 대상", "s": "쿠키뉴스", "l": "https://www.kukinews.com/article/view/kuk202610270155", "m": "", "p": "15:12", "n": 1}, {"t": "수자원공사, '대한민국 SNS 대상' 공공기업 부문 대상", "s": "대전", "l": "https://www.daejonilbo.com/news/articleView.html?idxno=2309777", "m": "", "p": "17:19", "n": 1}, {"t": "경북도, 대한민국 SNS 대상 4년 연속 수상", "s": "서울경제", "l": "https://www.sedaily.com/article/20106795?ref=naver", "m": "", "p": "17:54", "n": 1}], [{"t": "단일 반도체 소재로 'P형·N형' 통합… 서울시립대, 공정비용 줄일 길 열었다", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610271700596402", "m": "", "p": "17:03", "n": 1}], [{"t": "디텍트엑스, ‘AI음악 식별 기술’ 우선협상대상자 선정", "s": "문화", "l": "https://www.munhwa.com/article/11626689?ref=naver", "m": "", "p": "17:10", "n": 1}], [{"t": "\"의료기기에 AI 입힌다\"…원주서 미래 성장동력 모색", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261027_0003843407", "m": "", "p": "17:16", "n": 1}], [{"t": "동양생명, 임직원 정보보호 보안의식 강화", "s": "MBN", "l": "http://mbnmoney.mbn.co.kr/news/view?news_no=MM1005948409", "m": "", "p": "17:18", "n": 1}], [{"t": "한양대-싱가포르기술디자인대, 차세대 통신·센싱 MOU 체결", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261027_0003843469", "m": "", "p": "17:26", "n": 1}], [{"t": "강원도·원주시, AI·반도체 산업 발전 방향 찾는다", "s": "뉴스1", "l": "https://www.news1.kr/local/kangwon/6333811", "m": "", "p": "17:32", "n": 1}], [{"t": "유출규모 불어난다…끝나지 않은 해킹 공포", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000342488?division=NAVER", "m": "", "p": "18:23", "n": 1}], [{"t": "계속되는 사이버 보안 경고등…왜 못 막나", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000342490?division=NAVER", "m": "", "p": "18:30", "n": 1}], [{"t": "단지내 일상 담고 독립영화 만들고 힐스테이트 입주민, 유튜브에 떴다", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610271833035759", "m": "", "p": "18:34", "n": 1}], [{"t": "NIPA, AI·SW 기업지원 성과관리 개선… 한준호 “과기부 실행계획으로 이어져야”", "s": "전자", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE1venZrcUs2S3RPeUFDTXVrR21kR3IyajQ2b0NXaDY3UGQ2dDZXMFk4SmlobGJDeG1hTFRKRTY2ZHZOSFpuNXBOWGdfM2gzQQ?oc=5", "m": "", "p": "18:17", "n": 2}], [{"t": "고창군, AI 자율주행 트랙터 18대 도입", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102714072024632", "m": "", "p": "15:03", "n": 1}], [{"t": "'첨단 원주, AI·반도체 포럼' 28일 개막...미래 성장 방향 논의", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261027001339", "m": "", "p": "17:11", "n": 1}], [{"t": "출연연 전략연구사업 ‘본원 쏠림’ 심각…지역조직 ‘소외’ 불만 커져", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12091619?ref=naver", "m": "", "p": "17:28", "n": 1}], [{"t": "엘리스그룹, 청소년 에이전트 AI 해커톤 '메이커톤' 성료", "s": "전자", "l": "https://www.etnews.com/20261027000426", "m": "", "p": "17:42", "n": 1}], [{"t": "국정원, PHP 취약점 잇따르자 \"공공 전산망 일시 중지 검토\"", "s": "블로터", "l": "https://www.bloter.net/news/articleView.html?idxno=676885", "m": "", "p": "17:49", "n": 1}], [{"t": "한의학 진단부터 식품 생산·독성평가까지···AI로 바뀌는 출연연", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113636", "m": "", "p": "18:28", "n": 1}], [{"t": "PBS 폐지 이후 출연연 미래는?···임무 중심 연구체계 논의", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113646", "m": "", "p": "18:28", "n": 1}], [{"t": "세계 SMR 사업 158개 추진···韓 \"개발·실증 속도 높인다\"", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113647", "m": "", "p": "18:28", "n": 1}], [{"t": "감은 수확하고 버리던 꼭지는 탄저병 막는 생물 농약으로, 발병률 70% 감소", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113641", "m": "", "p": "18:28", "n": 1}], [{"t": "한양대 ERICA 기술지주, '컴퍼니빌더형' 딥테크 창업기업 이끌고 싱가포르 SWITCH 2026 참가", "s": "전자", "l": "https://www.etnews.com/20261027000444", "m": "", "p": "19:26", "n": 1}]], "n": 36}, {"name": "우주항공청", "clusters": [[{"t": "보령, 독일우주청과 우주 생명과학 연구 협력…인프라 첫 잠재 고객 확보", "s": "매일경제", "l": "https://news.google.com/rss/articles/CBMiRkFVX3lxTE5jTTdxckltdlI1Qy04c21oREIxNEdESjR4Y1hxdFhtREhfMUVEczlHb2xnZnhqV1ZvX0Q0Nk9ZLWtHXzg4d3c?oc=5", "m": "", "p": "14:46", "n": 1}], [{"t": "‘우주산업 거점’ 고흥 우주발사체 국가산단 조성 속도…내년 보상 착...", "s": "서울", "l": "https://www.seoul.co.kr/news/economy/2026/10/27/20261027500324?wlog_tag3=naver", "m": "", "p": "20:08", "n": 1}], [{"t": "컨텍, 美 태양관측위성 데이터 수신 안테나 자체 개발", "s": "동아사이언스", "l": "https://www.dongascience.com/news/view/80562", "m": "", "p": "17:12", "n": 1}, {"t": "컨텍, NASA 위성 데이터 받는 '대형 안테나' 핵심기술 개발", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113635", "m": "", "p": "18:28", "n": 1}], [{"t": "'우주부품 대리점'서 제조기업으로··· 빈틈 파고든 엠아이디의 국산화 승부수", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113632", "m": "", "p": "18:28", "n": 1}], [{"t": "[BNK경남은행 지원 스타트업 탐방] ⑫ 아이리닉", "s": "경남", "l": "https://www.knnews.co.kr/news/articleView.php?idxno=1553755", "m": "", "p": "19:10", "n": 1}]], "n": 6}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var main = document.getElementById('main');
+  var state = {beat:null, filter:'all', q:''};
+  var picked = new Set();
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+
+  // stable ids + flat index
+  var ALL = {};
+  D.groups.forEach(function(g, gi){
+    g.clusters.forEach(function(c, ci){
+      c.forEach(function(it, ii){
+        it.id = gi+'-'+ci+'-'+ii;
+        it.g = g.name;
+        it.ord = gi*100000 + ci*100 + ii;
+        ALL[it.id] = it;
+      });
+    });
+  });
+
+  document.getElementById('label').textContent = D.label;
+  document.getElementById('window').textContent = D.start + ' — ' + D.end;
+  document.getElementById('n-raw').textContent = D.raw.toLocaleString();
+
+  var scoop=0, flash=0, topics=0;
+  D.groups.forEach(function(g){
+    g.clusters.forEach(function(c){
+      topics++;
+      c.forEach(function(it){ if(it.m===SCOOP) scoop++; else if(it.m===FLASH) flash++; });
+    });
+  });
+  document.getElementById('n-topic').textContent = topics;
+  document.getElementById('n-scoop').textContent = scoop;
+  document.getElementById('n-flash').textContent = flash;
+
+  var beats = document.getElementById('beats');
+  D.groups.forEach(function(g){
+    var b = document.createElement('button');
+    b.className='beat'; b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span>'+g.name+'</span><span class="c mono">'+g.n+'</span>';
+    b.addEventListener('click', function(){
+      state.beat = (state.beat===g.name) ? null : g.name;
+      [].forEach.call(beats.children, function(el,i){
+        el.setAttribute('aria-pressed', String(D.groups[i].name===state.beat));
+      });
+      render();
+    });
+    beats.appendChild(b);
+  });
+
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){
+        b.setAttribute('aria-pressed', String(b===btn));
+      });
+      render();
+    });
+  });
+
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ state.q = q.value.trim().toLowerCase(); render(); }, 120);
+  });
+
+  function keep(it){
+    if(state.filter==='mark' && !it.m) return false;
+    if(state.filter==='spread' && it.n < 2) return false;
+    if(state.filter==='picked' && !picked.has(it.id)) return false;
+    if(state.q && (it.t+' '+it.s).toLowerCase().indexOf(state.q) === -1) return false;
+    return true;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function itemRow(it){
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>'
+            : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(picked.has(it.id)?' on':'')+'" data-id="'+it.id+'">' +
+      '<input class="pick" type="checkbox" id="p'+it.id+'" '+(picked.has(it.id)?'checked':'')+
+      ' aria-label="보고에 포함">' + tag +
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>' +
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>' +
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '') + '</span></div>';
+  }
+
+  // 큰 묶음(30건 이상)은 접어도 몇 건인지 보이게 하고 기본 펼침으로 둔다.
+  // (C 세션(0-14) 결과 — 접기 자체는 안전하나 53건짜리 묶음이 여전히 나오므로
+  //  대표 1건 뒤에 대량이 숨는 화면을 피하기 위한 D 세션 자체 판단)
+  var AUTO_EXPAND = 30;
+
+  function render(){
+    var html = '', shown = 0;
+    D.groups.forEach(function(g){
+      if(state.beat && g.name !== state.beat) return;
+      var blocks = '', gcount = 0;
+      g.clusters.forEach(function(c, ci){
+        var items = c.filter(keep);
+        if(!items.length) return;
+        gcount += items.length; shown += items.length;
+        var lead = items[0], rest = items.slice(1);
+        var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+        var body = itemRow(lead);
+        if(rest.length){
+          var id = 'c'+g.name.replace(/\s/g,'')+ci;
+          var bigCluster = items.length >= AUTO_EXPAND;
+          body += '<button class="more" type="button" aria-expanded="'+(bigCluster?'true':'false')+'" aria-controls="'+id+'">'+
+                  (bigCluster ? '접기 (' : '+') + rest.length + '건 같은 사안' + (bigCluster ? ')' : '') + '</button>'+
+                  '<div class="dupes" id="'+id+'"'+(bigCluster?'':' hidden')+'>'+rest.map(itemRow).join('')+'</div>';
+        }
+        blocks += '<div class="'+cls+'">'+body+'</div>';
+      });
+      if(!gcount) return;
+      html += '<section id="sec-'+g.name+'"><div class="sec-head"><h2>'+g.name+'</h2>'+
+              '<span class="n mono">'+gcount+'건</span></div>'+blocks+'</section>';
+    });
+    main.innerHTML = html || '<p class="empty">조건에 맞는 기사가 없습니다.</p>';
+    document.getElementById('n-shown').textContent = shown;
+
+    [].forEach.call(main.querySelectorAll('.more'), function(btn){
+      btn.addEventListener('click', function(){
+        var box = document.getElementById(btn.getAttribute('aria-controls'));
+        var open = box.hidden;
+        box.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+      });
+    });
+  }
+
+  // one delegated handler for checkboxes
+  main.addEventListener('change', function(e){
+    var cb = e.target;
+    if(!cb.classList || !cb.classList.contains('pick')) return;
+    var row = cb.closest('.row'), id = row.getAttribute('data-id');
+    if(cb.checked){ picked.add(id); row.classList.add('on'); }
+    else { picked.delete(id); row.classList.remove('on'); }
+    syncBar();
+  });
+
+  function syncBar(){
+    var n = picked.size;
+    document.getElementById('n-pick').textContent = n;
+    document.getElementById('bar').hidden = (n === 0);
+  }
+
+  function buildReport(){
+    // 속보도 고를 수 있게 둔다 — 판정이 제목 말머리 기반이라 보고감이 섞인다.
+    // 쓸지 말지는 고르는 단계에서 정한다.
+    var items = [];
+    picked.forEach(function(id){ if(ALL[id]) items.push(ALL[id]); });
+    var rank = function(name){
+      var i = REPORT_ORDER.indexOf(name);
+      return i === -1 ? REPORT_ORDER.length : i;
+    };
+    items.sort(function(a,b){
+      // 1) 단독 먼저  2) 출입처순  3) 중요도순
+      var sa = (a.m === SCOOP) ? 0 : 1, sb = (b.m === SCOOP) ? 0 : 1;
+      if(sa !== sb) return sa - sb;
+      var ra = rank(a.g), rb = rank(b.g);
+      if(ra !== rb) return ra - rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil');
+  var report = document.getElementById('report');
+  var hint = document.getElementById('copyhint');
+  var hintDefault = hint.textContent;
+
+  function openPanel(){
+    var r = buildReport();
+    report.value = r.text;
+    document.getElementById('psub').textContent = r.n + '건 · 단독 상단 · 출입처순';
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false;
+    report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  document.getElementById('make').addEventListener('click', openPanel);
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+
+  document.getElementById('clear').addEventListener('click', function(){
+    picked.clear(); syncBar(); render();
+  });
+  document.getElementById('selectall').addEventListener('click', function(){
+    report.focus(); report.select();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){
+      report.focus(); report.select();
+      hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 ⌘C로 복사하세요.';
+      hint.classList.remove('ok');
+    };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report.value).then(done, fail);
+      } else { fail(); }
+    }catch(err){ fail(); }
+  });
+
+  render(); syncBar();
+})();
+</script>
+
+</body></html>
