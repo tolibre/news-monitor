@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>밤 다이제스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eceff1; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#131a20; --ink-2:#3d4a54; --muted:#6b7b86;
+  --line:#d2dade; --line-soft:#e3e9ec;
+  --accent:#1c5f88; --accent-soft:#e2edf4;
+  --scoop:#b8430e; --scoop-soft:#fbe9df;
+  --flash:#a81f1f; --flash-soft:#fae4e4;
+  --pick:#0f6f52; --pick-soft:#e3f2ec;
+  --shadow:0 2px 10px rgba(19,26,32,.10);
+  --veil:rgba(19,26,32,.45);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --ground:#0e1418; --surface:#151d23; --surface-2:#1b242b;
+  --ink:#e7eef2; --ink-2:#bccad3; --muted:#8497a3;
+  --line:#26333b; --line-soft:#1f2a31;
+  --accent:#63aedd; --accent-soft:#16303f;
+  --scoop:#f28c52; --scoop-soft:#3a2115;
+  --flash:#ef7070; --flash-soft:#3a1a1a;
+  --pick:#57c39a; --pick-soft:#15332a;
+  --shadow:0 2px 12px rgba(0,0,0,.5);
+  --veil:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.mono{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+header{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1000px; margin:0 auto; padding-left:16px; padding-right:16px}
+.masthead{padding-block:14px 10px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px}
+h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em}
+.window{font-size:12.5px; color:var(--muted); letter-spacing:.02em}
+.navline{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-block:10px 0}
+.navline a{
+  font-size:12px; font-weight:500; text-decoration:none;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid transparent; border-radius:999px; padding:4px 11px;
+}
+.navline a:hover{border-color:var(--accent)}
+.tallies{display:flex; flex-wrap:wrap; gap:6px 16px; margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.tallies b{font-weight:600; font-size:14px}
+.t-scoop b{color:var(--scoop)} .t-flash b{color:var(--flash)}
+
+.beats{display:flex; gap:6px; overflow-x:auto; padding-block:0 10px; scrollbar-width:thin}
+.beat{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:6px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  border-radius:999px; padding:5px 11px; font-size:13px; font-weight:500;
+  cursor:pointer; white-space:nowrap;
+}
+.beat:hover{border-color:var(--accent); color:var(--ink)}
+.beat .c{font-size:11.5px; color:var(--muted)}
+.beat[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+.beat[aria-pressed="true"] .c{color:rgba(255,255,255,.8)}
+
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding-block:0 12px; align-items:center}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{
+  border:0; background:var(--surface); color:var(--ink-2);
+  font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+#q{
+  flex:1 1 180px; min-width:0; border:1px solid var(--line); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; padding:6px 10px;
+}
+#q::placeholder{color:var(--muted)}
+#q:focus,.seg button:focus-visible,.beat:focus-visible,.more:focus-visible,
+.bar button:focus-visible,.panel button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+main{padding-block:0 96px}
+section{margin-top:26px; scroll-margin-top:170px}
+.sec-head{
+  display:flex; align-items:baseline; gap:9px;
+  padding-bottom:7px; border-bottom:2px solid var(--ink); margin-bottom:2px;
+}
+.sec-head h2{margin:0; font-size:15.5px; font-weight:700; letter-spacing:-.005em}
+.sec-head .n{font-size:12px; color:var(--muted)}
+.topic{
+  background:var(--surface); border-bottom:1px solid var(--line-soft);
+  padding:9px 12px 9px 11px;
+}
+.topic.pinned{border-left:3px solid var(--scoop); padding-left:8px}
+.topic.pinned.flash{border-left-color:var(--flash)}
+.row{display:flex; gap:8px; align-items:baseline; padding:2px 4px; border-radius:5px}
+.row.on{background:var(--pick-soft)}
+.pick{
+  flex:0 0 auto; width:15px; height:15px; margin:0; cursor:pointer;
+  accent-color:var(--pick); transform:translateY(2px);
+}
+.tag{
+  flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:1.5px 6px; border-radius:4px; transform:translateY(-1px);
+}
+.tag.scoop{background:var(--scoop-soft); color:var(--scoop)}
+.tag.flash{background:var(--flash-soft); color:var(--flash)}
+a.title{
+  color:var(--ink); text-decoration:none; font-size:14.5px; line-height:1.45;
+  text-underline-offset:3px;
+}
+a.title:hover{text-decoration:underline; text-decoration-color:var(--accent)}
+.meta{
+  flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline;
+  font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.more{
+  margin-top:5px; margin-left:23px; border:0; background:none; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--accent); font-weight:500;
+}
+.more:hover{text-decoration:underline}
+.dupes{margin-top:5px; margin-left:23px; padding-left:11px; border-left:1px solid var(--line); display:grid; gap:3px}
+.dupes[hidden]{display:none}
+.dupes a.title{font-size:13px; color:var(--ink-2)}
+.empty{padding:40px 0; text-align:center; color:var(--muted); font-size:13.5px}
+
+/* ---------- selection bar ---------- */
+.bar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:var(--shadow);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.bar-in{max-width:1000px; margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.bar .count{font-size:13.5px; font-weight:600}
+.bar .count b{color:var(--pick); font-size:16px}
+.bar .spacer{margin-left:auto}
+.btn{
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+  font:inherit; font-size:13px; font-weight:500; padding:7px 14px; border-radius:7px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent); color:var(--ink)}
+.btn.primary{background:var(--pick); border-color:var(--pick); color:#fff}
+.btn.primary:hover{filter:brightness(1.08); color:#fff}
+
+/* ---------- report panel ---------- */
+.veil{
+  position:fixed; inset:0; z-index:40; background:var(--veil);
+  display:flex; align-items:flex-end; justify-content:center; padding:16px;
+}
+@media (min-width:640px){ .veil{align-items:center} }
+.panel{
+  background:var(--surface); border-radius:12px; width:100%; max-width:660px;
+  max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--shadow);
+  border:1px solid var(--line);
+}
+.panel-head{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.panel-head h3{margin:0; font-size:15px; font-weight:700}
+.panel-head .sub{font-size:12px; color:var(--muted)}
+.panel-head .x{margin-left:auto; border:0; background:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:0 2px}
+#report{
+  flex:1 1 auto; min-height:220px; margin:12px 16px; padding:12px;
+  border:1px solid var(--line); border-radius:8px; resize:vertical;
+  background:var(--surface-2); color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif; font-size:13.5px; line-height:1.8;
+}
+.panel-foot{display:flex; gap:10px; align-items:center; padding:0 16px 14px; flex-wrap:wrap}
+.hint{font-size:11.5px; color:var(--muted)}
+.hint.ok{color:var(--pick); font-weight:600}
+
+@media (max-width:560px){
+  .tallies{margin-left:0; width:100%}
+  .meta{margin-left:0; width:100%; padding-left:23px}
+  .row{flex-wrap:wrap}
+  section{scroll-margin-top:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="navline"><a href="./">‹ 지난 다이제스트</a><a href="../">↻ 최신 다이제스트</a></div>
+    <div class="masthead">
+      <h1 id="label">밤 다이제스트</h1>
+      <span class="window mono" id="window"></span>
+      <div class="tallies">
+        <span>표시 <b class="mono" id="n-shown">0</b>건</span>
+        <span>주제 <b class="mono" id="n-topic">0</b>개</span>
+        <span class="t-scoop">단독 <b class="mono" id="n-scoop">0</b></span>
+        <span class="t-flash">속보 <b class="mono" id="n-flash">0</b></span>
+        <span>원문 <b class="mono" id="n-raw">0</b>건</span>
+      </div>
+    </div>
+    <div class="beats" id="beats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="보기 범위">
+        <button data-f="all" aria-pressed="true">전체</button>
+        <button data-f="mark" aria-pressed="false">단독·속보</button>
+        <button data-f="spread" aria-pressed="false">전재 2건+</button>
+        <button data-f="picked" aria-pressed="false">선택분</button>
+      </div>
+      <input id="q" type="search" placeholder="제목·매체 검색 (예: 담합, 연합뉴스)" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <span class="count"><b class="mono" id="n-pick">0</b>건 선택</span>
+    <span class="hint">체크한 기사만 보고 양식으로 묶습니다</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="clear">선택 해제</button>
+    <button class="btn primary" type="button" id="make">보고 양식 만들기</button>
+  </div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <div class="panel-head">
+      <h3 id="ptitle">&lt;모니터&gt;</h3>
+      <span class="sub" id="psub"></span>
+      <button class="x" type="button" id="close" aria-label="닫기">&times;</button>
+    </div>
+    <textarea id="report" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button class="btn primary" type="button" id="copy">복사</button>
+      <button class="btn" type="button" id="selectall">전체 선택</button>
+      <span class="hint" id="copyhint">단독 먼저, 그다음 출입처 순서(방미통위 → 공정위 → 과기정통부 → 우주청 → 2진). 직접 고쳐도 됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"label": "밤 다이제스트", "start": "10/28 17:30", "end": "10/28 22:00", "raw": 245, "groups": [{"name": "공정위", "clusters": [[{"t": "[단독]행안부, 세종 이전 44개 기관 현장 실사…특수시설 수요 파악", "s": "머니투데이", "l": "https://www.mt.co.kr/policy/2026/10/28/2026102810114014971", "m": "🔥", "p": "17:00", "n": 1}], [{"t": "공정위, '공공공사 입찰담합 의혹' 건설사 6곳 현장 조사", "s": "연합뉴스", "l": "https://news.google.com/rss/articles/CBMiYEFVX3lxTFBmazMwLTJiSlJ5NV9mR1Vfak1PdGJqMFhoRUpwaG9xZjk0OThReXl2MVlycGFIMl9WTzRNd3FvSGZoc1YxV3huTVB5VHpnZU9YdlFMcFhfeWhXVFZUNXJjbNIBYEFVX3lxTFBmazMwLTJiSlJ5NV9mR1Vfak1PdGJqMFhoRUpwaG9xZjk0OThReXl2MVlycGFIMl9WTzRNd3FvSGZoc1YxV3huTVB5VHpnZU9YdlFMcFhfeWhXVFZUNXJjbA?oc=5", "m": "", "p": "15:22", "n": 1}, {"t": "공정위, 라면담합 정조준…농심·삼양·팔도·오뚜기 현장조사", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261028167000002?input=1195m", "m": "", "p": "17:16", "n": 6}, {"t": "공정위, 농심·삼양식품·팔도·오뚜기 라면4사 현장조사…가격 담합 의혹", "s": "뉴스1", "l": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE16TWhNZFVjT09zQ2pSeHR5NkwwZkIxNFdtU3FxQkE0YmNtOF9nM2JjNllBWFB6ZXFrZFJCWjZ5ZU8tWm1EUVpZUUs2T2pvZ3B6bGNyZw?oc=5", "m": "", "p": "17:33", "n": 1}, {"t": "공정위, 공공공사 입찰담합 의혹 조사…건설사 6곳 현장조사", "s": "뉴스1", "l": "https://www.news1.kr/economy/trend/6335335", "m": "", "p": "17:34", "n": 2}, {"t": "공정위 ‘중점조사단’, 이번엔 라면값 담합 조사 착수", "s": "서울경제", "l": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE5xY2NBM3BiRUw1ekFEZ2VMT1BvT05sZ3QycW52bEQ4dnMtUVE3X1ZuX21VWkJSVFZ3SThvdmNjb2R4NXhYOGxKZXdWS1JIUjVXa1HSAVNBVV95cUxNaDludzg4dzdiYlgxR2RwaXdfcDNERW55YnU3UDB5dWZMZXRNOVZjcXZEY01iMjJpY1ZwMkRjdTlMa3dIUHNQNnAzczJqbFIweThvNA?oc=5", "m": "", "p": "16:13", "n": 1}, {"t": "공정위, 공공공사 '입찰담합' 의혹 건설사들 현장 조사", "s": "MBC 뉴스", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTFBULU1hX1dVeWg2eE8zeEM2NThUSm1nU1hnQ1NkMHNMNEtSV0JVdXZJU0tOTjdMdkpJTThZUWJ0MmFMLXEzNFVEVFBwQVQ5akJRY0JlZWdFdUU5MUxObUFfUkYtNm1oWE9jaWxWcEo4eDVveEZF0gF0QVVfeXFMUEdSc1YzVnlJVng3THRBYmtTRTJRamx5YkQyUUNnQlRLVmhwVV9Bd0xXMEZwTS1HRmZLWndUd1BqN19sRU9zb3FRckl1MzRSOHA3LTdnODdCOTVacUVDSHBweG5xSFotd3ppYTVTNWoyZ3BNTko?oc=5", "m": "", "p": "16:55", "n": 1}, {"t": "공정위, ‘라면값 담합 의혹’ 조준…농심·팔도·삼양·오뚜기 현장 조사", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8697605&ref=A", "m": "", "p": "17:03", "n": 2}, {"t": "\"라면값도 담합?\"…공정위, 농심·팔도·삼양·오뚜기 현장 조사", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE5JeU00R05peGp4ZklRaFp6Z2FtRXFhOVZVYW1SQzRvdWowU2x6NjZXZ1FCV1NkeXpmblJ6aUhHWDBrcDRjcTJXbnJESWM3NmIxOVNZT2NyNzdMQ1JVeG9LQzdHczA?oc=5", "m": "", "p": "17:11", "n": 2}, {"t": "공정위, 이번엔 '라면값' 들여다본다…업계 빅4 현장조사", "s": "데일리안", "l": "https://news.google.com/rss/articles/CBMiogJBVV95cUxPQm5Ba2gwbVdrX244dnFSM1RMR3hXb0xsY28xTlJfSUU5aFRPby1NYmFoT2RBZk9aWllDeVowRnJaMFhHckEyT1dfTlBWZUJDNjRyTmRQRTZwSkRHSTM0ek9JVUZrcGZaOGRpMUVXSmNIUVZkdFFwWFlZbFpWZVpsRExIU1BpZ0hRRnVIV0Q2Q2ctTTNFUmZwZGNJbVhKZWI3TmV6WjBrNFo4MEhDRHJxMlRQVkhLUXAtVWFJWEtSS0pDZlRYYUFoc2NaZEdVTUI3Mkk1Q1VLclFUR29BS1ozY3ViVC02U2NUQ083SFI4THZkSnBkLWVaOW5vN3hWQU5XMTQtdnRIVUZyWTloRjZwS2wzdFR1WWlQN0lCa0NWTllnZw?oc=5", "m": "", "p": "17:14", "n": 2}, {"t": "공정위, ‘라면 가격 담합’ 농심·삼양·팔도·오뚜기 현장조사", "s": "조선", "l": "https://www.chosun.com/economy/economy_general/2026/10/28/V2YA4I63FFFRRA4BESMKPDVCMI/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news", "m": "", "p": "17:23", "n": 2}, {"t": "공정위, 라면 가격 담합 여부 현장 조사", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0102_202610281732547914", "m": "", "p": "17:32", "n": 1}, {"t": "공정위, 라면 가격 담합한 농심·팔도·오뚜기 등 현장조사", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102817322084128", "m": "", "p": "17:32", "n": 2}, {"t": "\"라면 가격 담합했나\"⋯공정위, 농심·삼양·오뚜기·팔도 조사", "s": "아이뉴스24", "l": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE9NZjJlenpFRUFvazVURmJfYzVEM3hrM3RSX0ZCY0MtQy1pemFSSDltV0ZzakRiV28zOW9FUDRDbVFqSHdudmlSa0ZWRQ?oc=5", "m": "", "p": "17:33", "n": 2}, {"t": "공정위 중점조사기획단, 농심·오뚜기 등 4곳 라면값 담합 의혹 조사", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12091894?ref=naver", "m": "", "p": "17:36", "n": 1}, {"t": "공공공사 ‘들러리 입찰’ 의혹…건설사 6곳 조사", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12091895?ref=naver", "m": "", "p": "17:40", "n": 1}, {"t": "공정위, '농심·삼양식품·팔도·오뚜기' 라면 4사 담합 의혹 현장조사", "s": "이투데이", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE9pR3FfbENScF9oRFlDNjZETElrM05kNV85clZMaWhvdHZxUWhFb0loU2tVNmRIemNwQmFxeTRwd2FNclB5S3RLeVljQVZhcFZsM2VUMGVHbnFRdlVlekxNOVZGRUxDeG9FaHI5QUhyVlduUXFT?oc=5", "m": "", "p": "18:04", "n": 2}, {"t": "공정위, '라면 담합' 의혹‥농심·삼양·팔도·오뚜기 현장조사", "s": "MBC", "l": "https://imnews.imbc.com/news/2026/econo/article/6861414_36932.html", "m": "", "p": "19:10", "n": 2}, {"t": "라면값도 담합했나…공정위, 농심·삼양·팔도·오뚜기 현장조사", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10918166?ref=naver", "m": "", "p": "19:48", "n": 1}], [{"t": "공정위, 쿠팡 '배달앱 끼워팔기' 이틀간 심의…멤버십 결합 위법성 쟁점", "s": "뉴스1", "l": "https://www.news1.kr/economy/trend/6334717", "m": "", "p": "17:01", "n": 2}], [{"t": "담합 자진신고 어디에 해야 하나…리니언시 접수권 놓고 공소청·중수청 충돌", "s": "경향", "l": "https://www.khan.co.kr/article/202610281708001", "m": "", "p": "17:08", "n": 1}], [{"t": "데이터센터 사모투자, 외국계에 다 내줄 판", "s": "매일경제", "l": "https://www.mk.co.kr/article/12188645", "m": "", "p": "17:32", "n": 1}], [{"t": "한화·공정위 ‘직원 휴대전화 강압조사’ 공방… 29일 첫 재판", "s": "조선비즈", "l": "https://biz.chosun.com/topics/law_firm/2026/10/28/UZF2WNTE7RC55N3JIOTOSC7I3U/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "18:03", "n": 1}], [{"t": "[테헤란로] 식품업계 ‘담합 잣대’ 명확해야", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610281839220174", "m": "", "p": "18:41", "n": 1}], [{"t": "수사기관 압색 같은 광범위 조사권… 올해 현장조사 5년내 최다", "s": "국민", "l": "https://www.kmib.co.kr/article/20261028502399", "m": "", "p": "18:51", "n": 1}], [{"t": "한해 영업익 6배 과징금 폭탄… 식품업계 투자 백지화 할판", "s": "국민", "l": "https://www.kmib.co.kr/article/20261028502396", "m": "", "p": "18:54", "n": 1}], [{"t": "대상, 과징금 2년 분납…추가 제재 리스크는 '진행형'", "s": "블로터", "l": "https://www.bloter.net/news/articleView.html?idxno=676957", "m": "", "p": "17:14", "n": 2}], [{"t": "소송 종결·신고 취하에도 201억 과징금…삼성 GOS ‘4년 만의 제재’ 논란", "s": "쿠키뉴스", "l": "https://www.kukinews.com/article/view/kuk202610280217", "m": "", "p": "18:52", "n": 1}], [{"t": "가상화폐 분석서비스 빙자한 불법 다단계 주의…공정위, 소비자 경고", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE9KejNnYlZacmRkV29jcDg0aGNWNVVfSThkdzI3SkxLTzBMNXFnMHlYeWQ2azA0TWswcXdMYUx4WXNqd0tFb2t6MTJ0NXQ0bEdMYWpuV0FqVUFKc3JmZEEwRWlsdjQ?oc=5", "m": "", "p": "11:22", "n": 1}]], "n": 29}, {"name": "방미통위", "clusters": [[{"t": "[속보]구글 429억, 애플 208.1억원…'인앱결제 강제' 과징금 부과", "s": "머니투데이", "l": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBFLUU5VkhEWUJ2VFdKclBNb2Q0aWdZQ19FQUhFYmlRRGNRLXpDUzdNTlQ2cnhDLUxJX2hqRXBTOEp6LXpia0s4UWdUUk1YVWdTeWdWaTBRR2FBUlhuc0hGd1RtV2trUG8?oc=5", "m": "⚡", "p": "16:18", "n": 1}, {"t": "[속보]구글 429억, 애플 208.1억…방미통위, '인앱결제' 과징금 부과", "s": "머니투데이", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE1HWTM3WVRNdmZyYVVCNWk5ZG9zc3ZXOVp2NVI1Nkg2WmZlVC1YZU1kal9zMkgzSHU0dnVnN0I1TjRuV015b1ZHcTBrTHgtRkZlLTJPQVZqc0pGMlBDc1l1ZENUa0ZnTU9uRV9jeEJDanI2cDBt0gF6QVVfeXFMTThLeDJBQXBrOXdjTndsanV1TjZYbGFCRVhTLXlRLUlPU0dFNVlKZzNtQVFiVFoyeEQ2dUYtZ29zMmpzcWJKZ1F3RTVxVXVPalZPSktXVTg0T2xiVDdZUFktLTExTnotTG5oVk1NX0tfY1pMRTZIVmxyU0E?oc=5", "m": "⚡", "p": "16:31", "n": 1}, {"t": "[속보] 구글·애플 과징금 637억 부과 결정… 방미통위 “인앱결제 강제는 부당”", "s": "미디어오늘", "l": "https://news.google.com/rss/articles/CBMicEFVX3lxTE81QmcxVzFnaWdDT0VkaGxQaUhCb2tGb2o0SG9VcDFQc3N2Z2ZCZF9nNWszUDAwT19EczRnNmxVLVhxRTc1d1ExZUNtcVJfZkpXNU1JTnFRUkNONjExamtEd2M0RkdKWFFsSHJES2NXYWU?oc=5", "m": "⚡", "p": "16:32", "n": 1}, {"t": "[속보] 방미통위, ‘인앱결제’ 구글 429억원·애플 208억1천만원 과징금", "s": "서울경제", "l": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBSY2x5Y0ZuNTF6WjhjOE0tM2F5cmxQczI0SE5Cbm5VM0hicXJkMTRZYVYxNWtONnJtV2JGOWNidkU4SklhSXZRcXp3QkkyUDJaeVHSAVNBVV95cUxNemlFQ25HTGJZZ2lJUzFvVWVGOWhwTC1VUjFBY0ROWkplRlg4dnVuX3BTRGVBcW5oNi1DdFNxbjEwR29sVE1jbXJVYThYU1JfTEF5dw?oc=5", "m": "⚡", "p": "16:37", "n": 3}, {"t": "[속보] 방미통위, '인앱결제' 구글·애플에 429억·208억1000만원 과징금", "s": "이투데이", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE04M1NPbF8zSVAzQkNuR2thX0VMZk1QMXpielJCX1FzcFhyMURzQUl0OWt4UWd1c1JCM1luSG1Qb240MTNwV1h2eVd4eVdWV1hkNjBsaEFSYUJEQXhtSVd4V2NrcWZOVG1EbXRhVVVQazZZWUwx?oc=5", "m": "⚡", "p": "17:02", "n": 2}, {"t": "[속보] 구글 429억원·애플 208억원 과징금…방미통위,시정명령 의결", "s": "문화", "l": "https://www.munhwa.com/article/11627016?ref=naver", "m": "⚡", "p": "19:30", "n": 1}, {"t": "애플, 208억원 과징금에 \"동의하지 않는다\"…대응 검토", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261028171600017?input=1195m", "m": "", "p": "17:27", "n": 1}, {"t": "구글·애플에 인앱결제 과징금 637억원…양사 유감·대응 검토(종합2보)", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261028139201017?input=1195m", "m": "", "p": "17:54", "n": 1}, {"t": "680억 예고→방통위 공백→637억 확정…구글·애플 제재 3년 만에 결론[일지]", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845056", "m": "", "p": "17:14", "n": 2}, {"t": "구글·애플 637억 과징금에 '불복 소송' 조짐…\"법 준수 노력 반영 안됐다\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845253", "m": "", "p": "17:44", "n": 2}, {"t": "게임업계, 구글·애플 637억 징계에 \"의미 있는 조치\"…\"이제는 상생 방안 내놔야\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845337", "m": "", "p": "17:48", "n": 1}, {"t": "구글·애플 인앱결제 강제 637억 과징금…제재 상한 상향 검토(종합)", "s": "뉴스1", "l": "https://www.news1.kr/it-science/cc-newmedia/6335243", "m": "", "p": "17:04", "n": 2}, {"t": "\"법 준수했다\" 구글·애플, 637억 과징금에 유감…법적 대응 시사", "s": "뉴스1", "l": "https://www.news1.kr/it-science/internet-platform/6335324", "m": "", "p": "17:29", "n": 2}, {"t": "구글·애플 인앱결제 과징금 637억…수수료·소비자가격 내려갈까", "s": "뉴스1", "l": "https://www.news1.kr/it-science/internet-platform/6335442", "m": "", "p": "18:22", "n": 2}, {"t": "방미통위 \"구글·애플, 특정 결제방식 강요\"...637억 과징금", "s": "YTN", "l": "https://news.google.com/rss/articles/CBMiXkFVX3lxTFBaRDQyNjJuRE92RW5YbjBwSGpieG1Wam5CTnhzUFR0eE5oZFdTUTVYVW1uN3Z3Wmd3QTllcklQbVV5SVE0QnBYVTRLRUVFTUVVcE9qcmgyTHNRRFhxc3c?oc=5", "m": "", "p": "16:34", "n": 1}, {"t": "방미통위, '인앱결제 강요' 구글·애플 과징금 637억 원 부과", "s": "MBC 뉴스", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE13dzJaa3F2S0ZKVjlEM3poZVlNVEdUSEhmQnotTXZsNkhrb1lwMWpTd0N6dU1zd21mMjBFVnZPNlIxY2MyalJkTnE4dWtPYXFmTlNmZnNOclFIZnlsWmNhUS1YZ0NiQTVwMHBlY25GaXBqajI40gF0QVVfeXFMT0RCRzFrakFOQWFobTlvNFFOZEs2NGVLSUJJT0JFT3RaUHh3UE1qbThXckZVUFZvN19vUmJzSERvc09td1RjWEF1NUNtaFVWdWpZa3Nlb1A0Vi0xeUVRa29DTWwwSGEtYnRVNHZsUmFKN2xXYkE?oc=5", "m": "", "p": "16:35", "n": 1}, {"t": "방미통위, 인앱결제 강제한 구글·애플에 600억원대 과징금 부여", "s": "아주경제", "l": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE0xa254OG9nOVNPWHRNUkhuSDVQZ0tQTHJyNkRFNmdIekNtQmRsb1ZaZ3M5ZlNzdnFGWGRpbXFELW1XcmNWdmkwa0xleEowdkdBLW4xWjRhZS3SAVhBVV95cUxNMWtueDhvZzlTT1h0TVJIbkg1UGdLUExycjZERTZnSHpDbUJkbG9WWmdzOWZTc3ZxRlhkaW1xRC1tV3JjVnZpMGtMZXhKMHZHQS1uMVo0YWUt?oc=5", "m": "", "p": "16:36", "n": 1}, {"t": "3년 고심 끝 결론…구글·애플 '인앱결제 강제' 637.1억 과징금 부과", "s": "머니투데이", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE16bWYweUF0S1AzVVdxaUxseHlKck1hZFlSQm1mM0ZXU2FaNk1ka296Y3B4MGhlZ2ZtcDdnckI0MG40WUhueWJIRnlaXzBjNkFhZlJQeFVtOXd5VHluNHRUQTJUWW9qbEc2SDl2Q2JEODZ2OWpB0gF6QVVfeXFMTWJaX2pCT3NHR3NzdlBfSFhfcDZZNEZuenhZaEl1d2RjbjgzXzNGa1BSUkJiRHpJUFNvaWxUd2ZVRHRPT3ZVcURHT3FMdkhLMDRSUHBDTGJCaFBqT0o2UDQtTl9SR0dybFJNMVlzTUg3T19CTmpsWnJ4X2c?oc=5", "m": "", "p": "16:46", "n": 1}, {"t": "방미통위, 구글·애플 인앱결제 강제에 과징금 637억원 부과", "s": "동아", "l": "https://news.google.com/rss/articles/CBMidkFVX3lxTE9LbkQ2YndXSDBGaHltRVEtWUt6ZEhSMmluREZhajdEcmxXTjZwLTBqUGFJbmVxelBSVnEwMzFvZE03RHJobWRONGdDcGozOTFtbzJBQ01MVEFnV0lrajVjMm9BcV82QV81Rnk5U00zY1ppLTFqYUHSAWZBVV95cUxQeklhMDdoc2FreGMtVTFJbnotajBzSUVyRlpUN1dtQXRFLUVhMU1SbDd4ZVc0T1pkX3laMlY1RjlxNVFmclFJM1Z6UHZkUmwxaU1nVzJZY0FrR1A0Tm5vY3FSVjJ0cHc?oc=5", "m": "", "p": "16:55", "n": 1}, {"t": "구글에 과징금 429억원·애플 208억1천만원…인앱결제 강제 첫 제재", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/28/2026102890212.html", "m": "", "p": "16:59", "n": 1}, {"t": "[간추린경제] 1. 구글·애플 '과징금' 2. \"신압록강대교 개통 뒤 화물차 수백 대 포착\"", "s": "MBC", "l": "https://imnews.imbc.com/replay/2026/nw1700/article/6861380_36981.html", "m": "", "p": "17:00", "n": 1}, {"t": "구글 429억·애플 208억…방미통위, '앱마켓 갑질' 과징금 부과", "s": "JTBC", "l": "https://news.jtbc.co.kr/article/NB12325298?influxDiv=NAVER", "m": "", "p": "17:01", "n": 2}, {"t": "3년만에 구글·애플 637억 철퇴…수수료 규제는 빠졌다", "s": "IT조선", "l": "https://news.google.com/rss/articles/CBMicEFVX3lxTE9xcy1lZXFVUFVNOE1TWnJzakhHUlJJMGlwNHpTM1A2VW85QVQydHllSjh3Vm5FZTRjblRkdDlWREI4ay12cm1MZEFCSExWc3RlNkxTQnNyeDhQX0Q0VG5qV0VqY3JYc1VZZXFvQy0yeFrSAXRBVV95cUxNVVhhOHVwT3ZUWi1aN1dzTHROeTVMVzBLRkVRZkN0djNaTC10UlUyb0tVTUdXOG9BVFFBQ2dzdUI0UjZKMWhBWnE3MDg5dmtBVElmNlQwME1LQmxiTWlfekRsRDdCcEY0VnoyQjdCT29MWGpETQ?oc=5", "m": "", "p": "17:03", "n": 2}, {"t": "구글·애플 과징금 637억 부과한 방미통위 \"과징금 상한 높일 것\"", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/28/2026102817011137719", "m": "", "p": "17:04", "n": 1}, {"t": "방미통위, 구글·애플 행정소송·통상마찰 우려에 \"국내외 차별 없다\" [일문일답]", "s": "데일리안", "l": "https://news.google.com/rss/articles/CBMirgJBVV95cUxOeVhNdUwydmltVlJZaXZ1YzhIMDQ2Qmp3eTNRR0pIakpwU0dCUENNVzRiTzhlbnJDUmtLX2pnNElRWnZuZnNwd2pHdUFDbmptam9jZlpMZ2tFVXFmVlkwYW9hUTVpTUlpNnh1MVdOWlJ3dnBIVUJyUXJTQUR0R19nZTIxZmNPaXREX3VreGRQUFJiTkNXbG1ITHpmRTZkc0hteVBPNVBMbmxsYmhZVmJ1QUJlaXlESkZEcDEySHEydUtBeEdRbEV4aE1XaUNsbTQ2WURhTmk1OUtLVW5UWlo2RkVDcnFXRVg3NVB2OW9MOElnM0Jlb1FZY1h2djJDNjIwbjVqV1h6aTNBRVdneHZSYnhiTmNBTFRXX0ltMkgxWmMxcWRpRGpDdFhxVnZYQQ?oc=5", "m": "", "p": "17:04", "n": 2}, {"t": "구글·애플 과징금 673억 부과한 방미통위 \"과징금 상한 높일 것\"", "s": "머니투데이", "l": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE0zeVhsajItUGlra0MwRFRxbDR1X0VFbEpKLU5tVmZmYzFJMmZOT3B4RmtpdUVRVC1kQm00OFJxVlY2S293dFV1eEVfTVRNRV9yRDIyTE0yRV80a0hHREtWekJ6cWNyNzjSAWxBVV95cUxQWlZnV3RGOGRnXzFFMVFhSEo1ZFRjNjJvWTh6OE5TMGNmYzBBZDhLNGh1WW1nTGlNa3YzeGFmTlk2dXhiU2N6b2U3bHphaHhQZ08tRjlEZnBqTkFyWU9GWmVLanJxLWZ4MXFYMlc?oc=5", "m": "", "p": "17:04", "n": 1}, {"t": "600억 과징금 부과한 방미통위 구글·애플, 결제방식 강제하고 앱 심사 핑계로 횡포", "s": "아주경제", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE9kbUdXS1YyUGV0cDRYc2xKVmt3dkluRlJLdGJLamNua1BmbFo4cnVKTThCTzg0MzdtdVZOa3BldktqdXozdzAzbFJFV2U0Q0lneVRpSEFEcElGQdIBWEFVX3lxTFBvOEN0THlyN1FBR3dNM19tZ2hmRmo0a3ljN1hwTENBZWdQSWlRMzAtWkdydkU1dVRqMEJLTnNfd0VGZ0Q1N2t6STdZUXJjZy1RSC04aHRxcWg?oc=5", "m": "", "p": "17:07", "n": 1}, {"t": "방미통위, '인앱결제' 구글·애플에 과징금 637억1000만원", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102817020697002", "m": "", "p": "17:08", "n": 2}, {"t": "600억 과징금 부과한 방미통위 \"구글·애플, 결제방식 강제하고 앱 심사 핑계로 횡포\" | 아주경제", "s": "아주경제", "l": "https://www.ajunews.com/view/20261028135707298", "m": "", "p": "17:08", "n": 1}, {"t": "‘인앱결제 강제’ 구글 429억원·애플 208억원 과징금 부과", "s": "동아", "l": "https://www.donga.com/news/Economy/article/all/20261028/134926584/2", "m": "", "p": "17:08", "n": 1}, {"t": "방미통위, 구글 429억·애플 208억 과징금 부과...\"인앱결제 강제해\"", "s": "조선", "l": "https://news.google.com/rss/articles/CBMigwFBVV95cUxNS1doejVraF93bEMwcFZxY1ROYlRjY2d1TEZURmdsZkxXYi05NklpVmlxYmRmUTd1RldNek5YY0lXUTFHZTh3Mi13THVMWS1pZmttcUJxLXd3OWVadmg1cTFvRDNSRFlqUWRhN1hZMU9POVFpS2lpR0NMNEp6dFRXRzdJOA?oc=5", "m": "", "p": "17:08", "n": 2}, {"t": "'인앱결제' 강제…구글·애플에 과징금 637억원", "s": "매일경제", "l": "http://mbn.mk.co.kr/pages/news/newsView.php?category=mbn00009&news_seq_no=5227655", "m": "", "p": "17:10", "n": 1}, {"t": "구글·애플 인앱결제 강제에 637억 원 과징금 부과", "s": "부산", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE5OU0JVLVhrdUd0eGtRQ2hPWkU1Ui1rNmgzSUN1V3hRVVZWVzV3Ri1DLWU0RTYwSG1hbkpWN3VFLTA2QjZYcVdEWmVhaFUtMkxuQUlFTlJGV0FaYlZGV0xHUEFfTUZKNWMyanZiV0VINWJjYU5K?oc=5", "m": "", "p": "17:10", "n": 2}, {"t": "구글·애플 '인앱결제 강제'에 과징금 637억원…3년 만에 제재 확정", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2641299", "m": "", "p": "17:12", "n": 1}, {"t": "구글·애플 ‘특정 결제방식 강제’에 과징금 637억 철퇴", "s": "채널A", "l": "https://www.ichannela.com/news/main/news_detailPage.do?publishId=000000557252", "m": "", "p": "17:12", "n": 1}, {"t": "구글, 429억원 과징금에 유감…\"법 준수 노력 반영 안 돼\"", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000342773?division=NAVER", "m": "", "p": "17:12", "n": 1}, {"t": "인앱결제 강제한 구글·애플에 … 방미통위, 637억 과징금 철퇴", "s": "매일경제", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE1YOWY1dTlyR2x1Rkx5akYyV1ppUl9vREJRWW9vR0lGMUZXSmw3Tm9mSDJaaHNiLVlPTDhZQ3VzWmVQazc1SXNodk9mRnhHQQ?oc=5", "m": "", "p": "17:22", "n": 2}, {"t": "방미통위, ‘인앱결제’ 구글·애플에 과징금 637억 부과", "s": "서울", "l": "https://news.google.com/rss/articles/CBMib0FVX3lxTE5JTVhSUkN2Mk1xVmJGMmF0aUFncndxN0RrdVJHQ2tqLWd5M3IwNnF4aVhvbElYMm9vLVJ0b3h2WnRWNmlfUFpXQmU4YWRmbHE1d3Q3VmFZc3VlMzJBZVhqQjBiMXI5bWVoMjJ6RjNFUQ?oc=5", "m": "", "p": "17:24", "n": 2}, {"t": "애플, 208억원 과징금에 유감…\"동의 못 해\"", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000342778?division=NAVER", "m": "", "p": "17:25", "n": 1}, {"t": "3년 끈 '앱마켓 갑질'에 637억 철퇴…방미통위, '외부결제' 허용 명령(종합)", "s": "데일리안", "l": "https://news.google.com/rss/articles/CBMi7gFBVV95cUxNS1I1SmNaTmtQWjQzNUZQcDRyd3hVNk1QRzBRWUtkSFFWMkU2WU1RTnIwYnhESjVLSWxhQUJaX09za0M4YUtMRXZ3Z3Q1SERGRmVkR250cURfNjVrSlY1UjFOcHM2azRoUTROaGM3cy1OekMxX0J0RC1qeWJNckxHajVJMXh3ejhtLVJqdGNhMDRhNDd3aVN2eGw2azF0RnU1dlg5QmRlb2RtU3hoY2psTXQ3R2RXMWRTQ1E3MlJPQ3ZSaXJ6Z3RaR1BnYlNucGhCbnIxbGppYk5manZkaDZfOS1mWnpXN2ktTm5hWm13?oc=5", "m": "", "p": "17:25", "n": 2}, {"t": "'인앱결제' 구글·애플에…637억1000만원 과징금", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102813791", "m": "", "p": "17:33", "n": 1}, {"t": "'인앱 결제' 과징금 429억원⋯구글 \"의결서 검토 후 향후 대응 결정\"", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2020077", "m": "", "p": "17:33", "n": 1}, {"t": "'인앱결제' 구글·애플 637억 과징금 철퇴…\"법적 대응 검토\"(종합)", "s": "머니투데이", "l": "https://www.mt.co.kr/tech/2026/10/28/2026102817270438634", "m": "", "p": "17:36", "n": 1}, {"t": "구글·애플, 인앱결제 과징금 637억 원에 반발…“결정에 유감”", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8697633&ref=A", "m": "", "p": "17:43", "n": 1}, {"t": "애플, 208억원 과징금에 \"동의하지 않는다\"", "s": "한국경제", "l": "https://magazine.hankyung.com/business/article/202610281495b", "m": "", "p": "17:43", "n": 1}, {"t": "방미통위, 구글·애플에 637억 과징금 부과…'앱마켓 갑질' 철퇴", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/28/2026102890224.html", "m": "", "p": "17:46", "n": 1}, {"t": "방미통위, '인앱결제 강제' 구글·애플에 과징금 637억원 부과", "s": "더팩트", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE93U3kzcjVTZlZOS3hjNDZtZURDTW51cDhhZmVDWV9TQWtIVFdCb1o3ZVRFdUJPNGZhbWw4WjBsMGhHaDlTenVOc0RBVFN4T3hLWTdJdWlSdGtIQdIBVEFVX3lxTE9URlNYYmI3Y3BFUmxob1RsakhWQ0Foc1NFU0lMa21NMkJsbktVWUMtZ3QtcUJmRUZpSlJCVnhuOFQwQlFhbTI3QS1xYmloU3k2YjFHaw?oc=5", "m": "", "p": "17:46", "n": 2}, {"t": "방미통위, 인앱결제 강제 구글·애플에 과징금 637억 부과", "s": "디지털타임스", "l": "https://www.dt.co.kr/article/12091898?ref=naver", "m": "", "p": "17:50", "n": 1}, {"t": "구글·애플 '인앱결제 강제' 과징금 637억⋯3년 만에 결론 [일문일답]", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2020096", "m": "", "p": "17:50", "n": 1}, {"t": "`인앱결제`로 수백억대 과징금 맞은 구글·애플…\"결정 유감, 대응할 것\"", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE0xM2JyeElsWEVNMlM4ZE50N1Z6VWFNREdGWFFseU5xUFpGRmRLcVpaQnkxRFlJTXBBbmduSXB1dVJnTHBhVHhIZHJMVWNkU3hsQkpHQmJMcXpGLURXcVZUMDNPRHA?oc=5", "m": "", "p": "17:50", "n": 2}, {"t": "구글·애플에 637억 과징금…외부결제 허용 명령", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6598749?utm_source=naver&utm_medium=article&utm_campaign=20261028055036", "m": "", "p": "17:51", "n": 1}, {"t": "애플·구글, '인앱결제 과징금 부과'에 유감 표명‥\"향후 대응방안 검토\"", "s": "MBC", "l": "https://imnews.imbc.com/news/2026/econo/article/6861394_36932.html", "m": "", "p": "17:52", "n": 1}, {"t": "‘인앱결제 강제’ 구글·애플에 과징금 637억", "s": "서울경제", "l": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFBvekxVLXlnN2pOOFM1ekotNExwdWZvMFVvMmxmX1JCQzI1Nm9RcklBOERISzRVRUdsQXpLaFpnd1RWRy1EVTlsbmNydVg4ZlYyRGfSAVNBVV95cUxPclhORC1CY0tKUjBiWno5eWVjZTM0dEY3TE9Gci1sbXA1SEhmaGREUkwtNXFwOTFHdEdjb3hBQ01XTFM4TElUNWZDVzNjRldKUndqZw?oc=5", "m": "", "p": "17:52", "n": 2}, {"t": "구글·애플 '인앱결제 강제' 첫 제재…방미통위, 과징금 637억 부과", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261028001560", "m": "", "p": "17:54", "n": 2}, {"t": "'앱 마켓 갑질' 과징금 구글 429억 애플 208억....방미통위, 3년 만에 의결", "s": "한국", "l": "https://news.google.com/rss/articles/CBMibkFVX3lxTE43ajNTdHd5QmZqUkVkRkVOTkRobGx0bnh2TUd6UHh1WVIzVXQzQU5GcWdnUHRHcGgwb2JnR0Qta1RGbEhEN28xZlFDeDl2VEM3aEFXQ1R2Q0pScHRSM245Z3h5emEtbUNjdEJ5X2dn0gFzQVVfeXFMTnlFSTNjcEMzQTlSYjBkUWk1QTVlblpKUXFvVUNncUliV3NNbk9FUjk4aUNHSGRQbExRbEY2dWhXZF9FQ2xMczM2SmFoMTFHLUw0eTZPT2dyM2Z1bFAwZ2pyOC1Da1VlaUNiWWVsVDNwYjB3VQ?oc=5", "m": "", "p": "18:00", "n": 1}, {"t": "'앱 마켓 갑질' 과징금 구글 429억 애플 208억....방미통위, 3년 만에 의결-경제ㅣ한국일보", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026102815000001695?did=NA", "m": "", "p": "18:01", "n": 1}, {"t": "구글·애플에 600억원대 과징금… 3년 만에 칼 빼든 한국", "s": "세계", "l": "https://www.segye.com/newsView/20261028517171?OutUrl=naver", "m": "", "p": "18:02", "n": 1}, {"t": "3년 미룬 구글·애플 인앱결제 제재…방미통위, 637억 과징금 부과", "s": "블로터", "l": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE9tVzFMUk8yZFRsa1gxYjZWcEFPamFYSVlFaFE3RGc2U056anRLNFFEN2JoSFJVbVE5Ni0zZzNadm11T1FtOTJoRGtjVmRoTXctOHZFdml2bmNFMnB3TkltT045TjZ3azlY0gFsQVVfeXFMUE14Vkw3NnBPYVNCckdwMFhIYXVWVGdjZ3djN1NUaXl4MHJUdmM2eFNsUlc2dThnNWVSanFqU1pLVmFKRERiUHRBSXpKa2FyRHdEVEF4ZFdkeUtSdmpsdDBuTVBQZGhKT2staWxm?oc=5", "m": "", "p": "18:04", "n": 2}, {"t": "방미통위, 구글·애플에 637억 과징금…\"과징금 상한 손본다\"(종합)", "s": "디지털데일리", "l": "https://news.google.com/rss/articles/CBMiZEFVX3lxTFBaRzBzZThFNERDQjRTNURLNGZiMG5nRlBaSTJiQzVyRDhyUV9wMEtpVHFIZWlVSGZiWVRCVnRTUzhWamRKbnhLVHBXUk1uMm5UNEJnWUZ6OEZxbjhoUU9yN1ZVMlU?oc=5", "m": "", "p": "18:07", "n": 2}, {"t": "구글·애플 \"법 지켜왔다...방미통위 결정 아쉬워\"", "s": "YTN", "l": "https://www.ytn.co.kr/_ln/0102_202610281818057973", "m": "", "p": "18:18", "n": 1}, {"t": "방미통위, ‘인앱결제 강제’ 구글·애플에 637억 과징금", "s": "파이낸셜뉴스", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5ab0pXblY2OHVrbDRxNWhDY3BMb1NiYTkwUlZSTG5uckN6SGV3MHNhQk5Ob0NJWTlOM0Y3dERSWDlETVloZU1seURqUmU2bUs0WDNxMW1oOVQtdw?oc=5", "m": "", "p": "18:21", "n": 2}, {"t": "구글·애플 '우리 결제 써라'…637억 첫 제재", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000342796?division=NAVER", "m": "", "p": "18:25", "n": 1}, {"t": "애플·구글 인앱결제 과징금 637억원…양사 \"유감\"(종합)", "s": "이데일리", "l": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNZHlpRkVnckNvVWNmZEllTVhXNVR3ZlF0NUFnMFpwMENndWZjNi1RX0xvZFZBQm5pTFllWlhDYlZmMW9XX3FTX0JYemhtMHg1bmNDcE84aE5HWFZNVlBsWUJfeUFxUEhoVjQ2OFpvYjV5ZjU0QXV5QWlfVWRNSnJObg?oc=5", "m": "", "p": "18:26", "n": 2}, {"t": "방미통위, 구글·애플에 과징금 637억원…‘인앱결제 강제’ 철퇴", "s": "중앙", "l": "https://www.joongang.co.kr/article/25473725", "m": "", "p": "18:35", "n": 2}, {"t": "방미통위 ‘인앱결제 강제’ 구글·애플에 총 637억 과징금 부과", "s": "국민", "l": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1qdEZTd1QzNjVoUWQ3WE9Qa05TRnBrOVB3Z2Z0TlAyOXJsMWNVOVZ4NThmdEZGUVhiQUVieWh5OXZaUXNiQ21mMGNkQ29pSWRlaDVBY0lBVTc?oc=5", "m": "", "p": "18:41", "n": 2}, {"t": "구글·애플에 인앱결제 과징금 637억원…양사 “동의 못 해” [비즈360]", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10918150?ref=naver", "m": "", "p": "18:46", "n": 1}, {"t": "‘인앱결제 강제’ 구글·애플에 600억대 과징금", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8697746&ref=A", "m": "", "p": "19:20", "n": 1}, {"t": "PC는 800원, 앱은 3000원?…구글·애플 '수수료 갑질' 제동", "s": "MBN", "l": "http://www.mbn.co.kr/pages/news/newsView.php?news_seq_no=5227710", "m": "", "p": "19:57", "n": 1}, {"t": "구글·애플 '인앱결제 강제' 과징금 637억 원‥3년 만에 결론", "s": "MBC", "l": "https://imnews.imbc.com/replay/2026/nwdesk/article/6861426_37004.html", "m": "", "p": "20:06", "n": 1}, {"t": "방미통위, '인앱 결제 과징금' 구글 429억·애플 209억 처분", "s": "JTBC", "l": "https://news.jtbc.co.kr/article/NB12325308?influxDiv=NAVER", "m": "", "p": "20:10", "n": 1}, {"t": "'인앱결제' 구글·애플에 과징금 637억 원 부과", "s": "연합뉴스TV", "l": "http://www.yonhapnewstv.co.kr/news/MYH20261028201552JDQ", "m": "", "p": "20:16", "n": 1}, {"t": "구글·애플 ‘인앱결제 강제’ 과징금 637억원 확정", "s": "경향", "l": "https://www.khan.co.kr/article/202610282031035", "m": "", "p": "20:31", "n": 1}, {"t": "구글·애플 637억 과징금…3년 걸린 결정", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008819699&plink=ORI&cooper=NAVER", "m": "", "p": "20:57", "n": 1}], [{"t": "방미통위, 채널A·MBN 2024년도 재승인 조건 위반에 시정명령", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261028165400017?input=1195m", "m": "", "p": "17:12", "n": 4}, {"t": "방미통위, 채널A·MBN에 시정명령…\"재승인조건 위반\"", "s": "뉴시스", "l": "https://news.google.com/rss/articles/CBMieEFVX3lxTE1GT2gwUWtVa2FrOGYwWXRfM0VRYVJPMXJoOEFSb2VjMlVGSHFiQ1NOa3VqSGNCbGxLa2Z6NDZjNHRlb0g1eFZWUkNjOTlRRzcydnVFQW5IOVc3Qi0wUURqdFJfeGtFOTQzRjYyeFlJTUduRXBMTGpoU9IBeEFVX3lxTE1GT2gwUWtVa2FrOGYwWXRfM0VRYVJPMXJoOEFSb2VjMlVGSHFiQ1NOa3VqSGNCbGxLa2Z6NDZjNHRlb0g1eFZWUkNjOTlRRzcydnVFQW5IOVc3Qi0wUURqdFJfeGtFOTQzRjYyeFlJTUduRXBMTGpoUw?oc=5", "m": "", "p": "16:37", "n": 1}, {"t": "\"수수료·외부링크 싹 고쳐라\"…방미통위 시정명령 실효성 있을까", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845037", "m": "", "p": "17:21", "n": 2}, {"t": "방미통위, 재승인 조건 어긴 채널A·MBN에 시정명령", "s": "조선비즈", "l": "https://biz.chosun.com/it-science/ict/2026/10/28/RZB3MM6P7NBX7HJ6QAIORWKAQA/?utm_source=naver&utm_medium=original&utm_campaign=biz", "m": "", "p": "18:09", "n": 1}, {"t": "김재호 동아일보·채널A 대표가 채널A 감사까지? 방미통위 '시정명령'", "s": "미디어오늘", "l": "https://www.mediatoday.co.kr/news/articleView.html?idxno=338060", "m": "", "p": "18:20", "n": 1}, {"t": "방미통위, 채널A·MBN에 시정명령…종편 재승인 조건 위반", "s": "아주경제", "l": "https://news.google.com/rss/articles/CBMiWkFVX3lxTFBmaFprV0ZMUEp4STBUY3VRcndLaERFY2hoZExrNFB3dHBzS19fN2JyWUVBTzFSSS1Ld0FNaXJGNmFlb3JNY0lhLW81VGNrWXJJVmE2M2VudHdkUdIBWEFVX3lxTE0wSWRsMkpKOU5TS3N2VHJxVVBtSTM3N0ptV0V2clIxLUJyYTlwRFpDR1U3S2VlUUNXVFdKV0M4NVVNZU96eE5UVFpGRlNCOXp5QjQ3alhLZGs?oc=5", "m": "", "p": "20:27", "n": 2}], [{"t": "방미심위 8월 좋은 프로그램에 KBS '추적 60분' 등 4편", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261028168100017?input=1195m", "m": "", "p": "17:13", "n": 1}, {"t": "KBS1 '추적 60분', 방미심위 이달의 좋은 프로그램 최우수상", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845321", "m": "", "p": "18:43", "n": 1}, {"t": "KBS전주 ‘기억 전쟁’, 이달의 좋은 프로그램상 선정", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8697894&ref=A", "m": "", "p": "20:10", "n": 1}], [{"t": "방미통위, 전기통신사업법 과징금 10%로 상향 추진…유럽 수준 맞춘다", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845271", "m": "", "p": "17:39", "n": 2}], [{"t": "[연합뉴스 이 시각 헤드라인]", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261028172100011?input=1195m", "m": "", "p": "18:00", "n": 1}], [{"t": "주파수 할당대가, 정하는 기준도 나누는 기준도 '불투명'", "s": "전자", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE8yUjRjOXdzek1JcDBKNm5zYjNOM21JeFkyMEFmTUdoRUhKWWxlV2VUMnZUUnkwb0N0YkI5S0stcllnZ2IwT2U2N2V3d1VBQQ?oc=5", "m": "", "p": "14:23", "n": 1}, {"t": "주파수 대가 산정도, 기금 배분도 '깜깜이'…기준 마련 시급", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102817520622437", "m": "", "p": "18:07", "n": 1}], [{"t": "방미통위, T커머스 영상 비율 75%로 확대…중소기업 상품 추첨제 도입", "s": "아시아투데이", "l": "https://news.google.com/rss/articles/CBMibkFVX3lxTE94bTM1Z1kzNzdMdU02My1yM0hGQ2RCQzFONV96aHNscmdmZHJMZ0pTVW9rUnc1cFNEMUtob3VMbGhQdXh1aUtTbHF4Njd3cDdRdWhaTlh3dHR6blBCSnl1blE4YmNFYl9LLWU2dl9R?oc=5", "m": "", "p": "18:06", "n": 2}]], "n": 87}, {"name": "과기정통부", "clusters": [[{"t": "[속보] 과기정통부, 민간 주요정보통신기반시설 170여개 취약점 점검 착수", "s": "매일경제", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE04a3VDRG5PdXZ0MWZrTkVYRC1XOGRCQU4tUzNDSVhLSExQZWdUZ2pSaGRXY0FOY1NFTmJwS1Y1clJwRkhyMUtkYU94STZCQQ?oc=5", "m": "⚡", "p": "08:07", "n": 1}], [{"t": "靑, 금융권 연쇄해킹 긴급 대응회의…\"보안 강화·2차피해 차단\"(종합)", "s": "연합뉴스", "l": "https://www.yna.co.kr/view/AKR20261028095451001?input=1195m", "m": "", "p": "17:11", "n": 1}, {"t": "靑 안보실, 빗썸·미래에셋·대신증권 해킹 긴급점검…\"2차 피해 차단 만전\"(종합)", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845297", "m": "", "p": "17:29", "n": 1}, {"t": "靑, 금융권 연쇄 해킹에 긴급회의…\"2차 피해 차단 만전\"", "s": "뉴스1", "l": "https://www.news1.kr/politics/president/6335237", "m": "", "p": "16:59", "n": 1}, {"t": "청와대, 금융권 해킹 긴급대응회의…“2차 피해 차단 만전”", "s": "KBS", "l": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8697471&ref=A", "m": "", "p": "12:32", "n": 1}, {"t": "청와대, 금융권 잇단 해킹 사태에 긴급 대응회의… \"2차 피해 차단에 만전\"-정치ㅣ한국일보", "s": "한국", "l": "https://www.hankookilbo.com/news/article/A2026102814040003788?did=NA", "m": "", "p": "14:10", "n": 1}, {"t": "靑 안보실, 빗썸 등 금융권 해킹 사고에 관계기관 '긴급회의'", "s": "머니투데이", "l": "https://www.mt.co.kr/politics/2026/10/28/2026102816535328215", "m": "", "p": "17:00", "n": 1}, {"t": "대신증권·빗썸 등 개인정보 유출…‘자본시장’ 전반 퍼지는 해킹 공격에 ‘비상’", "s": "한겨레", "l": "https://www.hani.co.kr/arti/economy/finance/1284622.html", "m": "", "p": "17:00", "n": 1}, {"t": "금융권 연쇄 해킹에 안보실 긴급회의‥\"2차 피해 차단\"", "s": "MBC", "l": "https://imnews.imbc.com/news/2026/politics/article/6861382_36911.html", "m": "", "p": "17:03", "n": 1}, {"t": "청와대 \"금융 해킹 2차 피해 차단 만전\"…긴급점검회의", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261028001522", "m": "", "p": "17:09", "n": 1}, {"t": "靑 안보실, 금융권 연쇄 해킹 대응 점검회의…\"2차 피해 차단에 만전\"", "s": "아주경제", "l": "https://www.ajunews.com/view/20261028170849275", "m": "", "p": "17:20", "n": 1}, {"t": "대신증권·빗썸 잇단 해킹사태에 긴급회의 연 청와대 “2차 피해 차단에 만전”", "s": "매일경제", "l": "https://www.mk.co.kr/article/12188615", "m": "", "p": "17:22", "n": 1}, {"t": "靑, 빗썸·대신증권 해킹 긴급점검회의…2차 피해 방지 등 논의", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6598718?utm_source=naver&utm_medium=article&utm_campaign=20261028052236", "m": "", "p": "17:23", "n": 1}, {"t": "靑, 금융권 잇단 해킹사태 긴급 대응회의…\"2차 피해 차단에 만전\"", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/28/2026102890219.html", "m": "", "p": "17:30", "n": 1}, {"t": "靑 안보실, 빗썸·대신증권 해킹에 긴급점검…\"2차 피해 차단 만전\"", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1707603/?sc=Naver", "m": "", "p": "17:44", "n": 1}, {"t": "北 IP서 해킹 시도…코인탈취 노렸나 靑, 전방위 해킹 사고에 긴급점검회의", "s": "매일경제", "l": "https://www.mk.co.kr/article/12188755", "m": "", "p": "17:46", "n": 1}, {"t": "국가안보실, 금융권 해킹 대응 긴급 점검…“2차 피해 차단에 만전”", "s": "전자", "l": "https://www.etnews.com/20261028000458", "m": "", "p": "18:07", "n": 1}, {"t": "잇따른 해킹 사고에… 정부 172곳 시설 보안점검", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610281821120132", "m": "", "p": "18:23", "n": 1}], [{"t": "대전이노베이션아카데미 개소…인공지능 인재 양성한다", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845304", "m": "", "p": "17:27", "n": 1}, {"t": "대전이노베이션아카데미 개소…연간 AI·SW 인재 250명 양성", "s": "프레시안", "l": "https://www.pressian.com/pages/articles/2026102816513566829?utm_source=naver&utm_medium=search", "m": "", "p": "17:07", "n": 1}, {"t": "대전에 AI 인재양성 거점 문 열었다···연간 250명 육성", "s": "헬로디디", "l": "https://news.google.com/rss/articles/CBMiakFVX3lxTFAwZktUMldhaHdDVjlVRk82bVdHdk11ZnVxNEZYY2QzQzVzRUNuSDZudG5rS3IxeXFpQWlkb0ozZ1V4OTZCSDUxWEtxaVd5aHNlMzRManpDTWl2VlJlVnZ4ekZiZVZ0LTZ1bGc?oc=5", "m": "", "p": "17:10", "n": 2}], [{"t": "2028년 100인 이상 사업장부터 퇴직급여 사외적립 의무화", "s": "부산", "l": "https://news.google.com/rss/articles/CBMidEFVX3lxTE1lb3VVQXlVNFhjMGRJdmhOZDlGc3pQelNLbXR5V19CZk5aX2dzUTJDRkRFcU5VOEREVVlhbzU4ekVTUzIzcEJyUDRpQWRFRnR2TUtrZE1jNnFOSUxyTFFRSDRPQ0MzbzlkeHVrOFJxUkhiS056?oc=5", "m": "", "p": "14:18", "n": 1}], [{"t": "은행 이어 증권·운용·코인까지 뚫렸다…정부, 긴급 대응(종합)", "s": "머니투데이", "l": "https://www.mt.co.kr/stock/2026/10/28/2026102816284045001", "m": "", "p": "17:13", "n": 1}, {"t": "은행 이어 증권·가상자산도 해킹 비상…정부, 170곳 특별점검", "s": "TV조선", "l": "https://news.tvchosun.com/site/data/html_dir/2026/10/28/2026102890301.html", "m": "", "p": "20:21", "n": 1}], [{"t": "보건산업진흥원 '바이온 GPT', 과학기술혁신대상 금상 수상", "s": "뉴스1", "l": "https://www.news1.kr/bio/pharmaceutical-bio/6335344", "m": "", "p": "17:34", "n": 1}, {"t": "제20회 과학기술혁신대상 시상식 개최…19개 프로젝트 수상", "s": "전자", "l": "https://www.etnews.com/20261028000463", "m": "", "p": "18:24", "n": 1}], [{"t": "AI 시대 협력 접점 찾는다…한중 과학기술 미래대화", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6598750?utm_source=naver&utm_medium=article&utm_campaign=20261028054836", "m": "", "p": "17:49", "n": 1}, {"t": "장석영 전 차관 “한중 과학기술 협력, 상용화·청년 연구자 교류로 도약해야” [SFC2026]", "s": "서울", "l": "https://www.seoul.co.kr/news/economy/2026/10/28/20261028500406?wlog_tag3=naver", "m": "", "p": "18:02", "n": 1}], [{"t": "금융권 겨냥한 AI 해킹… 증권사·가상자산 거래소도 뚫렸다", "s": "파이낸셜뉴스", "l": "https://www.fnnews.com/news/202610281816137089", "m": "", "p": "18:18", "n": 1}, {"t": "증권가도 줄줄이 뚫렸다…금융권 해킹 전방위 확산", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000342794?division=NAVER", "m": "", "p": "18:21", "n": 1}], [{"t": "과학기술·경제정책 첫 공동 논의…7대 SEED·AI 전환 범정부 협력", "s": "뉴시스", "l": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE05MnBTOGNNSnJSeDBhbXZReUlYV05oQWc3MFRpRlVSSXN0YUZYLUxSby1LdkRrSHE5UzBscTFBUWFNeTZZbmYwM3BrREFOUjluZWdvSnBqbHRYMXdiTkZ0VtIBeEFVX3lxTE9rd1l3bDJzSXY0S3JXR3VBUVZYVEROMEt1NkhGZk5PblFoR09kcDVubUFpSGJGUEFxeFJBQ3JwWW4yRmpwYzJZNHdHSW1FV1FWb1lvZmlHVEg3cjdYRkN6UHc5clgxYjJiWGtCVGlRUEEwU0E4WlBXeQ?oc=5", "m": "", "p": "10:00", "n": 1}], [{"t": "\"어차피 내 정보 다 털렸다\"…해킹 당해도 무덤덤해진 사람들", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102813821", "m": "", "p": "17:35", "n": 1}], [{"t": "\"과학·경제 정책은 한몸\" … 7대 미래산업 육성 맞손", "s": "매일경제", "l": "https://www.mk.co.kr/article/12188708", "m": "", "p": "17:40", "n": 1}], [{"t": "다이빙 中대사 \"한·중, 뗄 수 없는 이웃…AI 과학기술 협력 잠재력 커\"", "s": "뉴시스", "l": "https://www.newsis.com/view/NISX20261028_0003845312", "m": "", "p": "17:54", "n": 1}], [{"t": "둠둠, 드론·AI 기술로 신용보증기금 '퍼스트펭귄' 선정", "s": "머니투데이", "l": "https://www.mt.co.kr/industry/2026/10/28/2026102816360996249", "m": "", "p": "18:15", "n": 1}], [{"t": "대전, 실무형 AI 인재 키운다", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102814011", "m": "", "p": "18:31", "n": 1}], [{"t": "靑, 금융권 연쇄해킹 긴급점검회의…\"금융권 사칭 전화·문자 유의\"", "s": "SBS", "l": "https://biz.sbs.co.kr/article_hub/20000342814?division=NAVER", "m": "", "p": "18:35", "n": 1}], [{"t": "요즘 우표 누가 사나 했는데…“안 사면 손해” 입소문에 ‘16억’ 팔렸다, 알고 보니 ‘페이커’ 효과", "s": "헤럴드경제", "l": "https://biz.heraldcorp.com/article/10917936?ref=naver", "m": "", "p": "18:41", "n": 1}], [{"t": "부산 '글로벌 AI 허브' 유치 총력전", "s": "한국경제", "l": "https://www.hankyung.com/article/2026102814751", "m": "", "p": "18:42", "n": 1}], [{"t": "보안점검 ‘적정’ 금융사도 뚫려… 당국 점검 실효성 ‘도마 위’", "s": "국민", "l": "https://www.kmib.co.kr/article/20261028502415", "m": "", "p": "19:01", "n": 1}], [{"t": "“베르다 LPU와 K-컴포저블 클러스터” 하이퍼엑셀이 제안하는 차세대 AI 데이터센터 인프라", "s": "동아", "l": "https://it.donga.com/109792/", "m": "", "p": "19:56", "n": 1}], [{"t": "KTR, KOSA와 ‘중소 AI·SW기업 지원’ 협약", "s": "중앙", "l": "https://www.joongang.co.kr/article/25473750", "m": "", "p": "20:15", "n": 1}], [{"t": "한준호 \"\"주파수 재할당 대가 산정 기준 불투명…기금 배분 협의도 1번...", "s": "SBS", "l": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008819800&plink=ORI&cooper=NAVER", "m": "", "p": "20:23", "n": 1}], [{"t": "AI로 이착륙 위험 사전예측… 인천공항, 공공기관 혁신 챌린지 대상", "s": "아주경제", "l": "https://www.ajunews.com/view/20261028164259130", "m": "", "p": "17:00", "n": 1}, {"t": "서부발전, 국산 가스터빈에 AI·로봇 도입…공공기관 AI 혁신 대상", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261028001547", "m": "", "p": "17:33", "n": 1}], [{"t": "[2026 K-오픈소스 AX] 과기정통부 “AI 인프라·모델·활용 경쟁력 강화로 3강 도약”", "s": "전자", "l": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE5jb200ZzlROHNUZ3RWdWJNay1USnh4Z2dYZDhsRUJtWXVVR2I5R2hBTnQyWFJxdlY0OVpxTy1HcW1vUlU0NHlkU3dNcnVKZw?oc=5", "m": "", "p": "17:00", "n": 2}], [{"t": "[의학바이오게시판] 질병청, 'AI 건강도우미 챗봇' 운영 시작 外", "s": "동아사이언스", "l": "https://www.dongascience.com/news/view/80589", "m": "", "p": "17:25", "n": 1}, {"t": "\"내 건강 상태는 몇 점?\"···AI 건강도우미 24시간 상담 시작", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113661", "m": "", "p": "18:36", "n": 1}], [{"t": "산재 요양 연장 심사에 AI 투입…근로복지공단, AI 혁신상", "s": "노컷뉴스", "l": "https://www.nocutnews.co.kr/news/6598689?utm_source=naver&utm_medium=article&utm_campaign=20261028050436", "m": "", "p": "17:05", "n": 1}], [{"t": "[인터뷰] 임현성 한국안경광학과교수협의회 회장(을지대 안경광학과 교수) \"수능 앞두고 'AI 안경' 비상…육안 적발 한계, 인권·공정성 담은 표준 시험 거버넌스 시급\" | 아주경제", "s": "아주경제", "l": "https://www.ajunews.com/view/20261028164440146", "m": "", "p": "17:10", "n": 1}], [{"t": "금융·공공·민간 전방위 사이버 위협…정부, 핵심시설 170여곳 보안점검", "s": "이투데이", "l": "https://www.etoday.co.kr/news/view/2641286", "m": "", "p": "17:14", "n": 1}], [{"t": "웹케시, K-엑사원 기반 금융 AI 에이전트 개발⋯독파모 참여", "s": "아이뉴스24", "l": "http://www.inews24.com/view/2020058", "m": "", "p": "17:20", "n": 1}], [{"t": "폐기물 인허가 입력, 4분의 1로 단축…환경공단, AI 혁신상 수상", "s": "데일리안", "l": "https://www.dailian.co.kr/news/view/1707590/?sc=Naver", "m": "", "p": "17:25", "n": 1}], [{"t": "이동형 NST 국가특임연구원 “SMR 추진선박 상용화 이뤄지면 거대한 새로운 산업 생태계 열려”", "s": "부산", "l": "https://www.busan.com/view/busan/view.php?code=2026102817392356031", "m": "", "p": "17:43", "n": 1}], [{"t": "국토교통과학기술진흥원, 전국 공공기관 AI 챌린지서 '혁신상'", "s": "아시아경제", "l": "https://view.asiae.co.kr/article/2026102817561404717", "m": "", "p": "17:56", "n": 1}], [{"t": "\"대신·빗썸·미래에셋도 털려\"…국가안보실, 직접 나섰다", "s": "지디넷코리아", "l": "https://zdnet.co.kr/view/?no=20261028180832", "m": "", "p": "18:19", "n": 1}], [{"t": "\"한국어 교육은 역시 토종\" ETRI, 맞춤형 AI 선생님 개발", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113658", "m": "", "p": "18:36", "n": 1}], [{"t": "기계연서 불붙은 창업 열풍···출연연으로 확산딥테크로 산업 혁신 도전···사회 환원 선순환 기대", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113660", "m": "", "p": "18:36", "n": 1}], [{"t": "\"드론이 찾고 로봇이 점검한다\"···철도 선로도 '피지컬 AI'", "s": "헬로디디", "l": "http://www.hellodd.com/news/articleView.html?idxno=113652", "m": "", "p": "18:36", "n": 1}], [{"t": "\"27일 걸리던 수출보고서 5분 만에\"…공공기관 AI 혁신 가속", "s": "뉴스핌", "l": "https://www.newspim.com/news/view/20261028001589", "m": "", "p": "18:44", "n": 1}], [{"t": "머스크가 그린 ‘로봇 100억대 시대’…AI만 똑똑하면 될까", "s": "디지털데일리", "l": "https://www.ddaily.co.kr/page/view/2026102817102863442", "m": "", "p": "20:15", "n": 1}]], "n": 61}, {"name": "우주항공청", "clusters": [[{"t": "신민아, ♥김우빈과 결혼 후 첫 예능…\"약속된 내 편 생긴 느낌\"", "s": "뉴스1", "l": "https://www.news1.kr/entertain/broadcast-tv/6335282", "m": "", "p": "17:13", "n": 2}], [{"t": "\"우주주권 확보, 이제 생존 문제…정부, 우주서비스 구매자 돼야\"", "s": "머니투데이", "l": "https://www.mt.co.kr/future/2026/10/28/2026102815504899850", "m": "", "p": "17:15", "n": 1}], [{"t": "위성 관측부터 궤도 기동·정비까지…우주산업 이끌 'LEO 넥스트' 3곳", "s": "머니투데이", "l": "https://www.mt.co.kr/future/2026/10/28/2026102817102831068", "m": "", "p": "17:34", "n": 1}], [{"t": "[현장] 보령, 고혈압 신약 '카나브' 우주로 보낸다", "s": "쿠키뉴스", "l": "https://www.kukinews.com/article/view/kuk202610280122", "m": "", "p": "17:12", "n": 1}], [{"t": "[밀물썰물] 한국형 GPS가 가리킬 길", "s": "부산", "l": "https://www.busan.com/view/busan/view.php?code=2026102817550009275", "m": "", "p": "17:58", "n": 1}], [{"t": "'누리호 키즈' 양준영·이상훈·이제민→'고기능 우울 전문가' 윤홍균, ...", "s": "이투데이", "l": "https://enter.etoday.co.kr/news/view/304418", "m": "", "p": "20:40", "n": 1}]], "n": 6}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var main = document.getElementById('main');
+  var state = {beat:null, filter:'all', q:''};
+  var picked = new Set();
+  var REPORT_ORDER = ['방미통위','공정위','과기정통부','우주항공청'];
+  var SCOOP = '🔥', FLASH = '⚡';
+
+  // stable ids + flat index
+  var ALL = {};
+  D.groups.forEach(function(g, gi){
+    g.clusters.forEach(function(c, ci){
+      c.forEach(function(it, ii){
+        it.id = gi+'-'+ci+'-'+ii;
+        it.g = g.name;
+        it.ord = gi*100000 + ci*100 + ii;
+        ALL[it.id] = it;
+      });
+    });
+  });
+
+  document.getElementById('label').textContent = D.label;
+  document.getElementById('window').textContent = D.start + ' — ' + D.end;
+  document.getElementById('n-raw').textContent = D.raw.toLocaleString();
+
+  var scoop=0, flash=0, topics=0;
+  D.groups.forEach(function(g){
+    g.clusters.forEach(function(c){
+      topics++;
+      c.forEach(function(it){ if(it.m===SCOOP) scoop++; else if(it.m===FLASH) flash++; });
+    });
+  });
+  document.getElementById('n-topic').textContent = topics;
+  document.getElementById('n-scoop').textContent = scoop;
+  document.getElementById('n-flash').textContent = flash;
+
+  var beats = document.getElementById('beats');
+  D.groups.forEach(function(g){
+    var b = document.createElement('button');
+    b.className='beat'; b.type='button'; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<span>'+g.name+'</span><span class="c mono">'+g.n+'</span>';
+    b.addEventListener('click', function(){
+      state.beat = (state.beat===g.name) ? null : g.name;
+      [].forEach.call(beats.children, function(el,i){
+        el.setAttribute('aria-pressed', String(D.groups[i].name===state.beat));
+      });
+      render();
+    });
+    beats.appendChild(b);
+  });
+
+  [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.filter = btn.dataset.f;
+      [].forEach.call(document.querySelectorAll('.seg button'), function(b){
+        b.setAttribute('aria-pressed', String(b===btn));
+      });
+      render();
+    });
+  });
+
+  var q = document.getElementById('q'), timer;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ state.q = q.value.trim().toLowerCase(); render(); }, 120);
+  });
+
+  function keep(it){
+    if(state.filter==='mark' && !it.m) return false;
+    if(state.filter==='spread' && it.n < 2) return false;
+    if(state.filter==='picked' && !picked.has(it.id)) return false;
+    if(state.q && (it.t+' '+it.s).toLowerCase().indexOf(state.q) === -1) return false;
+    return true;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function itemRow(it){
+    var tag = it.m===SCOOP ? '<span class="tag scoop">단독</span>'
+            : it.m===FLASH ? '<span class="tag flash">속보</span>' : '';
+    return '<div class="row'+(picked.has(it.id)?' on':'')+'" data-id="'+it.id+'">' +
+      '<input class="pick" type="checkbox" id="p'+it.id+'" '+(picked.has(it.id)?'checked':'')+
+      ' aria-label="보고에 포함">' + tag +
+      '<a class="title" href="'+esc(it.l)+'" target="_blank" rel="noopener">'+esc(it.t)+'</a>' +
+      '<span class="meta"><span>'+esc(it.s)+'</span><span class="mono">'+esc(it.p)+'</span>' +
+      (it.n>1 ? '<span class="mono">전재'+it.n+'</span>' : '') + '</span></div>';
+  }
+
+  // 큰 묶음(30건 이상)은 접어도 몇 건인지 보이게 하고 기본 펼침으로 둔다.
+  // (C 세션(0-14) 결과 — 접기 자체는 안전하나 53건짜리 묶음이 여전히 나오므로
+  //  대표 1건 뒤에 대량이 숨는 화면을 피하기 위한 D 세션 자체 판단)
+  var AUTO_EXPAND = 30;
+
+  function render(){
+    var html = '', shown = 0;
+    D.groups.forEach(function(g){
+      if(state.beat && g.name !== state.beat) return;
+      var blocks = '', gcount = 0;
+      g.clusters.forEach(function(c, ci){
+        var items = c.filter(keep);
+        if(!items.length) return;
+        gcount += items.length; shown += items.length;
+        var lead = items[0], rest = items.slice(1);
+        var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
+        var body = itemRow(lead);
+        if(rest.length){
+          var id = 'c'+g.name.replace(/\s/g,'')+ci;
+          var bigCluster = items.length >= AUTO_EXPAND;
+          body += '<button class="more" type="button" aria-expanded="'+(bigCluster?'true':'false')+'" aria-controls="'+id+'">'+
+                  (bigCluster ? '접기 (' : '+') + rest.length + '건 같은 사안' + (bigCluster ? ')' : '') + '</button>'+
+                  '<div class="dupes" id="'+id+'"'+(bigCluster?'':' hidden')+'>'+rest.map(itemRow).join('')+'</div>';
+        }
+        blocks += '<div class="'+cls+'">'+body+'</div>';
+      });
+      if(!gcount) return;
+      html += '<section id="sec-'+g.name+'"><div class="sec-head"><h2>'+g.name+'</h2>'+
+              '<span class="n mono">'+gcount+'건</span></div>'+blocks+'</section>';
+    });
+    main.innerHTML = html || '<p class="empty">조건에 맞는 기사가 없습니다.</p>';
+    document.getElementById('n-shown').textContent = shown;
+
+    [].forEach.call(main.querySelectorAll('.more'), function(btn){
+      btn.addEventListener('click', function(){
+        var box = document.getElementById(btn.getAttribute('aria-controls'));
+        var open = box.hidden;
+        box.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안)' : '+'+box.children.length+'건 같은 사안';
+      });
+    });
+  }
+
+  // one delegated handler for checkboxes
+  main.addEventListener('change', function(e){
+    var cb = e.target;
+    if(!cb.classList || !cb.classList.contains('pick')) return;
+    var row = cb.closest('.row'), id = row.getAttribute('data-id');
+    if(cb.checked){ picked.add(id); row.classList.add('on'); }
+    else { picked.delete(id); row.classList.remove('on'); }
+    syncBar();
+  });
+
+  function syncBar(){
+    var n = picked.size;
+    document.getElementById('n-pick').textContent = n;
+    document.getElementById('bar').hidden = (n === 0);
+  }
+
+  function buildReport(){
+    // 속보도 고를 수 있게 둔다 — 판정이 제목 말머리 기반이라 보고감이 섞인다.
+    // 쓸지 말지는 고르는 단계에서 정한다.
+    var items = [];
+    picked.forEach(function(id){ if(ALL[id]) items.push(ALL[id]); });
+    var rank = function(name){
+      var i = REPORT_ORDER.indexOf(name);
+      return i === -1 ? REPORT_ORDER.length : i;
+    };
+    items.sort(function(a,b){
+      // 1) 단독 먼저  2) 출입처순  3) 중요도순
+      var sa = (a.m === SCOOP) ? 0 : 1, sb = (b.m === SCOOP) ? 0 : 1;
+      if(sa !== sb) return sa - sb;
+      var ra = rank(a.g), rb = rank(b.g);
+      if(ra !== rb) return ra - rb;
+      return a.ord - b.ord;
+    });
+    var lines = ['<모니터>'];
+    items.forEach(function(it){ lines.push(it.t + '(' + it.s + ')'); });
+    return {text: lines.join('\n'), n: items.length};
+  }
+
+  var veil = document.getElementById('veil');
+  var report = document.getElementById('report');
+  var hint = document.getElementById('copyhint');
+  var hintDefault = hint.textContent;
+
+  function openPanel(){
+    var r = buildReport();
+    report.value = r.text;
+    document.getElementById('psub').textContent = r.n + '건 · 단독 상단 · 출입처순';
+    hint.textContent = hintDefault; hint.classList.remove('ok');
+    veil.hidden = false;
+    report.focus();
+  }
+  function closePanel(){ veil.hidden = true; }
+
+  document.getElementById('make').addEventListener('click', openPanel);
+  document.getElementById('close').addEventListener('click', closePanel);
+  veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !veil.hidden) closePanel(); });
+
+  document.getElementById('clear').addEventListener('click', function(){
+    picked.clear(); syncBar(); render();
+  });
+  document.getElementById('selectall').addEventListener('click', function(){
+    report.focus(); report.select();
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var done = function(){ hint.textContent = '복사됐습니다.'; hint.classList.add('ok'); };
+    var fail = function(){
+      report.focus(); report.select();
+      hint.textContent = '자동 복사가 막혔습니다 — 전체 선택했으니 ⌘C로 복사하세요.';
+      hint.classList.remove('ok');
+    };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report.value).then(done, fail);
+      } else { fail(); }
+    }catch(err){ fail(); }
+  });
+
+  render(); syncBar();
+})();
+</script>
+
+</body></html>
