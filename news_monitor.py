@@ -2264,10 +2264,59 @@ def send_overnight_exclusives(conn, now):
     conn.commit()
     return len(items)
 
+# ==================== 0-78 반영 직후 재분류 (한시, 김광일판만) ====================
+# 사용자(10/30 02:14 "하자"): 반영 직후 최근 48시간 저장 기사를 새 규칙으로 다시 나눈다 — 안 하면 반영 전에 들어온 기사는
+# 옛 keywords대로 방미통위·과기정통부에 남아 그날 보고·밤 발제판에서 두 새 섹션이 비거나 덜 찬다.
+# 같은 입력이면 같은 결과(멱등)라 기한까지 매 check 앞에서 돌린다 — merge_db는 겹친 id를 원격 쪽으로 두므로(INSERT OR IGNORE)
+# 한 번만 돌리면 동시 실행이 겹친 회차에 재분류가 사라질 수 있다. 변형판은 방미심위가 없어 아무것도 안 한다.
+# 규칙(수집 흐름과 같게 — 재생 검증으로 대조):
+#  · 제목에 새 키워드(BEAT078_GROUPS)만 걸림(옛 규칙으론 본문 매칭이었음) → keywords = 제목 매칭 키워드
+#  · 제목에 옛 키워드도 걸려 있음 → 저장된 keywords ∪ 제목 매칭 키워드(두 기관 다 나오면 주체 규칙이 정한다)
+#  · 제목에 아무것도 없음 → 본문 매칭 섹션 이동(FALLBACK_ROUTE)만 적용
+REKEY078_SINCE = "2026-10-28T02:00:00+09:00"
+REKEY078_UNTIL = "2026-10-31T23:59:59+09:00"
+
+
+def rekey_078(conn, now):
+    if "방미심위" not in GROUP_ORDER or now.isoformat() > REKEY078_UNTIL:
+        return 0
+    newk = set(BEAT078_GROUPS)
+    changed = 0
+    for aid, title, kws in conn.execute("SELECT id, title, keywords FROM articles WHERE seen_dt >= ?",
+                                        (REKEY078_SINCE,)).fetchall():
+        old = set(kws.split(",")) if kws else set()
+        if not old or is_duty_only(old):
+            continue
+        tm = set(matched_keywords(title))
+        if tm and not (tm - newk):
+            new = tm
+        elif tm:
+            new = old | tm
+        else:
+            new = old
+            gs = display_groups(old)
+            rt = FALLBACK_ROUTE.get(gs[0]) if gs else None
+            if rt:
+                t = clean(title or "").rsplit(" - ", 1)[0].strip()
+                if any(w in t for w in rt[1]) and REP_KEYWORD_FOR_GROUP.get(rt[0]):
+                    new = {REP_KEYWORD_FOR_GROUP[rt[0]]}
+        if new != old:
+            conn.execute("UPDATE articles SET keywords = ? WHERE id = ?", (",".join(sorted(new)), aid))
+            changed += 1
+    conn.commit()
+    if changed:
+        print(f"[0-78 재분류] {REKEY078_SINCE[:16]} 이후 저장 기사 {changed}건 keywords 갱신")
+    return changed
+
+
 # ==================== check 모드 ====================
 def run_check():
     conn = db()
     now = datetime.datetime.now(KST)
+    try:
+        rekey_078(conn, now)
+    except Exception as e:
+        print(f"[warn] 0-78 재분류: {e}")
     # 밤사이 단독 묶음(0-43) — 이번 실행의 새 알림보다 먼저(시간순). 실패해도 check는 계속.
     try:
         send_overnight_exclusives(conn, now)
