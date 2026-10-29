@@ -108,7 +108,19 @@ BASE_KEYWORDS = [
     "공정거래위원장",
     "방송미디어통신위원회", "방미통위",
     "방송미디어통신위원장",
+    # 0-78(2026-10-29 사용자 요청): 방미심위 섹션 — 방미통위 바로 뒤(이 순서가 곧 섹션 순서).
+    # 전엔 검색어가 아니어서 본문에 '방송미디어통신위원회'가 같이 나온 기사만 방미통위 섹션으로 들어왔다.
+    # '방송미디어통신심의위'·'방심위'(구칭)는 제목 판정 전용(TITLE_ONLY_KEYWORDS, 네이버 검색 안 함).
+    "방송미디어통신심의위원회", "방미심위",
+    "방송미디어통신심의위", "방심위",
     "과학기술정보통신부", "과기정통부", "과기부",
+    # 0-78: 국가AI전략위 섹션 — 과기정통부 뒤. 네이버 검색은 '국가AI전략위' 하나 — 정식 명칭 두 개는 제목 판정 전용
+    # (10/29 사전 측정: 네이버가 '국가인공지능전략위원회'·'국가AI전략위원회'를 낱말 단위로 넓게 맞춰 하루 100건 넘게 새로
+    #  들어오는데 요약문에라도 이름이 있는 건 6~27%뿐. '국가AI전략위' 검색이 정식 명칭이 본문에 든 기사도 함께 돌려준다).
+    # 'AI전략위'(약칭)도 제목 판정 전용 — 측정 표본 제목 약 50건이 전부 이 위원회였다(기업 'AI전략위원회' 0건).
+    "국가인공지능전략위원회", "국가AI전략위원회", "국가AI전략위",
+    # 'AI전략위'(약칭)·'국가인공지능전략위'(줄임꼴 — '국가인공지능전략위, 포항 찾아…' 10/23 실측)도 제목 판정 전용.
+    "국가인공지능전략위", "AI전략위",
     "우주항공청",
     # 2026-10-06 사용자 요청. '우주항공청' 검색만으로는 본문에 청 이름이 안 나오는
     # 누리호 기사(발사 준비·민간 참여 등)를 못 잡는다. 실측: 7/16 이후 DB의 누리호
@@ -454,7 +466,11 @@ KEYWORD_MAX_PAGES = {
 # 0-76: 제목 판정 전용어 — 네이버는 검색하지 않는다(본문 검색으로 이미 다 들어온다, 10/23 판별 점검에서 미수집 0).
 # 구글 RSS는 KEYWORD_MAX_PAGES를 보지 않으므로 제목에 이 말이 든 기사를 그대로 찾아 준다(0-70 교훈).
 # 변형판은 BASE_KEYWORDS를 통째로 바꾸므로 `if k in BASE_KEYWORDS`로 거른다 — 변형판 설정값(EXPECT)에 영향 없음.
-TITLE_ONLY_KEYWORDS = ["공정거래위원장", "방송미디어통신위원장", "우주청"]
+TITLE_ONLY_KEYWORDS = ["공정거래위원장", "방송미디어통신위원장", "우주청",
+                       # 0-78: '방송미디어통신심의위'(정식명 줄임 — '방송미디어통신심의위에', '…심의위원장'),
+                       # '방심위'(구칭 — 아직 쓰는 매체가 있다), 국가AI전략위 정식 명칭 둘(네이버가 넓게 맞춰 잡음이 많다)·'AI전략위'(약칭).
+                       "방송미디어통신심의위", "방심위",
+                       "국가인공지능전략위원회", "국가AI전략위원회", "국가인공지능전략위", "AI전략위"]
 KEYWORD_MAX_PAGES.update({k: 0 for k in TITLE_ONLY_KEYWORDS if k in BASE_KEYWORDS})
 
 # 같은 기관을 가리키는 키워드를 하나의 다이제스트 섹션으로 통합.
@@ -466,6 +482,16 @@ KEYWORD_GROUPS = {
     "우주항공청": "우주항공청", "누리호": "우주항공청", "우주청": "우주항공청",
     "CBS": "CBS", "나이영": "CBS",
 }
+# 0-78: 방미심위·국가AI전략위 — 이 판(김광일판)에만. 변형판 생성기는 BASE_KEYWORDS를 통째로 바꾸므로
+# `if k in BASE_KEYWORDS`로 걸러 변형판에선 아무 매핑도 생기지 않게 한다(클러스터 출입처 토큰·주체 판정 불변).
+# 이 아래 0-78 블록(소관 어휘·본문 매칭 이동·보고 양식 순서·'관련 약함')도 전부 같은 방식으로 이 판에서만 켜진다.
+BEAT078_GROUPS = {
+    "방송미디어통신심의위원회": "방미심위", "방미심위": "방미심위",
+    "방송미디어통신심의위": "방미심위", "방심위": "방미심위",
+    "국가인공지능전략위원회": "국가AI전략위", "국가AI전략위원회": "국가AI전략위",
+    "국가AI전략위": "국가AI전략위", "국가인공지능전략위": "국가AI전략위", "AI전략위": "국가AI전략위",
+}
+KEYWORD_GROUPS.update({k: g for k, g in BEAT078_GROUPS.items() if k in BASE_KEYWORDS})
 # 당직 키워드 매핑도 항상 합쳐둔다 — 당직 수집 기사(0-44)와 옛 당직일 기사의 그룹을 찾고,
 # 클러스터링의 출입처명 토큰(CLUSTER_AGENCY_TOKENS)에도 들어가야 해서.
 KEYWORD_GROUPS.update(DUTY_KEYWORD_GROUPS)
@@ -483,6 +509,59 @@ REP_KEYWORD_FOR_GROUP = {}
 for _k in KEYWORDS:
     _g = KEYWORD_GROUPS.get(_k, _k)
     REP_KEYWORD_FOR_GROUP.setdefault(_g, _k)
+
+# ==================== 0-78 방미심위·국가AI전략위 (2026-10-29, 김광일판만) ====================
+# 사용자 요청: 방미심위 섹션을 방미통위 바로 뒤에, 국가AI전략위 섹션을 과기정통부 뒤에 신설. 동료판에는 적용하지 않는다.
+# 아래는 전부 `if g in GROUP_ORDER`로 걸러 둔다 — 변형판은 BASE_KEYWORDS를 바꾸므로 이 그룹들이 없고, 그래서
+# GROUP_SCOPE·관문 강도·보고 양식 순서·'관련 약함'이 하나도 바뀌지 않는다(생성기 기준 문자열도 그대로).
+#
+# 방미심위 심의 낱말 — 2026-09-18 방미통위 strong 보강분 중 심의(시정요구·접속차단·불법 광고·도박·중계·유해정보) 쪽.
+# 그때는 방미심위가 검색어가 아니어서 그 기사들이 방미통위 관문에서 떨어지지 않게 방미통위 어휘에 넣었었다.
+# 이제 방미심위 섹션이 있으니 **방미통위 어휘에서 빼고 방미심위로 옮긴다**(양쪽에 두지 않는다 — 아래 이동 규칙이
+# 이 낱말이 든 본문 매칭 기사를 전부 방미심위로 보내므로 방미통위 쪽에 남겨도 쓰일 데가 없다).
+KCSC_ROUTE_WORDS = [
+    "방미심위", "방심위",
+    "시정요구", "접속차단", "접속 차단", "불법사금융", "불법금융광고",
+    "불법 도박", "사이버도박", "사이버 도박", "도박사이트",
+    "불법중계", "불법 중계", "유해정보", "유해매체",
+]
+BEAT078_SCOPE = {
+    "방미심위": {
+        "strong": KCSC_ROUTE_WORDS + [
+            "방송심의", "통신심의", "광고심의", "법정제재",
+            # 방미통위에도 있는 낱말(그대로 둠) — 디지털성범죄 영상 삭제·차단, 허위조작정보 심의는 방미심위 소관이기도 하다.
+            "디지털성범죄", "불법촬영물", "성착취", "허위조작정보", "가짜뉴스", "청소년보호",
+            "정보통신망법", "정통망법",
+            "고광헌",   # 방미심위원장(10월 DB 제목 '고광헌 방미심위원장' 실측)
+        ],
+        "weak": ["심의", "제재", "권고", "경고", "의결", "방송", "유튜브", "광고", "음란",
+                 "불법촬영", "SNS", "포털", "KBS", "MBC", "SBS", "EBS", "YTN", "종편", "지상파"],
+    },
+    "국가AI전략위": {
+        "strong": [
+            "AI 3강", "AI 3대 강국", "AI 강국", "AI 대전환", "AX", "컨트롤타워",
+            "AI 기본법", "AI기본법", "AI 입법", "독파모", "독자 AI", "모두의 AI", "모두의AI", "소버린 AI",
+            "AI 데이터센터", "AI데이터센터", "AIDC", "CAIO", "AI 책임관", "국가AI", "국가 AI", "AI 기본사회",
+            # 'AI 전략'·'AI 정책'·'AI 인재'는 넣지 않는다 — 기업 홍보 제목에 흔하다(엄격 관문이 사실상 열린다).
+            "하정우",   # 상근 부위원장(8/30 지명 — DB 제목 실측)
+        ],
+        "weak": ["AI", "인공지능", "데이터센터", "GPU", "반도체", "디지털", "데이터"],
+    },
+}
+for _g, _spec in BEAT078_SCOPE.items():
+    if _g in GROUP_ORDER:
+        GROUP_SCOPE[_g] = _spec
+if "방미심위" in GROUP_ORDER:
+    GROUP_SCOPE["방미통위"]["strong"] = [w for w in GROUP_SCOPE["방미통위"]["strong"] if w not in KCSC_ROUTE_WORDS]
+
+# 본문 매칭 기사(제목에 출입처명 없음)의 섹션 이동 — 두 기관이 다 나오는 기사의 규칙(0-78).
+#  ① 제목에 한쪽 이름만 → 그쪽(원래 규칙: 제목 매칭).
+#  ② 제목에 둘 다 → 주체 출입처(0-35 ACTOR_ASSIGN). 주체를 못 가리면 섹션 순서상 앞(방미통위).
+#  ③ 제목에 둘 다 없음(본문 매칭) → 제목에 방미심위 심의 낱말이 있으면 방미심위, 없으면 검색 순서대로(대개 방미통위).
+# ③을 수집 단계(DB keywords)에서 바꾸는 이유는 0-2 그룹 재배정과 같다 — check 관문·선별, digest, 뉴스레이다가 모두 같은 섹션을 본다.
+# {옮기기 전 그룹: (옮길 그룹, 제목 낱말)}. 국가AI전략위↔과기정통부는 낱말로 가르지 않는다(AI 정책 어휘가 같다 — ①②만).
+FALLBACK_ROUTE = {g: v for g, v in {"방미통위": ("방미심위", KCSC_ROUTE_WORDS)}.items()
+                  if g in GROUP_ORDER and v[0] in GROUP_ORDER}
 
 # ===== 당직 전용 그룹·검색어 (0-44) =====
 # 본 출입처(GROUP_ORDER)에 없는 당직 그룹만. 변형판(DUTY_COLLECT=False)은 비어 있다 —
@@ -919,6 +998,11 @@ CLUSTER_PERSON_KEYWORDS = {"나이영"}
 CLUSTER_TOPIC_KEYWORDS = {"누리호"}
 CLUSTER_AGENCY_TOKENS = (set(KEYWORD_GROUPS.keys()) | set(KEYWORD_GROUPS.values())) \
                         - CLUSTER_PERSON_KEYWORDS - CLUSTER_TOPIC_KEYWORDS
+# 0-78: 'AI'는 두 글자라 topic_tokens가 토큰으로 안 뽑는다 — '국가AI전략위'의 실제 토큰은 '국가'·'전략위'라 이름 그대로는
+# 위 집합에 걸리지 않는다. 토큰 모양으로 더 넣는다('전략위'·'전략위원회'). '국가'는 이미 흔한 토큰이라 뺀다(넣으면
+# '출입처명 2개 겹침' 예외에 걸려 국가AI전략위 기사가 '국가'+'전략위'만으로 다 묶인다). 변형판은 OWN 키가 BASE에 없어 불변.
+CLUSTER_AGENCY_TOKENS |= {t for k in BEAT078_GROUPS if k in BASE_KEYWORDS
+                          for t in topic_tokens(k)} - TOPIC_COMMON_TOKENS
 
 def significant_overlap(a, b, min_overlap=2, min_ratio=0.3):
     """두 토큰 집합이 '같은 주제'로 볼 만큼 겹치는지 판정.
@@ -1838,6 +1922,8 @@ GROUP_GATE_MODE = {
     "방미통위":   "loose",
     "과기정통부": "strict",
 }
+# 0-78: 새 섹션은 이웃 섹션의 강도를 따른다 — 방미심위는 방미통위처럼 느슨하게, 국가AI전략위는 과기정통부처럼 엄격하게.
+GROUP_GATE_MODE.update({g: md for g, md in {"방미심위": "loose", "국가AI전략위": "strict"}.items() if g in GROUP_ORDER})
 
 def scope_gate(title, kws, mode=None, group=None):
     """폴백 기사(제목에 출입처 키워드가 없는 기사)의 소관 관문. **check 전용.**
@@ -1942,6 +2028,15 @@ def reassign_fallback_group(title, kws):
     그것도 강한 어휘로만 재배정해 오분류를 줄이는 쪽으로만 움직인다."""
     if matched_keywords(title):
         return True, "제목매칭", kws
+    # 0-78 본문 매칭 기사 섹션 이동(FALLBACK_ROUTE, 위 0-78 블록) — 제목 낱말로 옮긴다. 옮긴 그룹 관문은 그 낱말(strong)로 통과.
+    if FALLBACK_ROUTE:
+        gs = display_groups(kws)
+        rt = FALLBACK_ROUTE.get(gs[0]) if gs else None
+        if rt:
+            t = clean(title or "").rsplit(" - ", 1)[0].strip()
+            w = next((w for w in rt[1] if w in t), None)
+            if w and REP_KEYWORD_FOR_GROUP.get(rt[0]):
+                return True, f"이동:{gs[0]}→{rt[0]}({w.strip()})", {REP_KEYWORD_FOR_GROUP[rt[0]]}
     ok, why = scope_gate(title, kws)
     if ok or "소관어휘없음" not in why:
         return ok, why, kws
@@ -3704,7 +3799,36 @@ def _attach_nocut(conn, groups, start, end, pool=None):
 # 지우지 않는 이유: 접히는 것 중 'AI·데이터 혁신 3법 국회 통과' 같은 정책 기사가 섞인다 — 뉴스레이다는 빠뜨리지 않는 쪽(프로젝트 규칙 2).
 # 순위·체크·보고 양식·건수 불변(데이터 순서 그대로, 표시만). 변형판은 그룹 이름이 달라 동작 없음.
 LIVE_WEAK_FOLD_GROUPS = ("과기정통부", "우주항공청")
+# 0-78: 국가AI전략위도 과기정통부처럼 — 제목에 위원회 이름이 없고 AI 정책 어휘도 없는 본문 매칭 기사(기업 홍보에 위원 이력 한 줄 등)를 접는다.
+LIVE_WEAK_FOLD_GROUPS += tuple(g for g in ("국가AI전략위",) if g in GROUP_ORDER)
 LIVE_WEAK_GATE_MODE = "normal"
+
+# 0-78: 보고 양식(<모니터>) 출입처 순서에 새 섹션 끼우기 — {새 섹션: 바로 앞 섹션}. 페이지의 REPORT_ORDER(원본 4개)에 끼운다.
+# 변형판은 이 그룹이 없어 비고(data.json에 'ra' 키를 안 싣는다) 각 생성기의 REPORT_ORDER 치환이 그대로 이긴다.
+LIVE_REPORT_AFTER = {g: a for g, a in {"방미심위": "방미통위", "국가AI전략위": "과기정통부"}.items() if g in GROUP_ORDER}
+
+# 0-78: 머리줄 바깥 링크(사용자 요청 — '밤 발제판'). **이 저장소에만 있는 파일**(live_links.json)에서 읽는다 —
+# 변형판 생성기는 정해 둔 파일(news_monitor.py·render_page.py 치환본 + COPY_AS_IS)만 가져가므로 링크가 따라가지 않는다.
+# 링크만 싣는다(대상 페이지 내용은 싣지 않음). 형식: {"links": [{"label": "…", "short": "…", "url": "https://…"}]}
+LIVE_LINKS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "live_links.json")
+
+
+def live_header_links():
+    """머리줄 바깥 링크 [{label, short, url}] — 파일이 없거나 깨졌으면 [] (페이지는 링크 없이 그대로)."""
+    try:
+        with open(LIVE_LINKS_FILE, encoding="utf-8") as f:
+            raw = json.load(f).get("links") or []
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        print(f"[warn] live_links.json: {e}")
+        return []
+    out = []
+    for x in raw:
+        u = str(x.get("url") or "")
+        if u.startswith("https://") and x.get("label"):
+            out.append({"label": str(x["label"]), "short": str(x.get("short") or x["label"]), "url": u})
+    return out
 
 # ==================== 섹션별 단어 접기 (0-69, 2026-10-22) ====================
 # '관련 약함'(0-58)과 같은 접힌 줄을 쓰되, 판정은 '제목에 남길 단어가 있느냐'로 한다.
@@ -3931,6 +4055,12 @@ def build_live_data(conn, now):
     # 섹션별 단어 접기(0-69) — 접힌 줄 이름·설명. 비어 있으면(원본) 키를 싣지 않는다.
     if LIVE_FOLD_KEEP:
         out["wl"] = {g: {"label": r["label"], "desc": r.get("desc", "")} for g, r in LIVE_FOLD_KEEP.items()}
+    # 0-78: 보고 양식 순서에 끼울 새 섹션·머리줄 바깥 링크. 비어 있으면(변형판) 키를 싣지 않는다.
+    if LIVE_REPORT_AFTER:
+        out["ra"] = dict(LIVE_REPORT_AFTER)
+    hl = live_header_links()
+    if hl:
+        out["hl"] = hl
     # 당직 전용 그룹(0-44) — 페이지의 '당직' 스위치가 꺼져 있으면 이 섹션들을 걷어 낸다.
     # 비어 있으면(변형판) 키를 싣지 않는다 — 스위치도 안 그려진다.
     if DUTY_ONLY_GROUPS:
