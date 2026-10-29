@@ -1,53 +1,17 @@
 name: news-monitor
 
+# 0-78 사전 측정 전용 임시 브랜치(claude/measure-newkw)의 워크플로 — main의 news-monitor.yml과 무관.
+# workflow_dispatch(ref=이 브랜치)로 한 번 돌리고 브랜치째 지운다. DB는 읽기만, 결과는 이 브랜치에만 커밋.
 on:
-  workflow_dispatch:              # 외부 스케줄러(cron-job.org)가 호출하는 방식
+  workflow_dispatch:
     inputs:
       mode:
-        description: '실행 모드'
         required: false
-        default: 'check'
-        type: choice
-        options: [check, digest, live, excluded, backfill, retitle, harvest]
-      apply:
-        description: 'retitle 전용: 1이면 복구한 제목을 실제로 DB에 기록. 비우면 드라이런(전→후만 출력, DB 미변경).'
-        required: false
-        default: ''
-        type: string
-      limit:
-        description: 'retitle 전용: 최근 수집분부터 N건만 처리(시험용). 비우면 대상 전체(수천 건, 오래 걸림 — check/digest가 대기열에 쌓임).'
-        required: false
-        default: ''
-        type: string
-      since:
-        description: 'backfill 시작 시각 (예: 2026-08-20 20:00). 비우면 어제 20:00.'
-        required: false
-        default: ''
-        type: string
-      until:
-        description: 'backfill 종료 시각. 비우면 지금.'
-        required: false
-        default: ''
-        type: string
-      groups:
-        description: 'backfill 대상 그룹 (예: 산업부,중기부,개인정보위). 비우면 기본값.'
-        required: false
-        default: ''
-        type: string
-      page_mode:
-        description: 'digest 전용: both(페이지·보존본 생성, 정기 실행 값) / off(페이지 없이 제외기록·DB 정리만). 비우면 off.'
-        required: false
-        default: 'off'
-        type: choice
-        options: ['off', both]
-      force_send:
-        description: 'digest 전용, 수동 테스트용: 1이면 토요일 스킵을 무시하고 강제 실행(페이지 확인용). 비우면 평소처럼 토요일 스킵.'
-        required: false
-        default: ''
+        default: 'measure'
         type: string
 
 concurrency:
-  group: news-monitor
+  group: news-monitor-measure
   cancel-in-progress: false
 
 jobs:
@@ -56,159 +20,19 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: 저장소 체크아웃
-        uses: actions/checkout@v7
-
-      - name: 파이썬 설치
-        uses: actions/setup-python@v7
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-
-      - name: 모드 결정 (외부 호출 input 사용)
-        id: mode
-        run: |
-          INPUT_MODE="${{ github.event.inputs.mode }}"
-          echo "mode=${INPUT_MODE:-check}" >> "$GITHUB_OUTPUT"
-
-      - name: 실행
+      - name: 측정
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # 두 번째 봇 — excluded 모드(수동 조회) 전용. digest 텔레그램 발송은 0-42에서 폐기.
-          TELEGRAM_DIGEST_BOT_TOKEN: ${{ secrets.TELEGRAM_DIGEST_BOT_TOKEN }}
-          TELEGRAM_DIGEST_CHAT_ID: ${{ secrets.TELEGRAM_DIGEST_CHAT_ID }}
-          # (0-44: 당직 출입처는 날짜와 무관하게 늘 수집한다 — 예전 duty 입력·DUTY_MODE는 없앴다.)
-          BF_SINCE: ${{ github.event.inputs.since }}
-          BF_UNTIL: ${{ github.event.inputs.until }}
-          BF_GROUPS: ${{ github.event.inputs.groups }}
-          # retitle 전용. 비우면 드라이런(기본값) — news_monitor.py에는 없는 스위치이므로
-          # 다른 모드에선 그냥 무시된다.
-          APPLY: ${{ github.event.inputs.apply }}
-          LIMIT: ${{ github.event.inputs.limit }}
-          # digest 전용 HTML 페이지 전환 스위치(D 세션, claude/HTML전환_세션계획.md 참조).
-          # digest가 아닌 모드에서는 news_monitor.py가 아예 읽지 않으므로 무해하다.
-          PAGE_MODE: ${{ github.event.inputs.page_mode }}
-          # 토요일 스킵을 수동으로 우회하는 테스트 전용 스위치. cron-job.org
-          # body에는 이 값이 없어 항상 빈 문자열이므로 정기 실행의 토요일 스킵은 그대로다.
-          FORCE_SEND: ${{ github.event.inputs.force_send }}
-          # 0-30: 고른 기사 기록 수확(harvest_picks.py). 기기 연동 gist의 id — 비밀(secret)
-          # gist라 id만 있으면 읽힌다(토큰 불필요). 비어 있으면 수확은 조용히 건너뛴다.
-          NEWSRADAR_GIST_ID: ${{ secrets.NEWSRADAR_GIST_ID }}
-        run: |
-          MODE="${{ steps.mode.outputs.mode }}"
-          if [ "$MODE" = "backfill" ]; then
-            ARGS=""
-            [ -n "$BF_GROUPS" ] && ARGS="--groups $BF_GROUPS"
-            if [ -n "$BF_SINCE" ]; then
-              if [ -n "$BF_UNTIL" ]; then
-                python backfill.py $ARGS "$BF_SINCE" "$BF_UNTIL"
-              else
-                python backfill.py $ARGS "$BF_SINCE"
-              fi
-            else
-              python backfill.py $ARGS
-            fi
-          elif [ "$MODE" = "retitle" ]; then
-            python retitle.py
-          elif [ "$MODE" = "check" ]; then
-            python news_monitor.py check
-            # 0-20: 라이브 보고 페이지(docs/live/data.json) 갱신. check가 방금 모은
-            # 기사까지 반영된다. 실패해도 check 결과(DB)는 커밋돼야 하므로 잡을
-            # 실패시키지 않고 경고만 남긴다.
-            python news_monitor.py live || echo "::warning::live 페이지 갱신 실패 — check 결과는 정상 커밋됩니다."
-          elif [ "$MODE" = "harvest" ]; then
-            # 0-30 수동 실행용: gist 리비전 기록까지 날짜별로 훑어, 최신판에서 지워진 체크도 되살린다.
-            python harvest_picks.py --revisions
-          else
-            python news_monitor.py "$MODE"
-            # 0-30: digest 슬롯(06:00·08:30·13:30·17:30·22:00)마다 끝난 보고의 체크 기록과
-            # 당시 화면 목록을 picks/에 남긴다. 실패해도 digest 결과는 커밋돼야 하므로 경고만.
-            if [ "$MODE" = "digest" ]; then
-              python harvest_picks.py || echo "::warning::체크 기록 수확 실패 — digest 결과는 정상 커밋됩니다."
-            fi
-          fi
-
-      - name: DB·페이지 변경사항 커밋 (다음 실행에서 중복 방지용 + GitHub Pages 갱신)
-        # backfill은 DB를 건드리지 않으므로 커밋 단계를 통째로 건너뛴다.
-        # (불필요한 git 왕복은 동시 실행 시 push 경합 위험만 늘린다)
-        # docs/는 PAGE_MODE=off(기본값)나 digest가 아닌 모드에서는 애초에 아무것도
-        # 생성/변경되지 않으므로, 폴더가 없으면 git add 자체를 건너뛴다.
-        if: steps.mode.outputs.mode != 'backfill'
+        run: python measure_newkw.py
+      - name: 결과 커밋(이 브랜치에만)
         run: |
           git config user.name "news-monitor-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add news_monitor.db
-          # 0-17: index.html 한 장이 아니라 docs/ 전체를 담는다. -A라야 아카이브
-          # 추가분뿐 아니라 prune_archive()가 지운 오래된 보존본의 '삭제'까지
-          # 스테이징된다(git add <경로>만으로는 삭제가 반영되지 않는다).
-          if [ -d docs ]; then git add -A docs; fi
-          # 0-30: 체크 기록 수확본(picks/). 보고마다 한 파일이고 수확(harvest_picks.py)만 쓴다.
-          if [ -d picks ]; then git add -A picks; fi
-          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
-
-          # 0-20: 이번 실행이 docs/에서 '실제로 바꾼 파일'만 목록으로 기록하고 사본을
-          # 대피시킨다. 아래 경합 복구에서 원격 위에 되얹는 것은 이 파일들뿐이다.
-          #   0-19까지는 "docs를 바꾼 실행이면 docs/ 전체를 되얹기"였다. 그런데 0-20부터
-          #   check도 docs/live/data.json을 바꾸므로, 그 규칙이면 check가 경합에 졌을 때
-          #   자기 체크아웃 시점의 낡은 docs/index.html까지 되얹어 digest 페이지를
-          #   롤백시킨다(0-19 사고의 재발). 파일 단위로 좁히면 check는 live만, digest는
-          #   index.html·archive만 되얹어 서로의 산출물을 건드리지 않는다.
-          KEEP="${RUNNER_TEMP:-/tmp}/nm-keep"
-          rm -rf "$KEEP"; mkdir -p "$KEEP/files"
-          # 0-30: picks/도 같은 방식으로 대피·되얹기(수확한 실행만 picks 파일을 바꾼다).
-          git diff --cached --name-only --diff-filter=d -- docs picks > "$KEEP/docs-changed.txt"
-          git diff --cached --name-only --diff-filter=D -- docs picks > "$KEEP/docs-deleted.txt"
-          while IFS= read -r f; do
-            [ -n "$f" ] || continue
-            mkdir -p "$KEEP/files/$(dirname "$f")" && cp "$f" "$KEEP/files/$f"
-          done < "$KEEP/docs-changed.txt"
-          echo "docs 변경: $(wc -l < "$KEEP/docs-changed.txt")개 추가·수정, $(wc -l < "$KEEP/docs-deleted.txt")개 삭제"
-          git commit -m "update db/page [skip ci]"
-
-          # ---------------- push (0-18, 2026-09-20) ----------------
-          # 예전에는 push가 거절되면 `git pull --rebase`로 따라잡았다. 그런데
-          # news_monitor.db는 43MB 바이너리라 git이 병합하지 못하고 반드시
-          #     warning: Cannot merge binary files: news_monitor.db
-          #     CONFLICT (content): Merge conflict in news_monitor.db
-          # 로 끝난다. 재시도해도 결정론적으로 같은 충돌이라 5회 전부 실패하고,
-          # 그 실행이 만든 다이제스트 페이지가 통째로 유실된다
-          # (2026-09-20 22:00 실측 — 인수인계 5항 8번이 현실화한 사고).
-          #
-          # 그래서 rebase를 쓰지 않는다. 원격 상태로 되돌린 뒤 우리 산출물을 다시
-          # 얹고, DB는 merge_db.py로 '행 단위 합집합'을 만든다 — check가 모은
-          # 기사와 digest가 남긴 제외기록이 모두 살아남는다.
-          pushed=0
-          for i in 1 2 3 4 5; do
-            if git push; then pushed=1; break; fi
-            echo "push 거절(원격이 앞섬) — 원격과 합칩니다 ($i/5)"
-            cp news_monitor.db "$KEEP/ours.db"
-            if ! git fetch origin main; then sleep 5; continue; fi
-            # 원격을 그대로 바탕으로 깐다(우리 커밋은 버린다 — 내용은 위에 보관됨)
-            git reset --hard origin/main
-            # 이번 실행이 바꾼 docs 파일만 다시 얹는다(0-20). 원격이 새로 올린
-            # 다른 파일(다른 실행의 페이지·아카이브)은 그대로 남는다.
-            cp -r "$KEEP/files/." .
-            while IFS= read -r f; do
-              [ -n "$f" ] && git rm -q --ignore-unmatch -- "$f"
-            done < "$KEEP/docs-deleted.txt"
-            python merge_db.py "$KEEP/ours.db" news_monitor.db
-            # 0-45: 합집합은 한쪽이 정리(prune_old)로 지운 기사를 되살린다 — 06:00 digest가 지운 것을
-            # 같은 시각 check가 경합에 지며 도로 넣었다(10/18 06:00, 4.5만 건). 합친 뒤 같은 보관 규칙을 다시 건다.
-            python -c "import sqlite3, news_monitor as m; c = sqlite3.connect('news_monitor.db'); print(f'[merge] 보관 규칙 재적용 — {m.prune_old(c)}건 삭제'); c.close()" \
-              || echo "::warning::합친 DB 정리 실패 — 다음 06:00 정리에서 다시 지웁니다."
-            git add news_monitor.db
-            if [ -d docs ]; then git add -A docs; fi
-            if [ -d picks ]; then git add -A picks; fi
-            if git diff --cached --quiet; then
-              echo "합친 결과가 원격과 동일 — 올릴 것이 없습니다."
-              pushed=1; break
-            fi
-            git commit -m "update db/page [skip ci]"
-            sleep $((RANDOM % 5 + 2))
-          done
-          if [ "$pushed" -ne 1 ]; then
-            echo "::error::DB push 5회 모두 실패 — news_monitor.db가 저장소에 반영되지 않았습니다."
-            exit 1
-          fi
+          git add measure/out.json
+          git commit -m "measure: 0-78 new keyword probe [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
