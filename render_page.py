@@ -1277,6 +1277,12 @@ a.title:visited{color:var(--ink-900)}
 .fresh button.sync.ok{border-color:var(--appbar-ink-2)}
 .fresh button.sync.ok::before{content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:#4FBF86; margin-right:6px; vertical-align:1px}
 .fresh button.sync.err{border-color:#F0B55A; color:#F0B55A}
+/* 0-79: 연동 꺼짐 경고(체크가 있는데 토큰 없음) — 빨간 점 + 글자, 색만으로 구분하지 않음 */
+.fresh button.sync.warn{border-color:#F08A8D; color:#FFC9CA; background:rgba(200,38,44,.28); font-weight:700}
+.fresh button.sync.warn::before{content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:#FF6B70; margin-right:6px; vertical-align:1px}
+.bar .fresh button.sync.warn{border-color:var(--red-line); color:var(--red-600); background:var(--red-50)}
+.bar .fresh button.sync.warn::before{background:var(--red-600)}
+.sbody .stat.warn{border-color:var(--red-line); background:var(--red-50); color:var(--red-600); margin-bottom:12px}
 .spanel{max-width:520px}
 .ppanel{max-width:720px}
 .pvq{padding:0 16px 8px}
@@ -1345,6 +1351,7 @@ a.title:visited{color:var(--ink-900)}
   .bar .count{font-size:12px; white-space:nowrap}
   .btn{padding:0 8px; font-size:12px}
   .reports{margin-left:0; width:100%}
+  .reports{gap:4px; flex-wrap:wrap; row-gap:6px}   /* 0-79: 0-78 발제판 링크로 411px 8px·360px 47px 가로 넘침 — 간격을 줄이고, 그래도 안 들어가면 줄바꿈 */
   .reports .rgrp{flex:1 1 auto}
   .reports .rgrp button{flex:1 1 0; white-space:nowrap}
   .brand .bt{display:none}
@@ -1951,8 +1958,14 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       .catch(function(e){ sync.err = errText(e); })
       .then(function(){ sync.busy = false; syncUI(); if(sync.again) syncNow(); });
   }
+  // 0-79: 연동이 꺼진 채 체크가 쌓이면 머리 버튼을 빨간 '연동 꺼짐'으로(10/21~10/30 두 기기 모두 토큰이 사라진 채 열흘을 몰랐다).
+  // 체크가 하나라도 있는데 토큰이 없을 때만 — 연동을 안 쓰는 기기는 원래 모양 그대로.
+  function hasLocalPick(){
+    return Object.keys(pickt).some(function(r){ return Object.keys(pickt[r] || {}).some(function(s){
+      return Object.keys(pickt[r][s] || {}).some(function(k){ var e = pickt[r][s][k]; return Array.isArray(e) && e[0]; }); }); });
+  }
   function syncSoon(){
-    if(!cfg.token) return;
+    if(!cfg.token){ syncUI(); return; }
     clearTimeout(sync.timer); sync.timer = setTimeout(syncNow, 1000);
   }
   function syncIfStale(){ if(cfg.token && Date.now() - sync.lastTry > 15e3) syncNow(); }
@@ -1961,7 +1974,10 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   var sveil = document.getElementById('sveil'), sbody = document.getElementById('sbody');
   function syncUI(){
     var b = document.getElementById('sync');
-    if(!cfg.token){ b.className = 'sync off'; b.innerHTML = '<span class="lg">기기 </span>연동'; }
+    if(!b.getAttribute('data-t0')) b.setAttribute('data-t0', b.title);
+    b.title = b.getAttribute('data-t0');
+    if(!cfg.token && hasLocalPick()){ b.className = 'sync off warn'; b.innerHTML = '연동 꺼짐'; b.title = '기기 연동이 꺼져 체크가 이 기기에만 남고 있습니다 — 눌러서 다시 연결하세요'; }
+    else if(!cfg.token){ b.className = 'sync off'; b.innerHTML = '<span class="lg">기기 </span>연동'; }
     else if(sync.busy && !cfg.last){ b.className = 'sync'; b.textContent = '연동 중…'; }
     else if(sync.err){ b.className = 'sync err'; b.textContent = '연동 오류'; }
     else { b.className = 'sync ok'; b.innerHTML = '연동<span class="lg">됨</span>' + (cfg.last ? ' <span class="mono">' + hm(new Date(cfg.last)) + '</span>' : ''); }
@@ -1971,7 +1987,8 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     var h = '', sub = document.getElementById('ssub');
     if(!cfg.token){
       sub.textContent = '꺼짐 · 이 기기에만 저장 중';
-      h = '<p>데스크톱과 폰에서 <b>체크</b>와 <b>여기까지 확인</b>을 이어 쓰려면, 기기마다 한 번 GitHub 토큰을 넣어 주세요. '+
+      h = (hasLocalPick() ? '<div class="stat warn">이 기기에 체크가 있는데 연동이 꺼져 있습니다. 다른 기기와 맞춰지지 않고, 고른 기사 기록(<code>picks/</code>)에도 쌓이지 않습니다. 토큰을 다시 넣어 연결하세요.</div>' : '')+
+          '<p>데스크톱과 폰에서 <b>체크</b>와 <b>여기까지 확인</b>을 이어 쓰려면, 기기마다 한 번 GitHub 토큰을 넣어 주세요. '+
           '기록은 내 GitHub 계정의 <b>비공개 gist</b> 하나(<code>'+SYNC_FILE+'</code>)에 저장됩니다. 토큰은 이 기기 브라우저에만 남습니다.</p>'+
           '<ol><li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → Fine-grained token 만들기</a></li>'+
           '<li>Repository access는 기본값 그대로, <b>Account permissions → Gists: Read and write</b> 하나만</li>'+

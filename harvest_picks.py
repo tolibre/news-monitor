@@ -246,6 +246,55 @@ def harvest(sync_docs, now=None, conn=None):
     return stats
 
 
+# ---------------------------------------------------------------- 연동 끊김 경고(0-79)
+# 10/21 04:32~10/30 06:01 두 기기 모두 기기 연동 토큰이 사라져 gist가 한 번도 안 바뀌었는데 열흘 동안 몰랐다
+# (수확은 정상 — 가져올 게 없었을 뿐). 업무일 STALE_WORKDAYS일 넘게 gist가 그대로면 08시대 수확(08:30 digest 뒤)에서
+# 하루 한 번 텔레그램(check 봇)으로 알린다. 휴가 등으로 체크를 안 한 날도 똑같이 울린다 — 문구에 적어 둔다.
+STALE_WORKDAYS = 2
+STALE_ALERT_HOURS = (8, 10)        # 이 시각 범위의 수확에서만(08:30 digest) — 하루 한 번
+
+
+def last_write(doc):
+    """gist가 마지막으로 쓰인 시각(KST). 페이지가 쓸 때마다 넣는 맨 위 'at'(UTC ISO) — 없으면 체크 바꾼 시각 중 최대."""
+    at = (doc or {}).get("at")
+    if at:
+        try:
+            return datetime.datetime.fromisoformat(at.replace("Z", "+00:00")).astimezone(KST)
+        except ValueError:
+            pass
+    ts = [e[1] for segs in ((doc or {}).get("picks") or {}).values() for keys in segs.values()
+          for e in keys.values() if isinstance(e, list) and len(e) > 1]
+    return datetime.datetime.fromtimestamp(max(ts) / 1000, KST) if ts else None
+
+
+def stale_workdays(last, now):
+    """last 날짜와 오늘 사이(둘 다 빼고)의 보고 업무일 수."""
+    n, d = 0, last.date() + datetime.timedelta(days=1)
+    while d < now.date():
+        if nm.is_report_workday(d):
+            n += 1
+        d += datetime.timedelta(days=1)
+    return n
+
+
+def stale_alert(doc, now=None, send=None):
+    now = now or datetime.datetime.now(KST)
+    if not (STALE_ALERT_HOURS[0] <= now.hour < STALE_ALERT_HOURS[1]) or not nm.is_report_workday(now.date()):
+        return None
+    last = last_write(doc)
+    if last is None:
+        return None
+    n = stale_workdays(last, now)
+    if n < STALE_WORKDAYS:
+        return None
+    msg = (f"⚠️ 뉴스레이다 체크 기록이 {last:%m/%d %H:%M} 이후 들어오지 않습니다(그 뒤 업무일 {n}일).\n"
+           "PC·폰 뉴스레이다 화면 아래 버튼이 빨간 '연동 꺼짐'이면 [기기 연동]에서 토큰을 다시 넣어 주세요.\n"
+           "휴가 등으로 체크하지 않았다면 무시해도 됩니다.")
+    (send or (lambda t: nm.notify(t, target="check", parse_mode=None)))(msg)
+    print(f"[harvest] 연동 끊김 경고 발송 — 마지막 기록 {last:%m/%d %H:%M}, 업무일 {n}일")
+    return msg
+
+
 def main(argv):
     if "--sync-file" in argv:
         docs = [json.loads(Path(argv[argv.index("--sync-file") + 1]).read_text(encoding="utf-8"))]
@@ -255,6 +304,10 @@ def main(argv):
             print("[harvest] NEWSRADAR_GIST_ID 비밀값이 없어 건너뜁니다.")
             return 0
         docs = [fetch_latest(gid)]
+        try:
+            stale_alert(docs[0])
+        except Exception as e:
+            print(f"[warn] 연동 끊김 경고: {e}")
         if "--revisions" in argv:
             docs = fetch_daily_revisions(gid) + docs
     harvest(docs)
