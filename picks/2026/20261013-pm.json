@@ -25,9 +25,29 @@
     1,
     1791868006938
    ],
+   "https://www.dt.co.kr/article/12088709?ref=naver": [
+    1,
+    1791863047328
+   ],
    "https://www.newsis.com/view/NISX20261013_0003823517": [
     1,
     1791867956102
+   ],
+   "https://www.newsis.com/view/NISX20261013_0003823576": [
+    1,
+    1791863048764
+   ],
+   "https://www.yna.co.kr/view/AKR20261013035800063?input=1195m": [
+    1,
+    1791863059708
+   ],
+   "https://www.yna.co.kr/view/AKR20261013057800001?input=1195m": [
+    1,
+    1791863056699
+   ],
+   "https://www.yna.co.kr/view/AKR20261013064600002?input=1195m": [
+    1,
+    1791863057132
    ]
   },
   "byline": {
@@ -41,6 +61,7 @@
    ]
   }
  },
+ "picks_updated": "2026-10-30T08:30:37+09:00",
  "rid": "20261013-pm",
  "unmatched": 0,
  "v": 1,

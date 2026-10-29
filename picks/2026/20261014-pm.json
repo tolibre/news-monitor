@@ -17,13 +17,37 @@
  "cols_note": "sid=구간id(byline=김광일 기자), group=출입처, cluster='전체' 탭 출입처 안 묶음 순서(0=맨 위), pos=묶음 안 순서(0=대표줄), size=묶음 기사 수, mark=🔥단독/⚡속보, n=전재 매체 수, dup=이미 나옴(최초 수집 시각), source=매체, title=제목, link=기사 키(체크 기록의 키와 같음)",
  "picks": {
   "202610140830": {
+   "https://biz.heraldcorp.com/article/10901938?ref=naver": [
+    0,
+    1791953420894
+   ],
    "https://news.google.com/rss/articles/CBMib0FVX3lxTE9CU0NzRzN0Zkc4ZUZQcEVKcmNDQVlteXFac3dPeVhQdDZkdTgyaV9uMi1kekM3Q1VLamFHdTNnQ19zTTNUYm85TXhMaDJoclE5bzFSZWNvdGg3REREVHRkWkxWVGRqSWV4RkM3YlBfMNIBc0FVX3lxTE9kTFFmTVVycUFCam5FdkJBWjNzVk40MzBudmRsM2YtckZHVlBQMXNkOWs4SHQ2cHpSRlM3M09hUG5yenMzVHVzSXJqUVJ0QnRTSjlZaGhGelk2ZFFqQ24tRWxyRk9DbVNkSTlKSzBGeDV0MTg?oc=5": [
     1,
     1791959170777
    ],
+   "https://news.google.com/rss/articles/CBMicEFVX3lxTFAwQ1ZrZDgtVjlrcWEwS0ZTTFMxTFRSNjNDN2dHY1FUSmlrbEZQdXU5eG1rNWplY3ZOMnZ3X1lYRXIyWnFmTjhSX1o1TkZiWWpWTFhKVzYzcnl1U1Zvc2RobG00eFpvbGtjMHhwaXRUV3LSAXRBVV95cUxNZDdMX2xmeGZ2dldyelRNQTAxRHJWM3lMMUM3UnpfbUE2ejRCNlNvRnY2WnVLWmpXT2FueGhyOHI3bzVzeUlYZC12ZW9UYmZWU1ktRFR1WUk3NGY3S2kzdEowR19oNzNvTE1ocDVXajVnZGFCag?oc=5": [
+    0,
+    1791953337852
+   ],
+   "https://news.google.com/rss/articles/CBMie0FVX3lxTE9GNzA0cEJyeVpGUjZNWklvTjFyWlcwblp1Y05ZUVJPMW1jZ0tSZ2NzVGE1OUR3RmlFMGltV0sxY0FCWXBsNXNLVnNDaHlON2Fja2pVRk9nV0h0RTB3ZHg3Z1Y2Z1Fya09Hd1lhQjBxNW1BNzFhTkdnSlo1bw?oc=5": [
+    0,
+    1791953338906
+   ],
+   "https://sports.khan.co.kr/article/202610140907003?pt=nv": [
+    1,
+    1791953473757
+   ],
    "https://www.dailian.co.kr/news/view/1700898/?sc=Naver": [
     1,
     1791959169867
+   ],
+   "https://www.hankyung.com/article/202610140396H": [
+    0,
+    1791953417032
+   ],
+   "https://www.yna.co.kr/view/AKR20261014091451002?input=1195m": [
+    1,
+    1791953399350
    ]
   },
   "byline": {
@@ -33,6 +57,7 @@
    ]
   }
  },
+ "picks_updated": "2026-10-30T08:30:37+09:00",
  "rid": "20261014-pm",
  "unmatched": 0,
  "v": 1,
