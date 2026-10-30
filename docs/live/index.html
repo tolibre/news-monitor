@@ -440,6 +440,18 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   .dsw .lg{display:none}
   .seg .lg{display:none} .seg .sm{display:inline}
 }
+/* 0-80: '2진' 스위치가 있는 판(김광일판)의 폰 — 스위치 두 개가 보기 범위 줄에 들어가도록 토글 모양 대신 검색 단추와 같은 작은 단추로.
+   켜짐 = 파란 바탕(검색 단추 펼침과 같은 색). 숫자는 폰에선 뺀다(켜면 출입처 칩에 섹션별 숫자가 나온다). 동료판(스위치 하나)은 그대로 */
+@media (max-width:560px){
+  .controls.two .dsw{height:32px; padding:0 8px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0)}
+  .controls.two .dsw .tr, .controls.two .dsw .c, .controls.two .dsw .lg{display:none}
+  .controls.two .dsw[aria-pressed="true"]{background:var(--blue-100); border-color:var(--blue-500); color:var(--blue-700)}
+}
+@media (max-width:400px){   /* 폴드 커버·좁은 폰(360~400px): 간격·보기 범위 단추 여백을 줄여 한 줄에(360px에서 47px 모자랐다) */
+  .controls.two{column-gap:4px}
+  .controls.two .seg button{padding:0 4px}
+  .controls.two .dsw{padding:0 6px}
+}
 </style>
 </head><body>
 <header>
@@ -468,6 +480,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       <button class="qbtn" type="button" id="qbtn" aria-label="제목·매체 검색" aria-expanded="false" title="제목·매체 검색"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.4 10.4 L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
       <input id="q" type="search" placeholder="제목·매체 검색" autocomplete="off">
       <button class="dsw" type="button" id="dsw" aria-pressed="false" hidden></button>
+      <button class="dsw" type="button" id="s2w" aria-pressed="false" hidden></button>
       <span class="seenc" id="seenc" hidden></span>
     </div>
   </div>
@@ -608,6 +621,22 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   function saveDuty(){ try{ localStorage.setItem(DUTYSTORE, dutyOn ? JSON.stringify({d: todayKST()}) : '0'); }catch(e){} }
   if(dutyOn) saveDuty();
   function dutyNames(){ var o = {}; ((RAW && RAW.duty) || []).forEach(function(g){ o[g] = 1; }); return o; }
+  // ---------- '2진' 스위치 (0-80) ----------
+  // RAW.d2 = {label, who, groups} — 당직 그룹 중 동료 한 사람 몫(휴가·공백 커버)만 붙인다. '휴일 특근'과 따로 켜고 끈다.
+  // 특근이 켜져 있으면 2진 그룹도 이미 다 보인다. 기억은 이 기기에만, 끌 때까지(커버는 며칠씩이라 하루로 끊지 않는다).
+  // 서버에 설정(live_links.json second)이 없는 판(동료판)은 RAW.d2가 없어 스위치가 안 그려지고 화면도 전과 같다.
+  var SEC2STORE = STORE.replace('-picks-', '-sec2-');
+  var sec2On = false;
+  try{ sec2On = localStorage.getItem(SEC2STORE) === '1'; }catch(e){}
+  function saveSec2(){ try{ localStorage.setItem(SEC2STORE, sec2On ? '1' : '0'); }catch(e){} }
+  function sec2Names(){ var o = {}; ((RAW && RAW.d2 && RAW.d2.groups) || []).forEach(function(g){ o[g] = 1; }); return o; }
+  // 화면에서 걷어 낼 그룹 — 특근이 꺼져 있으면 당직 그룹 전부, 단 2진이 켜져 있으면 2진 그룹은 남긴다.
+  function hiddenNames(raw){
+    var o = {}; if(dutyOn) return o;
+    var s2 = sec2On ? sec2Names() : {};
+    ((raw && raw.duty) || []).forEach(function(g){ if(!s2[g]) o[g] = 1; });
+    return o;
+  }
   function copyObj(o){ var x = {}; Object.keys(o).forEach(function(k){ x[k] = o[k]; }); return x; }
 
   // ---------- 당직 날 보고 시간표 (0-48) ----------
@@ -692,7 +721,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       var pk = pickCount(r);
       html += '<button type="button" class="pvrep" data-pf="'+esc(r.f)+'"><span>' + esc(r.title) + '</span>' +
         (r.holiday ? '<span class="pvtag">당직 일정</span>' : '') +
-        '<span class="c"><span class="mono">' + (dutyOn ? r.n : r.n - (r.nd || 0)) + '건</span>' + (pk ? ' · <span class="pk">✓' + pk + '</span>' : '') + '</span></button>';
+        '<span class="c"><span class="mono">' + (dutyOn ? r.n : r.n - (r.nd || 0) + (sec2On ? (r.nd2 || 0) : 0)) + '건</span>' + (pk ? ' · <span class="pk">✓' + pk + '</span>' : '') + '</span></button>';
     });
     document.getElementById('pvbody').innerHTML = html ||
       '<p>아직 저장된 지난 보고가 없습니다(보고가 끝나면 그 뒤 첫 수집 때 저장됩니다).</p>';
@@ -743,6 +772,8 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     var ds = dutyNames();
     var base = copyObj(raw); base.reports = baseReports(raw);
     if(dutyOn || !raw.duty || !raw.duty.length) return base;
+    // 0-80: '2진'이 켜져 있으면 그 그룹은 걷어 내지 않는다(위 세 줄은 국회판 생성기 치환 기준이라 그대로 둔다)
+    if(sec2On) Object.keys(sec2Names()).forEach(function(g){ delete ds[g]; });
     var out = base;
     out.reports = base.reports.map(function(r){
       var maps = [], r2 = copyObj(r);
@@ -779,11 +810,15 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     return rr.segments.filter(function(x){ return x.id === seg.id; })[0] || seg;
   }
   // 지금 탭에서 당직 섹션 기사 수(스위치 옆 숫자) — 걷어 내기 전 데이터로 센다.
-  function dutyCount(t){
-    var ds = dutyNames(), n = 0;
+  function dutyCount(t, names){
+    var ds = names || dutyNames(), n = 0;
     var segs = t.all ? t.rep.segments : [t.seg];
     segs.forEach(function(s){ (rawOf(t.rep, s).groups || []).forEach(function(g){ if(ds[g.name]) n += g.n; }); });
     return n;
+  }
+  function sec2Note(){
+    var d2 = RAW && RAW.d2; if(!d2 || !d2.groups || !d2.groups.length) return '';
+    return legendItem(esc(d2.label || '2진'), '검색칸 옆 스위치를 켜면 '+(d2.who ? esc(d2.who)+' 기자 출입처 ' : '')+esc(d2.groups.join('·'))+' 기사만 맨 뒤 섹션으로 붙습니다(휴일 특근 수집분 중 일부 — 텔레그램 알림 없음). ‘휴일 특근’과 따로 켜고 끄며, 끌 때까지 이 기기에 기억합니다. 휴일 보고 시간표는 바꾸지 않습니다.');
   }
   function dutyNote(){
     return RAW && RAW.duty && RAW.duty.length ? legendItem('휴일 특근', '검색칸 옆 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시).') : '';
@@ -1311,6 +1346,16 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       dsw.title = '휴일 특근 — 경제정책팀 출입처('+RAW.duty.join('·')+') 섹션 '+(dutyOn ? '숨기기' : '보기')+', 휴일에 켜면 그날을 특근 날로 보고 09:00·14:00 보고로 나눔';
       dsw.innerHTML = '<span class="tr" aria-hidden="true"></span><span class="lg">휴일 </span>특근 <span class="c mono">'+dutyCount(t)+'</span>';
     }
+    // '2진' 스위치(0-80) — 특근 옆. 숫자 = 지금 탭의 2진 섹션 기사 수
+    var s2w = document.getElementById('s2w'), d2 = RAW && RAW.d2;
+    s2w.hidden = !(d2 && d2.groups && d2.groups.length);
+    s2w.parentNode.classList.toggle('two', !s2w.hidden && !dsw.hidden);
+    if(!s2w.hidden){
+      s2w.setAttribute('aria-pressed', String(sec2On));
+      s2w.title = (d2.label || '2진') + ' — ' + (d2.who ? d2.who + ' 기자 출입처(' : '(') + d2.groups.join('·') + ') 섹션 ' + (sec2On ? '숨기기' : '보기') +
+        (dutyOn ? ' · 지금은 휴일 특근이 켜져 있어 이미 보임' : '');
+      s2w.innerHTML = '<span class="tr" aria-hidden="true"></span>' + esc(d2.label || '2진') + ' <span class="c mono">'+dutyCount(t, sec2Names())+'</span>';
+    }
 
     var html = '';
     if(t.over){
@@ -1357,7 +1402,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       (function(){ var seen = {}; return Object.keys(wlShown).map(function(g){ var w = wlOf(g); if(!w) return ''; var k = w.label + '\n' + w.desc; if(seen[k]) return ''; seen[k] = 1; return legendItem(esc(w.label), esc(w.desc)); }).join(''); })() +   // 0-72: 같은 이름·설명은 한 번만
       legendItem('보고 전체 탭', '보고 기간 전체를 출입처·사안 묶음으로 다시 모읍니다. 구간이 달라도 같은 사안이면 한 묶음이고, 줄 앞 번호가 들어온 구간입니다.') +
       legendItem('맨 끝 섹션', '맨 끝 ‘김광일 기자’는 발행 시각 기준(09:00 보고 당일 00:00~, 14:00 보고 당일 08:00~)입니다.') +
-      dutyNote() +
+      dutyNote() + sec2Note() +
       '</dl><p class="foot-sync">체크한 기사와 ‘여기까지 확인’은 이 기기에 저장되고, 머리줄 <b>기기 연동</b>을 켜면 다른 기기와 맞춰집니다(내 GitHub 비공개 gist). · <a href="../">최신 다이제스트</a> · <a href="../archive/">지난 다이제스트</a></p></div>';
     document.getElementById('main').innerHTML = html;
     syncBar();
@@ -1609,7 +1654,13 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     saveDuty();
     // 0-48: 휴일에 켜면 오늘을 당직 날로 기억, 같은 날 끄면 지운다(보고 시간표가 바뀐다).
     if(!PAST && RAW && RAW.holiday && RAW.holiday === todayKST()) setDutyDay(RAW.holiday, dutyOn);
-    if(!dutyOn && ui.beat && dutyNames()[ui.beat]) ui.beat = null;
+    if(!dutyOn && ui.beat && hiddenNames(srcRaw())[ui.beat]) ui.beat = null;
+    D = view(srcRaw()); pickDefaults(); draw();
+  });
+  document.getElementById('s2w').addEventListener('click', function(){
+    sec2On = !sec2On;
+    saveSec2();
+    if(ui.beat && hiddenNames(srcRaw())[ui.beat]) ui.beat = null;
     D = view(srcRaw()); pickDefaults(); draw();
   });
   [].forEach.call(document.querySelectorAll('.seg button'), function(btn){
