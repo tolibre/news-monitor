@@ -3879,6 +3879,26 @@ def live_header_links():
             out.append({"label": str(x["label"]), "short": str(x.get("short") or x["label"]), "url": u})
     return out
 
+
+# 0-80: '2진' 스위치(사용자 10/30 09:33 — "휴일 특근 외에 2진 탭을 신설… 산업부 중기부 개보위 등 서민선 기사 키워드").
+# '휴일 특근' 스위치가 당직 그룹 전부를 붙인다면, 이 스위치는 그중 **동료 한 사람 몫(groups)만** 붙인다(휴가·공백 커버용).
+# 수집은 그대로 당직 수집(0-44)을 쓴다 — 새 검색어 없음. 설정은 live_links.json의 "second"(이 저장소에만 — 변형판은 무동작).
+# 형식: {"label": "2진", "who": "서민선", "groups": ["산업부", …]} — 당직 전용 그룹(DUTY_ONLY_GROUPS)에 있는 것만 싣는다.
+def live_second_beat():
+    """'2진' 스위치 설정 {label, who, groups} — 파일·설정이 없거나 쓸 그룹이 없으면 None(페이지에 스위치가 안 그려진다)."""
+    try:
+        with open(LIVE_LINKS_FILE, encoding="utf-8") as f:
+            cfg = json.load(f).get("second") or {}
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        print(f"[warn] live_links.json second: {e}")
+        return None
+    gs = [g for g in (cfg.get("groups") or []) if g in DUTY_ONLY_GROUPS]
+    if not gs:
+        return None
+    return {"label": str(cfg.get("label") or "2진"), "who": str(cfg.get("who") or ""), "groups": gs}
+
 # ==================== 섹션별 단어 접기 (0-69, 2026-10-22) ====================
 # '관련 약함'(0-58)과 같은 접힌 줄을 쓰되, 판정은 '제목에 남길 단어가 있느냐'로 한다.
 #   {그룹: {"keep": [정규식, ...], "fold": [정규식, ...], "need": [정규식, ...], "label": "접힌 줄 이름", "desc": "꼬리말 설명"}}
@@ -4114,6 +4134,9 @@ def build_live_data(conn, now):
     # 비어 있으면(변형판) 키를 싣지 않는다 — 스위치도 안 그려진다.
     if DUTY_ONLY_GROUPS:
         out["duty"] = list(DUTY_ONLY_GROUPS)
+        d2 = live_second_beat()      # 0-80 '2진' 스위치 — 당직 그룹 중 동료 한 사람 몫
+        if d2:
+            out["d2"] = d2
         today = now.date()
         if not is_report_workday(today):
             out["holiday"] = today.isoformat()
@@ -4259,8 +4282,10 @@ def archive_past_reports(data, now, live_dir, duty_since=None):
                 old = json.load(f)
         except Exception:
             old = None
+    sec2 = set((live_second_beat() or {}).get("groups") or [])     # 0-80 '2진' 그룹
     if added or removed or not old or [r["f"] for r in old.get("reports", [])] != names \
-            or not os.path.exists(os.path.join(pdir, "search.json")):
+            or not os.path.exists(os.path.join(pdir, "search.json")) \
+            or (sec2 and any("nd2" not in r for r in old.get("reports", []))):
         reports, items = [], []
         for fi, name in enumerate(names):
             with open(os.path.join(pdir, name), encoding="utf-8") as f:
@@ -4271,7 +4296,10 @@ def archive_past_reports(data, now, live_dir, duty_since=None):
                             # 당직 섹션 기사 수 — 페이지가 '당직' 스위치를 끈 기기에선 n에서 뺀 수를 보여 준다
                             "nd": sum(g["n"] for s in rep["segments"] for g in s.get("groups", [])
                                       if g["name"] in set(doc.get("duty") or [])),
-                            "segs": [s["id"] for s in rep["segments"]]})
+                            # 0-80: 그중 '2진' 그룹 기사 수 — '2진'만 켠 기기는 n - nd + nd2를 보여 준다(설정 없으면 키 없음)
+                            **({"nd2": sum(g["n"] for s in rep["segments"] for g in s.get("groups", [])
+                                           if g["name"] in sec2 and g["name"] in set(doc.get("duty") or []))} if sec2 else {}),
+                            "segs":[s["id"] for s in rep["segments"]]})
             for si, seg in enumerate(rep["segments"]):
                 for g in seg.get("groups", []):
                     for clu in g["clusters"]:

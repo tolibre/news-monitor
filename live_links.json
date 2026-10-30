@@ -1,6 +1,19 @@
 {
-  "note": "뉴스레이다(김광일판) 머리줄 바깥 링크 — 0-78. 이 저장소에만 있는 파일이라 동료판 생성기로 넘어가지 않는다. 링크만 싣는다(대상 페이지 내용은 싣지 않음). label=넓은 화면, short=폰.",
+  "note": "뉴스레이다(김광일판) 머리줄 바깥 링크(0-78)·'2진' 스위치(0-80) — 이 저장소에만 있는 파일이라 동료판 생성기로 넘어가지 않는다. links: 링크만 싣는다(대상 페이지 내용은 싣지 않음), label=넓은 화면, short=폰. second: '2진' 스위치가 붙이는 당직 그룹(그룹 이름은 news_monitor.py DUTY_KEYWORD_GROUPS 값).",
   "links": [
-    {"label": "밤 발제판", "short": "발제판", "url": "https://claude.ai/artifact/XDe6P5iYXF2FC3i4v3gFhy"}
-  ]
+    {
+      "label": "밤 발제판",
+      "short": "발제판",
+      "url": "https://claude.ai/artifact/XDe6P5iYXF2FC3i4v3gFhy"
+    }
+  ],
+  "second": {
+    "label": "2진",
+    "who": "서민선",
+    "groups": [
+      "산업부",
+      "중기부",
+      "개인정보위"
+    ]
+  }
 }
