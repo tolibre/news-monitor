@@ -3903,7 +3903,8 @@ def live_second_beat():
 # 0-82: 국회 일정(사용자 11/1 — 과방위 전부, 정무위는 법안심사제1소위만 빼고). 서버는 **설정만** data.json "asm"으로 넘긴다 —
 # 일정 자체는 페이지를 연 사람의 브라우저가 열린국회정보 Open API를 직접 부른다(해외 서버인 Actions에서는 막힘 — 11/1 실측,
 # 인증키 없이 샘플 키 = 한 번에 5건). 설정은 live_links.json의 "assembly"(이 저장소에만 — 변형판은 키가 없어 무동작).
-# 형식: {"label": "국회 일정", "days": 14, "committees": [{"name": "정무위원회", "short": "정무위", "exclude": ["법안심사제1소위원회"]}, …]}
+# 형식: {"label": "국회 일정", "days": 14, "plenary": true, "committees": [{"name": "정무위원회", "short": "정무위", "exclude": ["법안심사제1소위원회"]}, …]}
+# 0-84: "plenary"(본회의도), 위원회별 "who"(정책부장판처럼 담당자를 붙일 때 — 보통 비움).
 def live_assembly():
     """국회 일정 설정 {label, days, committees:[{name, short, exclude}]} — 파일·설정이 없으면 None(페이지에 띠가 안 그려진다)."""
     try:
@@ -3918,15 +3919,22 @@ def live_assembly():
     for c in (cfg.get("committees") or []):
         n = str(c.get("name") or "").strip()
         if n:
-            cs.append({"name": n, "short": str(c.get("short") or n),
-                       "exclude": [str(x) for x in (c.get("exclude") or []) if str(x).strip()]})
-    if not cs:
+            e = {"name": n, "short": str(c.get("short") or n),
+                 "exclude": [str(x) for x in (c.get("exclude") or []) if str(x).strip()]}
+            if c.get("who"):
+                e["who"] = str(c["who"])
+            cs.append(e)
+    plenary = bool(cfg.get("plenary"))      # 0-84: 본회의 일정(본회의 일정 API)도 같이
+    if not cs and not plenary:
         return None
     try:
         days = max(1, min(31, int(cfg.get("days") or 14)))
     except (TypeError, ValueError):
         days = 14
-    return {"label": str(cfg.get("label") or "국회 일정"), "days": days, "committees": cs}
+    out = {"label": str(cfg.get("label") or "국회 일정"), "days": days, "committees": cs}
+    if plenary:
+        out["plenary"] = True
+    return out
 
 # ==================== 섹션별 단어 접기 (0-69, 2026-10-22) ====================
 # '관련 약함'(0-58)과 같은 접힌 줄을 쓰되, 판정은 '제목에 남길 단어가 있느냐'로 한다.

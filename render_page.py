@@ -1455,6 +1455,11 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
 .asmlist li.today .ad{color:var(--ink-900); font-weight:700}
 .asml2{margin-top:2px; font-size:12px; line-height:1.5; color:var(--ink-500); word-break:keep-all; overflow-wrap:anywhere}
 .asmnote{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0; padding:8px 0 4px; border-top:1px solid var(--line-200); font-size:12px; color:var(--amber-600)}
+/* 0-84: 빈 일정 문구는 길어서(공개된 일정만이라는 단서) 줄바꿈 허용. 정책부장판 담당자 표시(.aw), 목록 끝 단서 줄(.asmfoot) */
+.asmh.static.wrap{align-items:flex-start; padding-block:8px; line-height:1.5}
+.asmh.static.wrap .as{white-space:normal; overflow:visible}
+.asml1 .aw{font-size:12px; color:var(--ink-500)}
+.asmfoot{padding:8px 0 4px; border-top:1px solid var(--line-200); font-size:12px; line-height:1.5; color:var(--ink-500); word-break:keep-all}
 @media (max-width:560px){ #asm{margin-top:8px} .asmh{padding:0 8px} .asmlist{padding:0 8px 4px} }
 </style>
 </head><body>
@@ -2768,21 +2773,25 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(mq.addEventListener) mq.addEventListener('change', place); else if(mq.addListener) mq.addListener(place);
   })();
 
-  // ---------- 국회 일정 (0-82) ----------
-  // RAW.asm = {label, days, committees:[{name, short, exclude}]} — 이 판의 live_links.json "assembly"에서만 온다(없는 판은 띠가 안 그려진다).
-  // 일정은 **페이지를 연 브라우저가** 열린국회정보 Open API '위원회별 일정'을 직접 부른다 — Actions(해외 서버)·Apps Script에선 HTTP 400(11/1 실측),
-  // 응답에 CORS 허용(*). 인증키를 공개 페이지에 넣을 수 없어 키 없이(샘플 키 = 한 번에 5건·1쪽) 부르므로 기간을 쪼갠다:
-  //   보여 줄 기간(오늘~days-1일 뒤)에 걸치는 '열흘 접두어'(YYYY-MM-0/-1/-2/-3)만 부르고, 5건을 넘으면 그 열흘 중 기간 안 날짜만 날짜별로.
-  //   응답이 회의일 최신순이라 5건에서 잘리면 **가장 가까운 회의가 빠진다** — 잘린 결과는 쓰지 않고 쪼개거나 '일부만'으로 적는다.
-  // 페이지를 열 때 한 번, 그 뒤엔 날짜가 바뀌었을 때만(자동 새로고침 load() 끝에서 확인) 다시 부른다. sessionStorage 10분 캐시.
-  // ANGUN(안건)은 HTML — 글자만 꺼내 textContent로 넣는다. LINK_URL2는 http(s)일 때만 링크.
-  var ASM_URL = 'https://open.assembly.go.kr/portal/openapi/nrsldhjpaemrmolla';
-  var ASM_PAGE = 5, ASM_MAX_CALLS = 20, ASM_TTL = 10*60e3, ASM_TIMEOUT = 12e3;
-  var ASMKEY = STORE.replace('-picks-', '-asm-');          // sessionStorage 캐시 {v, day, t, rows, part}
+  // ---------- 국회 일정 (0-82 · 0-84) ----------
+  // RAW.asm = {label, days, plenary, committees:[{name, short, exclude, who}]} — 이 판의 live_links.json "assembly"에서만 온다(없는 판은 띠가 안 그려진다).
+  //   정책부장판은 tools/build_desk.py가 다섯 판의 asm을 합쳐 싣는다(같은 위원회가 판마다 다른 exclude·who로 여러 번 나온다 → 한 번만 부르고 판별로 걸러 담당자를 붙인다).
+  // 일정은 **페이지를 연 브라우저가** 열린국회정보 Open API를 직접 부른다 — Actions(해외 서버)·Apps Script에선 HTTP 400(11/1 실측). 인증키 없이(샘플 키 = 한 번에 5건·1쪽).
+  //   위원회: '위원회별 일정'(nrsldhjpaemrmolla). COMMITTEE_NAME은 **부분 일치**(11/1 실측 — '환경노동위원회'로 기후에너지환경노동위원회가 나옴)라 응답의 COMMITTEE_NAME을 다시 맞춰 본다.
+  //     MEETING_DATE는 접두어 일치 → 보여 줄 기간에 걸친 열흘 접두어만 부르고, 5건 넘는 열흘은 기간 안 날짜별로. 최신순이라 5건에서 잘리면 가장 가까운 회의가 빠진다 — 잘린 결과는 쓰지 않는다.
+  //     TITLE 끝 괄호 '(…위원회)'가 **자기 위원회면 지우고, 다른 위원회면 그 위원회 회의로 표시**(기후노동위 목록의 '전체회의(기후위기 특별위원회)' = 기후위기특위 회의, 11/1 실측).
+  //     exclude는 괄호까지 포함한 원래 TITLE에 띄어쓰기 무시 부분 일치.
+  //   본회의: '본회의 일정'(nekcaiymatialqlxr) — MEETTING_DATE는 **완전 일치만**(접두어 안 됨) → 날짜 없이 최신 5건을 받고, 5건이 모두 오늘 이후면(더 가까운 게 있을 수 있음) 기간 안 날짜별로 다시.
+  // 공개된 일정만 보인다 — 국회 홈페이지에 아직 안 올린 회의는 없다고 나온다(사용자 11/1: '회의 없음'만 쓰면 오해). 문구를 늘 그렇게 쓴다.
+  // 페이지를 열 때 한 번, 그 뒤엔 날짜가 바뀌었을 때만(load() 끝 asmKick) 다시. sessionStorage 10분 캐시. 동시 호출 4개까지, 호출 상한 = 출처(위원회·본회의)마다 10회.
+  // ANGUN·CONTS(안건)는 HTML — 글자만 꺼내 textContent로. 링크는 http(s)일 때만.
+  var ASM_API = 'https://open.assembly.go.kr/portal/openapi/';
+  var ASM_PAGE = 5, ASM_CALLS_PER_SRC = 10, ASM_CONC = 4, ASM_TTL = 10*60e3, ASM_TIMEOUT = 12e3;
+  var ASMKEY = STORE.replace('-picks-', '-asm-');          // sessionStorage 캐시 {v, day, t, sig, rows, part}
   var ASMOPEN = STORE.replace('-picks-', '-asmopen-');     // localStorage 펼침 기억(이 기기)
   var asm = {st:'idle', day:'', rows:[], part:false, open:false, busy:false};
   try{ asm.open = localStorage.getItem(ASMOPEN) === '1'; }catch(e){}
-  function asmCfg(){ var a = RAW && RAW.asm; return (a && a.committees && a.committees.length) ? a : null; }
+  function asmCfg(){ var a = RAW && RAW.asm; return (a && ((a.committees && a.committees.length) || a.plenary)) ? a : null; }
   function ymdL(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
   function asmDates(days){ var o = [], d = new Date(); d.setHours(12,0,0,0); for(var i=0; i<days; i++){ o.push(ymdL(d)); d.setDate(d.getDate()+1); } return o; }
   function asmNorm(t){ return String(t || '').replace(/\s+/g, ''); }
@@ -2790,16 +2799,17 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     try{ return (new DOMParser().parseFromString('<body>'+h, 'text/html').body.textContent || '').replace(/\s+/g, ' ').trim(); }
     catch(e){ return String(h).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
   }
-  function asmGet(name, prefix){
-    var u = ASM_URL + '?Type=json&pIndex=1&pSize=' + ASM_PAGE + '&UNIT_CD=100022&COMMITTEE_NAME=' + encodeURIComponent(name) + '&MEETING_DATE=' + encodeURIComponent(prefix);
+  function asmAgenda(h){ return String(h || '').split(/<br\s*\/?>/i).map(asmText).filter(function(t){ return t && !/^※/.test(t); }); }
+  function asmShort(n){ return String(n).replace(/\s*특별위원회$/, '특위').replace(/\s+/g, ''); }
+  function asmGet(api, params){
+    var u = ASM_API + api + '?Type=json&pIndex=1&pSize=' + ASM_PAGE + '&UNIT_CD=100022' + params;
     var ctl = window.AbortController ? new AbortController() : null, tm = ctl ? setTimeout(function(){ ctl.abort(); }, ASM_TIMEOUT) : 0;
     return fetch(u, ctl ? {signal: ctl.signal} : {}).then(function(r){
       clearTimeout(tm); if(!r.ok) throw new Error('HTTP ' + r.status); return r.json();
     }).then(function(j){
-      var a = j && j.nrsldhjpaemrmolla, res = (j && j.RESULT) || null, total = 0, rows = [];
+      var a = j && j[api], res = (j && j.RESULT) || null, total = 0, rows = [];
       if(a && a.length){
-        var hd = (a[0] && a[0].head) || [];
-        hd.forEach(function(h){ if(h.list_total_count != null) total = +h.list_total_count || 0; if(h.RESULT) res = h.RESULT; });
+        ((a[0] && a[0].head) || []).forEach(function(h){ if(h.list_total_count != null) total = +h.list_total_count || 0; if(h.RESULT) res = h.RESULT; });
         rows = (a[1] && a[1].row) || [];
       }
       var code = res && res.CODE;
@@ -2809,46 +2819,87 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       return {total: total || rows.length, rows: rows};
     }, function(e){ clearTimeout(tm); throw e; });
   }
+  function asmPool(n){   // 동시 호출 n개까지
+    var q = [], active = 0;
+    function next(){
+      while(active < n && q.length){
+        var t = q.shift(); active++;
+        t.fn().then(t.ok, t.ng).then(function(){ active--; next(); });
+      }
+    }
+    return function(fn){ return new Promise(function(ok, ng){ q.push({fn:fn, ok:ok, ng:ng}); next(); }); };
+  }
   function asmFetchAll(cfg, dates){
-    var calls = 0, fails = 0, part = false, rows = [];
-    function call(c, prefix){
-      if(calls >= ASM_MAX_CALLS){ part = true; return Promise.resolve(null); }
+    var names = [], seenN = {};
+    (cfg.committees || []).forEach(function(c){ if(!seenN[c.name]){ seenN[c.name] = 1; names.push(c.name); } });
+    var budget = ASM_CALLS_PER_SRC * (names.length + (cfg.plenary ? 1 : 0)), pool = asmPool(ASM_CONC);
+    var calls = 0, fails = 0, part = false, byName = {}, plen = [];
+    function call(api, params){
+      if(calls >= budget){ part = true; return Promise.resolve(null); }
       calls++;
-      return asmGet(c.name, prefix).then(null, function(){ fails++; part = true; return null; });
+      return pool(function(){ return asmGet(api, params); }).then(null, function(){ fails++; part = true; return null; });
     }
     var decs = {};
     dates.forEach(function(d){ var k = d.slice(0, 9); (decs[k] = decs[k] || []).push(d); });   // 'YYYY-MM-D' → 그 열흘의 기간 안 날짜
-    return Promise.all(cfg.committees.map(function(c){
+    var jobs = names.map(function(name){
+      var out = byName[name] = [], cn = '&COMMITTEE_NAME=' + encodeURIComponent(name);
       return Promise.all(Object.keys(decs).map(function(k){
-        return call(c, k).then(function(r){
+        return call('nrsldhjpaemrmolla', cn + '&MEETING_DATE=' + k).then(function(r){
           if(!r) return;
-          if(r.total <= ASM_PAGE){ r.rows.forEach(function(x){ rows.push([c, x]); }); return; }
+          if(r.total <= ASM_PAGE){ Array.prototype.push.apply(out, r.rows); return; }
           return Promise.all(decs[k].map(function(d){        // 5건 넘는 열흘 → 기간 안 날짜별로
-            return call(c, d).then(function(rd){
+            return call('nrsldhjpaemrmolla', cn + '&MEETING_DATE=' + d).then(function(rd){
               if(!rd) return;
               if(rd.total > ASM_PAGE) part = true;             // 하루 6건 이상은 더 쪼갤 수 없다
-              rd.rows.forEach(function(x){ rows.push([c, x]); });
+              Array.prototype.push.apply(out, rd.rows);
             });
           }));
         });
       }));
-    })).then(function(){ return {rows: rows, part: part, calls: calls, fails: fails}; });
+    });
+    if(cfg.plenary){
+      jobs.push(call('nekcaiymatialqlxr', '').then(function(r){
+        if(!r) return;
+        var full = r.rows.length >= ASM_PAGE && r.total > ASM_PAGE &&
+                   r.rows.every(function(x){ return String(x.MEETTING_DATE || '').slice(0, 10) >= dates[0]; });
+        if(!full){ plen = r.rows; return; }
+        return Promise.all(dates.map(function(d){             // 최신 5건이 전부 오늘 이후 → 더 가까운 본회의가 가려졌을 수 있다
+          return call('nekcaiymatialqlxr', '&MEETTING_DATE=' + d).then(function(rd){ if(rd) Array.prototype.push.apply(plen, rd.rows); });
+        }));
+      }));
+    }
+    return Promise.all(jobs).then(function(){ return {byName: byName, plen: plen, part: part, calls: calls, fails: fails}; });
   }
-  function asmShape(cfg, pairs, dates){
+  function asmShape(cfg, res, dates){
     var inWin = {}, seen = {}, out = [];
     dates.forEach(function(d){ inWin[d] = 1; });
-    pairs.forEach(function(p){
-      var c = p[0], x = p[1], d = String(x.MEETING_DATE || '').slice(0, 10);
+    function add(r, who){
+      var k = r.d + '|' + r.tm + '|' + r.c + '|' + asmNorm(r.title) + '|' + r.deg;
+      var o = seen[k];
+      if(!o){ o = seen[k] = r; r.who = []; out.push(r); }
+      if(who && o.who.indexOf(who) === -1) o.who.push(who);
+    }
+    (cfg.committees || []).forEach(function(c, ci){
+      (res.byName[c.name] || []).forEach(function(x){
+        if(x.COMMITTEE_NAME && asmNorm(x.COMMITTEE_NAME) !== asmNorm(c.name)) return;   // 이름 부분 일치로 딸려 온 다른 위원회
+        var d = String(x.MEETING_DATE || '').slice(0, 10);
+        if(!inWin[d]) return;
+        var raw = String(x.TITLE || '').replace(/\s+/g, ' ').trim(), nraw = asmNorm(raw);
+        if((c.exclude || []).some(function(ex){ return ex && nraw.indexOf(asmNorm(ex)) !== -1; })) return;
+        var cm = c.short || c.name, title = raw, m = /^(.*?)\s*\(([^()]*위원회[^()]*)\)\s*$/.exec(raw);
+        if(m){ title = m[1].trim(); if(asmNorm(m[2]) !== asmNorm(c.name)) cm = asmShort(m[2]); }
+        var link = String(x.LINK_URL2 || '').trim();
+        add({d: d, tm: String(x.MEETING_TIME || '').replace(/\s+/g, ' ').trim(), c: cm, ci: ci + 1, title: title || '회의', deg: String(x.DEGREE || ''),
+             ag: asmAgenda(x.ANGUN), link: /^https?:\/\//i.test(link) ? link : ''}, c.who || '');
+      });
+    });
+    (res.plen || []).forEach(function(x){
+      var d = String(x.MEETTING_DATE || '').slice(0, 10);
       if(!inWin[d]) return;
-      var title = String(x.TITLE || '').replace(/\s*\([^)]*위원회[^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim() || '회의';
-      var nt = asmNorm(title);
-      if((c.exclude || []).some(function(ex){ return nt.indexOf(asmNorm(ex)) !== -1; })) return;
-      var tm = String(x.MEETING_TIME || '').replace(/\s+/g, ' ').trim();
-      var k = c.name + '|' + d + '|' + tm + '|' + nt + '|' + (x.DEGREE || '');
-      if(seen[k]) return; seen[k] = 1;
-      var ag = String(x.ANGUN || '').split(/<br\s*\/?>/i).map(asmText).filter(function(t){ return t; });
-      var link = String(x.LINK_URL2 || '').trim();
-      out.push({d: d, tm: tm, c: c.short || c.name, ci: cfg.committees.indexOf(c), title: title, ag: ag, link: /^https?:\/\//i.test(link) ? link : ''});
+      var t = String(x.TITLE || ''), m = /^제?\s*(\d+)\s*-\s*(\d+)\s*차/.exec(t);
+      var link = String(x.LINK_URL || '').trim();
+      add({d: d, tm: String(x.MEETTING_TIME || '').replace(/\s+/g, ' ').trim(), c: '본회의', ci: 0, title: m ? '(제' + m[1] + '회 ' + m[2] + '차)' : '',
+           deg: t, ag: asmAgenda(x.CONTS), link: /^https?:\/\//i.test(link) ? link : '', plen: 1}, '');
     });
     function tkey(t){ var m = /^(\d{1,2}):(\d{2})/.exec(t); return m ? ('0'+m[1]).slice(-2) + m[2] : '9999'; }   // 문장 시각은 그날 맨 뒤
     out.sort(function(a, b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : (tkey(a.tm) < tkey(b.tm) ? -1 : tkey(a.tm) > tkey(b.tm) ? 1 : a.ci - b.ci); });
@@ -2856,11 +2907,11 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   }
   function asmLoad(force){
     var cfg = asmCfg(); if(!cfg || asm.busy) return;
-    var dates = asmDates(cfg.days || 14), day = dates[0];
+    var dates = asmDates(cfg.days || 14), day = dates[0], sig = JSON.stringify(cfg);
     if(!force){
       try{
         var c = JSON.parse(sessionStorage.getItem(ASMKEY) || 'null');
-        if(c && c.v === 1 && c.day === day && Date.now() - c.t < ASM_TTL && c.sig === JSON.stringify(cfg)){
+        if(c && c.v === 2 && c.day === day && Date.now() - c.t < ASM_TTL && c.sig === sig){
           asm.st = 'ok'; asm.day = day; asm.rows = c.rows; asm.part = c.part; asmDraw(); return;
         }
       }catch(e){}
@@ -2869,8 +2920,8 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     asmFetchAll(cfg, dates).then(function(r){
       asm.busy = false;
       if(r.calls && r.fails === r.calls){ asm.st = 'err'; asmDraw(); return; }
-      asm.st = 'ok'; asm.rows = asmShape(cfg, r.rows, dates); asm.part = r.part;
-      try{ sessionStorage.setItem(ASMKEY, JSON.stringify({v:1, day:day, t:Date.now(), sig:JSON.stringify(cfg), rows:asm.rows, part:asm.part})); }catch(e){}
+      asm.st = 'ok'; asm.rows = asmShape(cfg, r, dates); asm.part = r.part;
+      try{ sessionStorage.setItem(ASMKEY, JSON.stringify({v:2, day:day, t:Date.now(), sig:sig, rows:asm.rows, part:asm.part})); }catch(e){}
       asmDraw();
     }, function(){ asm.busy = false; asm.st = 'err'; asmDraw(); });
   }
@@ -2882,14 +2933,15 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   }
   function asmMD(d){ var x = new Date(d + 'T12:00:00'); return (x.getMonth()+1) + '.' + x.getDate() + '(' + WD.charAt(x.getDay()) + ')'; }
   function asmEl(tag, cls, text){ var e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+  var ASM_CAVEAT = '국회 홈페이지에 공개된 일정만 보입니다 — 아직 게시되지 않은 회의는 빠질 수 있습니다.';
   function asmDraw(){
     var box = document.getElementById('asm'), cfg = asmCfg();
     if(!box) return;
     if(!cfg){ box.hidden = true; box.textContent = ''; return; }
     box.hidden = false; box.textContent = '';
     var label = cfg.label || '국회 일정', days = cfg.days || 14, span = days === 14 ? '2주' : days + '일';
-    function stat(msg, retry){   // 펼칠 것이 없는 상태 — 단추가 아닌 상자(단추 안에 단추를 넣지 않는다)
-      var d = asmEl('div', 'asmh static'); d.setAttribute('role', 'status');
+    function stat(msg, retry, cls){   // 펼칠 것이 없는 상태 — 단추가 아닌 상자(단추 안에 단추를 넣지 않는다)
+      var d = asmEl('div', 'asmh static' + (cls ? ' ' + cls : '')); d.setAttribute('role', 'status');
       d.appendChild(asmEl('span', 'at', label)); d.appendChild(asmEl('span', 'as', msg));
       if(retry){ var rb = asmEl('button', 'asr', '다시 시도'); rb.type = 'button'; rb.addEventListener('click', function(){ asmLoad(true); }); d.appendChild(rb); }
       box.appendChild(d);
@@ -2897,14 +2949,17 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(asm.st === 'loading' || asm.st === 'idle'){ stat(label + ' 불러오는 중…'); return; }
     if(asm.st === 'err'){ stat(label + '을 불러오지 못했습니다', true); return; }
     var rows = asm.rows || [], today = asm.day, nToday = rows.filter(function(r){ return r.d === today; }).length;
-    if(!rows.length){ stat(span + ' 안 회의 없음' + (asm.part ? ' · 일부만 확인' : ''), asm.part); return; }
+    if(!rows.length){
+      stat(span + ' 안 공개된 일정 없음 · 국회 홈페이지에 아직 안 올라온 회의는 여기 안 보입니다' + (asm.part ? ' · 일부만 확인' : ''), asm.part, 'wrap');
+      return;
+    }
     var h = asmEl('button', 'asmh'); h.type = 'button';
     h.appendChild(asmEl('span', 'at', label));
-    var first = rows[0], lead = (first.d === today ? '' : asmMD(first.d) + ' ') + (/^\d/.test(first.tm) ? first.tm + ' ' : '') + first.c + ' ' + first.title;
+    var first = rows[0], lead = (first.d === today ? '' : asmMD(first.d) + ' ') + (/^\d/.test(first.tm) ? first.tm + ' ' : '') + first.c + (first.plen ? '' : ' ' + first.title);
     if(nToday) h.appendChild(asmEl('span', 'nw', '오늘 ' + nToday));
-    h.appendChild(asmEl('span', 'as', lead + ' · ' + span + ' ' + rows.length + '건' + (asm.part ? ' · 일부만' : '')));
+    h.appendChild(asmEl('span', 'as', lead + ' · ' + span + ' 공개 ' + rows.length + '건' + (asm.part ? ' · 일부만' : '')));
     h.setAttribute('aria-expanded', asm.open ? 'true' : 'false');
-    h.title = asm.open ? '접기' : '펼치기';
+    h.title = (asm.open ? '접기' : '펼치기') + ' — ' + ASM_CAVEAT;
     h.addEventListener('click', function(){
       asm.open = !asm.open; try{ localStorage.setItem(ASMOPEN, asm.open ? '1' : '0'); }catch(e){}
       asmDraw();
@@ -2913,15 +2968,16 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(!asm.open) return;
     var ul = asmEl('ul', 'asmlist');
     rows.forEach(function(r){
-      var li = asmEl('li', r.d === today ? 'today' : '');
+      var li = asmEl('li', (r.d === today ? 'today' : '') + (r.plen ? ' plen' : ''));
       var l1 = asmEl('div', 'asml1');
       if(r.d === today) l1.appendChild(asmEl('span', 'nw', '오늘'));
       l1.appendChild(asmEl('span', 'ad', asmMD(r.d) + (r.tm ? ' ' + r.tm : '')));
-      var nm = r.c + ' ' + r.title;
-      if(r.link){ var a = asmEl('a', '', nm); a.href = r.link; a.target = '_blank'; a.rel = 'noopener'; a.title = '위원회 일정 상세(새 탭)'; l1.appendChild(a); }
+      var nm = r.c + (r.title ? ' ' + r.title : '');
+      if(r.link){ var a = asmEl('a', '', nm); a.href = r.link; a.target = '_blank'; a.rel = 'noopener'; a.title = (r.plen ? '본회의 의사일정' : '위원회 일정 상세') + '(새 탭)'; l1.appendChild(a); }
       else l1.appendChild(asmEl('span', '', nm));
+      if(r.who && r.who.length) l1.appendChild(asmEl('span', 'aw', r.who.join('·')));
       li.appendChild(l1);
-      if(r.ag.length){
+      if(r.ag && r.ag.length){
         var cut = function(t){ return t.length > 48 ? t.slice(0, 47) + '…' : t; };
         var show = r.ag.slice(0, 2).map(cut).join(' · ') + (r.ag.length > 2 ? ' 외 ' + (r.ag.length - 2) + '건' : '');
         var l2 = asmEl('div', 'asml2', show); l2.title = r.ag.join('\n'); li.appendChild(l2);
@@ -2934,11 +2990,15 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       rb2.addEventListener('click', function(){ asmLoad(true); });
       n.appendChild(rb2); ul.appendChild(n);
     }
+    ul.appendChild(asmEl('li', 'asmfoot', ASM_CAVEAT));
     box.appendChild(ul);
   }
   function asmNote(){
     var cfg = asmCfg(); if(!cfg) return '';
-    return legendItem(esc(cfg.label || '국회 일정'), '머리 영역 바로 아래 띠입니다. '+esc(cfg.committees.map(function(c){ return c.short || c.name; }).join('·'))+'의 오늘부터 '+(cfg.days || 14)+'일 안 회의를 국회 열린국회정보에서 이 브라우저가 직접 받아 옵니다(페이지를 열 때 한 번, 날짜가 바뀌면 다시). 줄을 누르면 위원회 일정 상세가 새 탭으로 열립니다.');
+    var names = [], seen = {};
+    (cfg.committees || []).forEach(function(c){ var s = c.short || c.name; if(!seen[s]){ seen[s] = 1; names.push(s); } });
+    if(cfg.plenary) names.push('본회의');
+    return legendItem(esc(cfg.label || '국회 일정'), '머리 영역 바로 아래 띠입니다. '+esc(names.join('·'))+'의 오늘부터 '+(cfg.days || 14)+'일 안 일정을 국회 열린국회정보에서 이 브라우저가 직접 받아 옵니다(페이지를 열 때 한 번, 날짜가 바뀌면 다시). <b>국회 홈페이지에 공개된 일정만</b> 보이므로 아직 게시되지 않은 회의는 빠질 수 있습니다. 줄을 누르면 일정 상세가 새 탭으로 열립니다.');
   }
 
   // 탭으로 돌아오거나 창에 포커스가 오면 새로 받아온다(1분에 한 번까지). 켜 둔 채로도 5분마다.
