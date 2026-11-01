@@ -3899,6 +3899,35 @@ def live_second_beat():
         return None
     return {"label": str(cfg.get("label") or "2진"), "who": str(cfg.get("who") or ""), "groups": gs}
 
+
+# 0-82: 국회 일정(사용자 11/1 — 과방위 전부, 정무위는 법안심사제1소위만 빼고). 서버는 **설정만** data.json "asm"으로 넘긴다 —
+# 일정 자체는 페이지를 연 사람의 브라우저가 열린국회정보 Open API를 직접 부른다(해외 서버인 Actions에서는 막힘 — 11/1 실측,
+# 인증키 없이 샘플 키 = 한 번에 5건). 설정은 live_links.json의 "assembly"(이 저장소에만 — 변형판은 키가 없어 무동작).
+# 형식: {"label": "국회 일정", "days": 14, "committees": [{"name": "정무위원회", "short": "정무위", "exclude": ["법안심사제1소위원회"]}, …]}
+def live_assembly():
+    """국회 일정 설정 {label, days, committees:[{name, short, exclude}]} — 파일·설정이 없으면 None(페이지에 띠가 안 그려진다)."""
+    try:
+        with open(LIVE_LINKS_FILE, encoding="utf-8") as f:
+            cfg = json.load(f).get("assembly") or {}
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        print(f"[warn] live_links.json assembly: {e}")
+        return None
+    cs = []
+    for c in (cfg.get("committees") or []):
+        n = str(c.get("name") or "").strip()
+        if n:
+            cs.append({"name": n, "short": str(c.get("short") or n),
+                       "exclude": [str(x) for x in (c.get("exclude") or []) if str(x).strip()]})
+    if not cs:
+        return None
+    try:
+        days = max(1, min(31, int(cfg.get("days") or 14)))
+    except (TypeError, ValueError):
+        days = 14
+    return {"label": str(cfg.get("label") or "국회 일정"), "days": days, "committees": cs}
+
 # ==================== 섹션별 단어 접기 (0-69, 2026-10-22) ====================
 # '관련 약함'(0-58)과 같은 접힌 줄을 쓰되, 판정은 '제목에 남길 단어가 있느냐'로 한다.
 #   {그룹: {"keep": [정규식, ...], "fold": [정규식, ...], "need": [정규식, ...], "label": "접힌 줄 이름", "desc": "꼬리말 설명"}}
@@ -4130,6 +4159,9 @@ def build_live_data(conn, now):
     hl = live_header_links()
     if hl:
         out["hl"] = hl
+    asm = live_assembly()            # 0-82 국회 일정 설정(일정은 브라우저가 직접 부름)
+    if asm:
+        out["asm"] = asm
     # 당직 전용 그룹(0-44) — 페이지의 '당직' 스위치가 꺼져 있으면 이 섹션들을 걷어 낸다.
     # 비어 있으면(변형판) 키를 싣지 않는다 — 스위치도 안 그려진다.
     if DUTY_ONLY_GROUPS:
