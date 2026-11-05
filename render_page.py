@@ -1435,42 +1435,51 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
 /* 0-82: 국회 일정 띠 — 설정(data.json asm, 이 판의 live_links.json에서만 옴)이 있는 판만. 머리(붙어 다님) 밖·본문(#main, 그릴 때마다 통째로 바뀜) 밖의 독립 자리라
    스크롤하면 사라지고 보기 범위를 바꿔도 접힘 상태가 그대로다. 접힌 한 줄 = 확인 바(.seenbar)와 같은 중립 상자(Primary·파란 보조 단추와 경쟁하지 않게). '오늘' = 기존 '새' 배지(.nw) */
 #asm{margin-top:12px}
+/* 0-87(11/5 23시 디자인 정리): 본문 기사 묶음과 같은 문법 — 흰 바탕 줄(.topic처럼 8px 12px·아래 1px 선), 체크 → 시각 → 제목(본문 a.title과 같은 14px 진한 글자, 링크색은 hover만) → 오른쪽 메타(12px 회색),
+   둘째 줄(안건)은 본문 보조 줄(.ncl)처럼 12px 회색·24px 들여쓰기. 날짜는 줄마다 반복하지 않고 날짜 머리(.asmday)로 묶는다. 고른 줄 = 본문 .row.on과 같은 '선택 행'. */
 .asmh{display:flex; align-items:center; gap:8px; width:100%; min-height:36px; padding:0 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-700); font:inherit; font-size:13px; text-align:left; cursor:pointer; word-break:keep-all; transition:background-color 120ms ease-out}
 .asmh::before{content:'▸'; flex:0 0 auto; font-size:12px; color:var(--ink-500); transition:transform 120ms ease-out}
 .asmh:hover{background:var(--blue-50)}
 .asmh[aria-expanded="true"]{border-radius:2px 2px 0 0}
 .asmh[aria-expanded="true"]::before{transform:rotate(90deg)}
 .asmh.static{cursor:default} .asmh.static:hover{background:var(--surf-0)} .asmh.static::before{content:none}
-.asmh .at{flex:0 0 auto; font-weight:600; color:var(--ink-900)}
-.asmh .as{flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-500)}
-.asmh .nw, .asmlist .nw{flex:0 0 auto}
-.asr{flex:0 0 auto; height:28px; padding:0 8px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-700); font:inherit; font-size:12px; cursor:pointer}
-.asr:hover{background:var(--blue-50); border-color:var(--blue-500)}
-.asmlist{margin:0; padding:0 12px 4px; list-style:none; border:1px solid var(--line-300); border-top:0; border-radius:0 0 2px 2px; background:var(--surf-0)}
-.asmlist li{padding:8px 0; border-top:1px solid var(--line-200)}
-.asmlist li:first-child{border-top:0}
-.asml1{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; font-size:13px; color:var(--ink-900)}
-.asml1 .ad{font-variant-numeric:tabular-nums; color:var(--ink-700); white-space:nowrap}
-.asml1 a{color:var(--link); font-weight:600}
-.asmlist li.today .ad{color:var(--ink-900); font-weight:700}
-.asml2{margin-top:2px; font-size:12px; line-height:1.5; color:var(--ink-500); word-break:keep-all; overflow-wrap:anywhere}
-.asmnote{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0; padding:8px 0 4px; border-top:1px solid var(--line-200); font-size:12px; color:var(--amber-600)}
-/* 0-84: 빈 일정 문구는 길어서(공개된 일정만이라는 단서) 줄바꿈 허용. 정책부장판 담당자 표시(.aw), 목록 끝 단서 줄(.asmfoot) */
+.asmh .at{flex:0 0 auto; font-weight:700; color:var(--ink-900)}
+.asmh .as{flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-500); font-variant-numeric:tabular-nums}
+.asmh .nw{flex:0 0 auto}
+.asmh .apk{flex:0 0 auto; font-size:12px; font-weight:700; color:var(--blue-700)}
 .asmh.static.wrap{align-items:flex-start; padding-block:8px; line-height:1.5}
 .asmh.static.wrap .as{white-space:normal; overflow:visible}
-.asml1 .aw{font-size:12px; color:var(--ink-500)}
-.asmfoot{padding:8px 0 4px; border-top:1px solid var(--line-200); font-size:12px; line-height:1.5; color:var(--ink-500); word-break:keep-all}
-/* 0-85: 일정 체크 — 기사 체크와 같은 칸, 고른 줄은 규격의 '선택 행'(파란 바탕 + 왼쪽 2px). 머리 줄 '보고 N' */
-.asml1 .asmck{transform:none; align-self:center}
-.asmlist li.on{margin:0 -12px; padding:8px 12px; background:var(--blue-100); box-shadow:inset 2px 0 0 var(--blue-700)}
-.asmh .apk{flex:0 0 auto; font-size:12px; font-weight:700; color:var(--blue-700)}
-/* 0-86: 보고 기준 날짜 뒤 일정 접기 줄, 그날 일정 없음 줄 */
-.asmlist li.asmlater{padding:0}
-.asmmore{display:block; width:100%; min-height:36px; padding:8px 0; border:0; background:none; color:var(--link); font:inherit; font-size:13px; text-align:left; cursor:pointer; word-break:keep-all}
-.asmmore::before{content:'▸ '; color:var(--ink-500)}
-.asmmore[aria-expanded="true"]::before{content:'▾ '}
-.asmlist li.asmempty{font-size:13px; color:var(--ink-500)}
-@media (max-width:560px){ #asm{margin-top:8px} .asmh{padding:0 8px} .asmlist{padding:0 8px 4px} .asmlist li.on{margin:0 -8px; padding:8px} }
+.asmlist{margin:0; padding:0; list-style:none; border:1px solid var(--line-300); border-top:0; border-radius:0 0 2px 2px; background:var(--surf-0)}
+.asmlist > li{padding:8px 12px; border-bottom:1px solid var(--line-200)}
+.asmlist > li:last-child{border-bottom:0}
+.asmlist > li.asmday{display:flex; align-items:baseline; gap:8px; padding:6px 12px; background:var(--surf-100); font-size:12px; color:var(--ink-500); font-variant-numeric:tabular-nums}
+.asmday b{font-size:13px; color:var(--ink-900)}
+.asmday .bd{font-weight:700; color:var(--blue-700)}
+.asmlist > li.asmi:hover{background:var(--blue-50)}
+.asmlist > li.asmi.on{background:var(--blue-100); box-shadow:inset 2px 0 0 var(--blue-700)}
+.arow{display:flex; gap:8px; align-items:baseline; min-width:0}
+.arow .pick{transform:translateY(3px)}
+.atm{flex:0 0 3.2em; font-size:13px; color:var(--ink-700); font-variant-numeric:tabular-nums; white-space:nowrap}
+.atm.tbd{color:var(--ink-500)}
+.atl{flex:0 1 auto; min-width:0; color:var(--ink-900); text-decoration:none; font-size:14px; line-height:1.5; text-underline-offset:3px; word-break:keep-all; overflow-wrap:break-word}
+a.atl:hover{color:var(--link); text-decoration:underline}
+a.atl:visited{color:var(--ink-900)}
+.atl .acm{font-weight:700}
+.ameta{flex:0 0 auto; margin-left:auto; display:flex; gap:8px; align-items:baseline; font-size:12px; color:var(--ink-500); white-space:nowrap}
+.aag{margin:2px 0 0 24px; font-size:12px; line-height:1.5; color:var(--ink-500); word-break:keep-all; overflow-wrap:anywhere}
+.asmlist > li.asmlater{padding:4px 12px}
+.asmmore{margin:0; margin-left:24px; border:0; background:none; padding:2px 0; cursor:pointer; font:inherit; font-size:12px; color:var(--link); font-weight:600; text-align:left; word-break:keep-all}
+.asmmore:hover{text-decoration:underline}
+.asmmore .pk2{color:var(--blue-700); font-weight:700}
+.asmlist > li.asmnote{display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--amber-600)}
+.asmlist > li.asmfoot{font-size:12px; line-height:1.5; color:var(--ink-500); word-break:keep-all}
+@media (max-width:560px){
+  #asm{margin-top:8px} .asmh{padding:0 8px}
+  .asmlist > li{padding:8px} .asmlist > li.asmday{padding:6px 8px} .asmlist > li.asmlater{padding:4px 8px}
+  .arow{flex-wrap:wrap; row-gap:0} .arow .pick{transform:translateY(4px)}
+  .atl{flex:1 1 0} .ameta{flex:1 1 100%; margin-left:0; padding-left:76px; box-sizing:border-box}
+  .aag{margin-left:28px}
+}
 </style>
 </head><body>
 <header>
@@ -3046,43 +3055,62 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     box.appendChild(h);
     if(!asm.open) return;
     var ul = asmEl('ul', 'asmlist');
+    // 0-87: 줄 = [체크][시각][위원회(굵게) 회의][오른쪽 메타] + 안건 한 줄. 날짜는 날짜 머리(.asmday)로 묶고 줄에서는 뺀다.
     function item(r){
       var key = asmPickKey(r), on = isPicked(rep.id, ASMSEG, key);
-      var li = asmEl('li', (r.d === base ? 'today' : '') + (r.plen ? ' plen' : '') + (on ? ' on' : ''));
-      var l1 = asmEl('div', 'asml1');
+      var li = asmEl('li', 'asmi' + (r.plen ? ' plen' : '') + (on ? ' on' : ''));
+      var row = asmEl('div', 'arow');
       // 0-85: 체크 → '보고 전체 양식'의 <일정>. 기사 체크와 같은 모양·같은 저장(보고마다 따로, 기기 연동).
       var cb = asmEl('input', 'pick asmck'); cb.type = 'checkbox'; cb.checked = on;
       cb.setAttribute('aria-label', '보고 양식 <일정>에 넣기 — ' + asmLine(asmKeyRow(key), rep.id));
       cb.title = '보고 전체 양식의 <일정>에 넣기';
       cb.addEventListener('change', function(){ asmToggle(key, cb.checked, cb); });
-      l1.appendChild(cb);
-      var tms = asmTmShow(r.tm);
-      l1.appendChild(asmEl('span', 'ad', asmMD(r.d) + (tms ? ' ' + tms : '')));
-      var nm = r.c + (r.title ? ' ' + r.title : '');
-      if(r.link){ var a = asmEl('a', '', nm); a.href = r.link; a.target = '_blank'; a.rel = 'noopener'; a.title = (r.plen ? '본회의 의사일정' : '위원회 일정 상세') + '(새 탭)'; l1.appendChild(a); }
-      else l1.appendChild(asmEl('span', '', nm));
-      if(r.who && r.who.length) l1.appendChild(asmEl('span', 'aw', r.who.join('·')));
-      li.appendChild(l1);
-      if(r.ag && r.ag.length){
-        var cut = function(t){ return t.length > 48 ? t.slice(0, 47) + '…' : t; };
-        var show = r.ag.slice(0, 2).map(cut).join(' · ') + (r.ag.length > 2 ? ' 외 ' + (r.ag.length - 2) + '건' : '');
-        var l2 = asmEl('div', 'asml2', show); l2.title = r.ag.join('\n'); li.appendChild(l2);
+      row.appendChild(cb);
+      var tm = String(r.tm || '').trim(), hhmm = /^\d{1,2}:\d{2}$/.test(tm) && !asmTbd(tm);
+      row.appendChild(asmEl('span', 'atm' + (hhmm ? '' : ' tbd'), hhmm ? tm : (asmTbd(tm) ? '미정' : '—')));
+      var tl = asmEl(r.link ? 'a' : 'span', 'atl');
+      if(r.link){ tl.href = r.link; tl.target = '_blank'; tl.rel = 'noopener'; tl.title = (r.plen ? '본회의 의사일정' : '위원회 일정 상세') + '(새 탭)'; }
+      tl.appendChild(asmEl('span', 'acm', r.c));
+      var rest = r.plen ? String(r.title || '').replace(/^\((.*)\)$/, '$1') : (r.title || '');
+      if(rest) tl.appendChild(document.createTextNode(' ' + rest));
+      row.appendChild(tl);
+      var mt = [];
+      if(tm && !hhmm && !asmTbd(tm)) mt.push(tm);                       // 문장 시각('본회의 산회 직후')은 오른쪽에
+      if(r.who && r.who.length) mt.push(r.who.join('·'));               // 정책부장판 담당자
+      if(mt.length){ var me = asmEl('span', 'ameta'); mt.forEach(function(t){ me.appendChild(asmEl('span', '', t)); }); row.appendChild(me); }
+      li.appendChild(row);
+      var ag = (r.ag || []).map(asmAgClean).filter(Boolean);
+      if(ag.length){
+        var cut = function(t){ return t.length > 40 ? t.slice(0, 39) + '…' : t; };
+        var show = ag.slice(0, 2).map(cut).join(' · ') + (ag.length > 2 ? ' 외 ' + (ag.length - 2) + '건' : '');
+        var l2 = asmEl('div', 'aag', show); l2.title = ag.join('\n'); li.appendChild(l2);
       }
       ul.appendChild(li);
     }
+    function dayHead(d, n, isBase){
+      var hd = asmEl('li', 'asmday');
+      hd.appendChild(asmEl('b', '', asmMD(d)));
+      if(isBase) hd.appendChild(asmEl('span', 'bd', '당일'));
+      hd.appendChild(asmEl('span', '', n ? n + '건' : '공개된 일정 없음'));
+      ul.appendChild(hd);
+    }
+    dayHead(base, dayRows.length, true);
     dayRows.forEach(item);
-    if(!dayRows.length) ul.appendChild(asmEl('li', 'asmempty', asmMD(base) + ' 공개된 일정 없음'));
     if(later.length){   // 이후 일정 접기(이 기기 기억) — 접혀 있어도 거기서 보고에 넣은 수는 보인다
       var ml = asmEl('li', 'asmlater'), mb = asmEl('button', 'asmmore');
       mb.type = 'button'; mb.setAttribute('aria-expanded', asm.later ? 'true' : 'false');
-      asm.laterRows = later; mb.textContent = asmLaterLabel(rep);
+      asm.laterRows = later; asmLaterFill(mb, rep);
       mb.addEventListener('click', function(){
         asm.later = !asm.later; try{ localStorage.setItem(ASMLATER, asm.later ? '1' : '0'); }catch(e){}
         asmDraw();
         var nb = document.querySelector('#asm .asmmore'); if(nb) nb.focus();
       });
       ml.appendChild(mb); ul.appendChild(ml);
-      if(asm.later) later.forEach(item);
+      if(asm.later){
+        var byD = {}, ds = [];
+        later.forEach(function(r){ if(!byD[r.d]){ byD[r.d] = []; ds.push(r.d); } byD[r.d].push(r); });
+        ds.forEach(function(d){ dayHead(d, byD[d].length, false); byD[d].forEach(item); });
+      }
     }
     if(asm.part){
       var n = asmEl('li', 'asmnote', '일부만 표시 — 국회 자료를 다 받지 못했습니다. ');
@@ -3121,10 +3149,14 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(post.length) out = out.concat([''], post);
     return out;
   }
-  function asmLaterLabel(rep){
+  // 접기 단추 글자 — 본문 '+3건 같은 사안'과 같은 말투. 접혀 있어도 거기서 보고에 넣은 수(파란 굵은 글자)
+  function asmLaterFill(mb, rep){
     var later = asm.laterRows || [], lk = later.filter(function(r){ return isPicked(rep.id, ASMSEG, asmPickKey(r)); }).length;
-    return (asm.later ? '이후 일정 접기' : '이후 일정 ' + later.length + '건 보기') + (later.length ? ' (' + asmMD(later[0].d) + '~)' : '') + (lk ? ' · 보고에 넣음 ' + lk : '');
+    mb.textContent = asm.later ? '이후 일정 접기' : '+' + later.length + '건 이후 일정' + (later.length ? ' (' + asmMD(later[0].d) + '~)' : '');
+    if(lk && !asm.later){ mb.appendChild(document.createTextNode(' · ')); mb.appendChild(asmEl('span', 'pk2', '보고에 넣음 ' + lk)); }
   }
+  // 안건 줄 다듬기(0-87): 앞 번호('1.' '가.')와 의안번호('[2221032]')를 뗀다 — '2027년도 예산안(정부) · 재정경제부 소관 외 15건'
+  function asmAgClean(t){ return String(t || '').replace(/^\s*(?:\d+|[가-하])\s*[.)]\s*/, '').replace(/\[\d{5,}\]\s*/g, '').trim(); }
   function asmToggle(key, on, cb){
     var rep = curRep(); if(!rep) return;
     setPick(rep.id, ASMSEG, key, on);
@@ -3137,7 +3169,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       if(n){ if(!pk){ pk = asmEl('span', 'apk'); h.insertBefore(pk, h.querySelector('.as')); } pk.textContent = '보고 ' + n; }
       else if(pk) pk.parentNode.removeChild(pk);
     }
-    var mb = document.querySelector('#asm .asmmore'); if(mb) mb.textContent = asmLaterLabel(rep);   // 0-86
+    var mb = document.querySelector('#asm .asmmore'); if(mb) asmLaterFill(mb, rep);   // 0-86
     var tabsEl = document.getElementById('tabs'), sx = tabsEl.scrollLeft;
     drawTabs(); tabsEl.scrollLeft = sx;   // 하단 바 '보고 전체' 숫자·단추(본문은 다시 그리지 않는다 — 스크롤 유지)
   }
