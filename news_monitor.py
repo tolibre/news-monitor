@@ -3905,6 +3905,7 @@ def live_second_beat():
 # 인증키 없이 샘플 키 = 한 번에 5건). 설정은 live_links.json의 "assembly"(이 저장소에만 — 변형판은 키가 없어 무동작).
 # 형식: {"label": "국회 일정", "days": 14, "plenary": true, "committees": [{"name": "정무위원회", "short": "정무위", "exclude": ["법안심사제1소위원회"]}, …]}
 # 0-84: "plenary"(본회의도), 위원회별 "who"(정책부장판처럼 담당자를 붙일 때 — 보통 비움).
+# 0-85: "all"(모든 위원회 — 국회팀판). 페이지에서 일정 줄을 체크하면 보고 전체 양식 <일정>에 들어간다(서버 쪽 변경은 이 키 전달뿐).
 def live_assembly():
     """국회 일정 설정 {label, days, committees:[{name, short, exclude}]} — 파일·설정이 없으면 None(페이지에 띠가 안 그려진다)."""
     try:
@@ -3925,7 +3926,8 @@ def live_assembly():
                 e["who"] = str(c["who"])
             cs.append(e)
     plenary = bool(cfg.get("plenary"))      # 0-84: 본회의 일정(본회의 일정 API)도 같이
-    if not cs and not plenary:
+    every = bool(cfg.get("all"))            # 0-85: 모든 위원회(국회팀판) — 브라우저가 날짜별로 부르고, committees는 짧은 이름·붐비는 날 다시 받기용
+    if not cs and not plenary and not every:
         return None
     try:
         days = max(1, min(31, int(cfg.get("days") or 14)))
@@ -3934,6 +3936,8 @@ def live_assembly():
     out = {"label": str(cfg.get("label") or "국회 일정"), "days": days, "committees": cs}
     if plenary:
         out["plenary"] = True
+    if every:
+        out["all"] = True
     return out
 
 # ==================== 섹션별 단어 접기 (0-69, 2026-10-22) ====================

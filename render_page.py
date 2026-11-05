@@ -1460,7 +1460,11 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
 .asmh.static.wrap .as{white-space:normal; overflow:visible}
 .asml1 .aw{font-size:12px; color:var(--ink-500)}
 .asmfoot{padding:8px 0 4px; border-top:1px solid var(--line-200); font-size:12px; line-height:1.5; color:var(--ink-500); word-break:keep-all}
-@media (max-width:560px){ #asm{margin-top:8px} .asmh{padding:0 8px} .asmlist{padding:0 8px 4px} }
+/* 0-85: 일정 체크 — 기사 체크와 같은 칸, 고른 줄은 규격의 '선택 행'(파란 바탕 + 왼쪽 2px). 머리 줄 '보고 N' */
+.asml1 .asmck{transform:none; align-self:center}
+.asmlist li.on{margin:0 -12px; padding:8px 12px; background:var(--blue-100); box-shadow:inset 2px 0 0 var(--blue-700)}
+.asmh .apk{flex:0 0 auto; font-size:12px; font-weight:700; color:var(--blue-700)}
+@media (max-width:560px){ #asm{margin-top:8px} .asmh{padding:0 8px} .asmlist{padding:0 8px 4px} .asmlist li.on{margin:0 -8px; padding:8px} }
 </style>
 </head><body>
 <header>
@@ -2184,6 +2188,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(on && (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth)){
       bar.scrollLeft = on.offsetLeft - 16;
     }
+    if(asm && asm.st === 'ok') asmDraw();   // 0-85: 일정 체크는 보고마다 따로라 보는 보고가 바뀌면(연동으로 들어온 체크도) 다시 그린다
   }
 
   function drawHeader(){
@@ -2540,6 +2545,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(t.seg) nseg = segPickCount(t.rep, t.seg);
     else nseg = allSegs(r).reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
     nall = allSegs(r).reduce(function(a,s){ return a + segPickCount(r, s); }, 0);
+    nall += asmPickN(r);   // 0-85: 고른 국회 일정도 '보고 전체'에 센다(<일정> — 전체 양식에만 들어감)
     document.getElementById('n-seg').textContent = nseg;
     document.getElementById('n-all').textContent = nall;
     document.getElementById('make-seg').disabled = !nseg || !!t.all;
@@ -2621,6 +2627,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       // 팀 모드(0-32)면 기사마다 쓴 기자 이름(w), 아니면 섹션 이름
       mine.forEach(function(it){ lines.push(it.t + '(' + (bx.w[it.bi] || bx.tag) + ')'); });
     }
+    if(segs.length >= allSegs(rep).length) lines = asmReportInsert(lines, asmReportLines(rep));   // 0-85: <일정>(보고 전체 양식에만)
     return {text: lines.join('\n'), n: items.length + mine.length};
   }
 
@@ -2634,7 +2641,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       res = buildReport(r, allSegs(r)); sub = r.title + ' 전체'; panelSeg = null;
     }
     report.value = res.text;
-    document.getElementById('psub').textContent = sub + ' · ' + res.n + '건';
+    document.getElementById('psub').textContent = sub + ' · ' + (res.n + (panelSeg ? 0 : asmPickN(r))) + '건';   // 0-85: 일정 포함
     document.getElementById('unpick').hidden = !panelSeg;
     hint.textContent = hintDefault; hint.classList.remove('ok');
     veil.hidden = false; report.focus();
@@ -2785,13 +2792,20 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   // 공개된 일정만 보인다 — 국회 홈페이지에 아직 안 올린 회의는 없다고 나온다(사용자 11/1: '회의 없음'만 쓰면 오해). 문구를 늘 그렇게 쓴다.
   // 페이지를 열 때 한 번, 그 뒤엔 날짜가 바뀌었을 때만(load() 끝 asmKick) 다시. sessionStorage 10분 캐시. 동시 호출 4개까지, 호출 상한 = 출처(위원회·본회의)마다 10회.
   // ANGUN·CONTS(안건)는 HTML — 글자만 꺼내 textContent로. 링크는 http(s)일 때만.
+  // 0-85(11/5): ①줄마다 체크 → '보고 전체 양식'의 <모니터>와 <기처리> 사이 <일정>에 '10:00 과방위 전체회의(국회)'. 체크는 기사 체크와 같은 picks에
+  //   구간 id '~asm'으로(보고마다 따로·기기 연동·60일 보관이 그대로 따라온다). 키 = [날짜, 시각, 위원회, 제목, 본회의] JSON — 줄은 키에서 다시 만든다(목록이 바뀌어도 고른 줄은 남음).
+  //   구간 양식엔 안 넣는다(구간을 나눠 낼 때 일정이 여러 번 붙지 않게). 시각 '00:00'은 미정으로 본다(예결위 11/5 실측) — 화면 '시각 미정', 양식엔 시각 없이.
+  // ②"all": true = 모든 위원회(국회팀판) — 위원회 이름 없이 **날짜별로** 부른다(11/5 실측: 2주 중 하루 6건 넘는 날 1일뿐, 위원회 18개를 열흘씩 부르면 40회+).
+  //   하루 5건을 넘는 날만 committees 목록(상임위 17 + 예결위)을 그날 하나씩 다시 — 다 모아도 그날 건수보다 적으면(목록 밖 특위) '일부만'. exclude·who는 이 방식에선 안 씀.
+  // ③캐시를 sessionStorage → localStorage(탭을 새로 열 때마다 다시 부르지 않게, 키 버전 v3).
   var ASM_API = 'https://open.assembly.go.kr/portal/openapi/';
-  var ASM_PAGE = 5, ASM_CALLS_PER_SRC = 10, ASM_CONC = 4, ASM_TTL = 10*60e3, ASM_TIMEOUT = 12e3;
-  var ASMKEY = STORE.replace('-picks-', '-asm-');          // sessionStorage 캐시 {v, day, t, sig, rows, part}
+  var ASM_PAGE = 5, ASM_CALLS_PER_SRC = 10, ASM_CONC = 4, ASM_TTL = 10*60e3, ASM_TIMEOUT = 12e3, ASM_ALL_EXTRA = 60;
+  var ASMKEY = STORE.replace('-picks-', '-asm-');          // localStorage 캐시 {v, day, t, sig, rows, part}
   var ASMOPEN = STORE.replace('-picks-', '-asmopen-');     // localStorage 펼침 기억(이 기기)
+  var ASMSEG = '~asm';                                     // 0-85: picks 안 일정 체크 자리(구간 id와 겹치지 않는 이름)
   var asm = {st:'idle', day:'', rows:[], part:false, open:false, busy:false};
   try{ asm.open = localStorage.getItem(ASMOPEN) === '1'; }catch(e){}
-  function asmCfg(){ var a = RAW && RAW.asm; return (a && ((a.committees && a.committees.length) || a.plenary)) ? a : null; }
+  function asmCfg(){ var a = RAW && RAW.asm; return (a && ((a.committees && a.committees.length) || a.plenary || a.all)) ? a : null; }
   function ymdL(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
   function asmDates(days){ var o = [], d = new Date(); d.setHours(12,0,0,0); for(var i=0; i<days; i++){ o.push(ymdL(d)); d.setDate(d.getDate()+1); } return o; }
   function asmNorm(t){ return String(t || '').replace(/\s+/g, ''); }
@@ -2832,8 +2846,9 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   function asmFetchAll(cfg, dates){
     var names = [], seenN = {};
     (cfg.committees || []).forEach(function(c){ if(!seenN[c.name]){ seenN[c.name] = 1; names.push(c.name); } });
-    var budget = ASM_CALLS_PER_SRC * (names.length + (cfg.plenary ? 1 : 0)), pool = asmPool(ASM_CONC);
-    var calls = 0, fails = 0, part = false, byName = {}, plen = [];
+    var budget = cfg.all ? dates.length + ASM_ALL_EXTRA + (cfg.plenary ? ASM_CALLS_PER_SRC : 0)
+                         : ASM_CALLS_PER_SRC * (names.length + (cfg.plenary ? 1 : 0)), pool = asmPool(ASM_CONC);
+    var calls = 0, fails = 0, part = false, byName = {}, plen = [], all = [];
     function call(api, params){
       if(calls >= budget){ part = true; return Promise.resolve(null); }
       calls++;
@@ -2841,6 +2856,32 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     }
     var decs = {};
     dates.forEach(function(d){ var k = d.slice(0, 9); (decs[k] = decs[k] || []).push(d); });   // 'YYYY-MM-D' → 그 열흘의 기간 안 날짜
+    if(cfg.all){   // 0-85: 모든 위원회 — 날짜별(위원회 이름 없이), 하루 5건 넘는 날만 위원회별로 그날 다시
+      var cnames = names.slice();   // 아래에서 names를 비우므로(위원회별 호출 건너뛰기) 사본을 쓴다 — 콜백은 나중에 돈다
+      var jobsA = dates.map(function(d){
+        return call('nrsldhjpaemrmolla', '&MEETING_DATE=' + d).then(function(r){
+          if(!r) return;
+          if(r.total <= ASM_PAGE){ Array.prototype.push.apply(all, r.rows); return; }
+          var got = [], seenR = {};
+          function keep(x){ var k = [x.COMMITTEE_NAME, x.TITLE, x.MEETING_TIME, x.DEGREE].join('|'); if(!seenR[k]){ seenR[k] = 1; got.push(x); } }
+          r.rows.forEach(keep);                                // 첫 응답의 5건도 버리지 않는다
+          return Promise.all(cnames.map(function(name){
+            return call('nrsldhjpaemrmolla', '&COMMITTEE_NAME=' + encodeURIComponent(name) + '&MEETING_DATE=' + d).then(function(rd){
+              if(!rd) return;
+              if(rd.total > ASM_PAGE) part = true;
+              rd.rows.forEach(function(x){
+                if(x.COMMITTEE_NAME && asmNorm(x.COMMITTEE_NAME) !== asmNorm(name)) return;   // 부분 일치로 딸려 온 위원회
+                keep(x);
+              });
+            });
+          })).then(function(){
+            if(got.length < r.total) part = true;             // 목록 밖(특위 등) 회의가 있거나 받다 말았다
+            Array.prototype.push.apply(all, got);
+          });
+        });
+      });
+      names = [];   // 아래 위원회별 호출은 건너뛴다
+    }
     var jobs = names.map(function(name){
       var out = byName[name] = [], cn = '&COMMITTEE_NAME=' + encodeURIComponent(name);
       return Promise.all(Object.keys(decs).map(function(k){
@@ -2857,6 +2898,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
         });
       }));
     });
+    if(cfg.all) jobs = jobs.concat(jobsA);
     if(cfg.plenary){
       jobs.push(call('nekcaiymatialqlxr', '').then(function(r){
         if(!r) return;
@@ -2868,7 +2910,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
         }));
       }));
     }
-    return Promise.all(jobs).then(function(){ return {byName: byName, plen: plen, part: part, calls: calls, fails: fails}; });
+    return Promise.all(jobs).then(function(){ return {byName: byName, plen: plen, all: all, part: part, calls: calls, fails: fails}; });
   }
   function asmShape(cfg, res, dates){
     var inWin = {}, seen = {}, out = [];
@@ -2893,6 +2935,21 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
              ag: asmAgenda(x.ANGUN), link: /^https?:\/\//i.test(link) ? link : ''}, c.who || '');
       });
     });
+    if(cfg.all){   // 0-85: 모든 위원회 — 짧은 이름은 설정 목록에서, 목록 밖(특위 등)은 '…특별위원회'→'…특위'
+      var shortOf = {}, ordOf = {};
+      (cfg.committees || []).forEach(function(c, ci){ shortOf[asmNorm(c.name)] = c.short || c.name; ordOf[asmNorm(c.name)] = ci + 1; });
+      (res.all || []).forEach(function(x){
+        var d = String(x.MEETING_DATE || '').slice(0, 10);
+        if(!inWin[d]) return;
+        var cn = String(x.COMMITTEE_NAME || '').trim(), nk = asmNorm(cn);
+        var raw = String(x.TITLE || '').replace(/\s+/g, ' ').trim();
+        var cm = shortOf[nk] || asmShort(cn) || '위원회', title = raw, m = /^(.*?)\s*\(([^()]*위원회[^()]*)\)\s*$/.exec(raw);
+        if(m){ title = m[1].trim(); if(asmNorm(m[2]) !== nk) cm = shortOf[asmNorm(m[2])] || asmShort(m[2]); }
+        var link = String(x.LINK_URL2 || '').trim();
+        add({d: d, tm: String(x.MEETING_TIME || '').replace(/\s+/g, ' ').trim(), c: cm, ci: ordOf[nk] || 99, title: title || '회의', deg: String(x.DEGREE || ''),
+             ag: asmAgenda(x.ANGUN), link: /^https?:\/\//i.test(link) ? link : ''}, '');
+      });
+    }
     (res.plen || []).forEach(function(x){
       var d = String(x.MEETTING_DATE || '').slice(0, 10);
       if(!inWin[d]) return;
@@ -2901,17 +2958,20 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       add({d: d, tm: String(x.MEETTING_TIME || '').replace(/\s+/g, ' ').trim(), c: '본회의', ci: 0, title: m ? '(제' + m[1] + '회 ' + m[2] + '차)' : '',
            deg: t, ag: asmAgenda(x.CONTS), link: /^https?:\/\//i.test(link) ? link : '', plen: 1}, '');
     });
-    function tkey(t){ var m = /^(\d{1,2}):(\d{2})/.exec(t); return m ? ('0'+m[1]).slice(-2) + m[2] : '9999'; }   // 문장 시각은 그날 맨 뒤
-    out.sort(function(a, b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : (tkey(a.tm) < tkey(b.tm) ? -1 : tkey(a.tm) > tkey(b.tm) ? 1 : a.ci - b.ci); });
+    out.sort(function(a, b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : (asmTkey(a.tm) < asmTkey(b.tm) ? -1 : asmTkey(a.tm) > asmTkey(b.tm) ? 1 : a.ci - b.ci); });
     return out;
   }
+  // 정렬 열쇠 — 문장 시각('본회의 산회 직후')은 그날 맨 뒤, 미정('00:00', 0-85)은 그 바로 앞
+  function asmTkey(t){ if(asmTbd(t)) return '9998'; var m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? ('0'+m[1]).slice(-2) + m[2] : '9999'; }
+  function asmTbd(t){ return /^0?0:00$/.test(String(t || '').trim()); }   // 0-85: 예결위가 시각 없이 '00:00'으로 올림(11/5 실측)
+  function asmTmShow(t){ return asmTbd(t) ? '시각 미정' : (t || ''); }
   function asmLoad(force){
     var cfg = asmCfg(); if(!cfg || asm.busy) return;
     var dates = asmDates(cfg.days || 14), day = dates[0], sig = JSON.stringify(cfg);
     if(!force){
       try{
-        var c = JSON.parse(sessionStorage.getItem(ASMKEY) || 'null');
-        if(c && c.v === 2 && c.day === day && Date.now() - c.t < ASM_TTL && c.sig === sig){
+        var c = JSON.parse(localStorage.getItem(ASMKEY) || 'null');
+        if(c && c.v === 3 && c.day === day && Date.now() - c.t < ASM_TTL && c.sig === sig){
           asm.st = 'ok'; asm.day = day; asm.rows = c.rows; asm.part = c.part; asmDraw(); return;
         }
       }catch(e){}
@@ -2921,7 +2981,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       asm.busy = false;
       if(r.calls && r.fails === r.calls){ asm.st = 'err'; asmDraw(); return; }
       asm.st = 'ok'; asm.rows = asmShape(cfg, r, dates); asm.part = r.part;
-      try{ sessionStorage.setItem(ASMKEY, JSON.stringify({v:2, day:day, t:Date.now(), sig:sig, rows:asm.rows, part:asm.part})); }catch(e){}
+      try{ localStorage.setItem(ASMKEY, JSON.stringify({v:3, day:day, t:Date.now(), sig:sig, rows:asm.rows, part:asm.part})); }catch(e){}
       asmDraw();
     }, function(){ asm.busy = false; asm.st = 'err'; asmDraw(); });
   }
@@ -2949,14 +3009,17 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(asm.st === 'loading' || asm.st === 'idle'){ stat(label + ' 불러오는 중…'); return; }
     if(asm.st === 'err'){ stat(label + '을 불러오지 못했습니다', true); return; }
     var rows = asm.rows || [], today = asm.day, nToday = rows.filter(function(r){ return r.d === today; }).length;
+    var rep = curRep(), npk = asmPickN(rep);
     if(!rows.length){
-      stat(span + ' 안 공개된 일정 없음 · 국회 홈페이지에 아직 안 올라온 회의는 여기 안 보입니다' + (asm.part ? ' · 일부만 확인' : ''), asm.part, 'wrap');
+      stat(span + ' 안 공개된 일정 없음 · 국회 홈페이지에 아직 안 올라온 회의는 여기 안 보입니다' + (asm.part ? ' · 일부만 확인' : '') +
+           (npk ? ' · 보고에 넣은 일정 ' + npk + '건은 그대로 들어갑니다' : ''), asm.part, 'wrap');
       return;
     }
     var h = asmEl('button', 'asmh'); h.type = 'button';
     h.appendChild(asmEl('span', 'at', label));
-    var first = rows[0], lead = (first.d === today ? '' : asmMD(first.d) + ' ') + (/^\d/.test(first.tm) ? first.tm + ' ' : '') + first.c + (first.plen ? '' : ' ' + first.title);
+    var first = rows[0], lead = (first.d === today ? '' : asmMD(first.d) + ' ') + (/^\d/.test(first.tm) && !asmTbd(first.tm) ? first.tm + ' ' : '') + first.c + (first.plen ? '' : ' ' + first.title);
     if(nToday) h.appendChild(asmEl('span', 'nw', '오늘 ' + nToday));
+    if(npk) h.appendChild(asmEl('span', 'apk', '보고 ' + npk));   // 0-85: 이 보고에 넣은 일정 수
     h.appendChild(asmEl('span', 'as', lead + ' · ' + span + ' 공개 ' + rows.length + '건' + (asm.part ? ' · 일부만' : '')));
     h.setAttribute('aria-expanded', asm.open ? 'true' : 'false');
     h.title = (asm.open ? '접기' : '펼치기') + ' — ' + ASM_CAVEAT;
@@ -2968,10 +3031,18 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(!asm.open) return;
     var ul = asmEl('ul', 'asmlist');
     rows.forEach(function(r){
-      var li = asmEl('li', (r.d === today ? 'today' : '') + (r.plen ? ' plen' : ''));
+      var key = asmPickKey(r), on = isPicked(rep.id, ASMSEG, key);
+      var li = asmEl('li', (r.d === today ? 'today' : '') + (r.plen ? ' plen' : '') + (on ? ' on' : ''));
       var l1 = asmEl('div', 'asml1');
+      // 0-85: 체크 → '보고 전체 양식'의 <일정>. 기사 체크와 같은 모양·같은 저장(보고마다 따로, 기기 연동).
+      var cb = asmEl('input', 'pick asmck'); cb.type = 'checkbox'; cb.checked = on;
+      cb.setAttribute('aria-label', '보고 양식 <일정>에 넣기 — ' + asmLine(asmKeyRow(key), rep.id));
+      cb.title = '보고 전체 양식의 <일정>에 넣기';
+      cb.addEventListener('change', function(){ asmToggle(key, cb.checked, cb); });
+      l1.appendChild(cb);
       if(r.d === today) l1.appendChild(asmEl('span', 'nw', '오늘'));
-      l1.appendChild(asmEl('span', 'ad', asmMD(r.d) + (r.tm ? ' ' + r.tm : '')));
+      var tms = asmTmShow(r.tm);
+      l1.appendChild(asmEl('span', 'ad', asmMD(r.d) + (tms ? ' ' + tms : '')));
       var nm = r.c + (r.title ? ' ' + r.title : '');
       if(r.link){ var a = asmEl('a', '', nm); a.href = r.link; a.target = '_blank'; a.rel = 'noopener'; a.title = (r.plen ? '본회의 의사일정' : '위원회 일정 상세') + '(새 탭)'; l1.appendChild(a); }
       else l1.appendChild(asmEl('span', '', nm));
@@ -2990,15 +3061,59 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       rb2.addEventListener('click', function(){ asmLoad(true); });
       n.appendChild(rb2); ul.appendChild(n);
     }
-    ul.appendChild(asmEl('li', 'asmfoot', ASM_CAVEAT));
+    ul.appendChild(asmEl('li', 'asmfoot', '체크하면 ‘보고 전체 양식’의 <일정>에 들어갑니다(보고마다 따로). ' + ASM_CAVEAT));
     box.appendChild(ul);
+  }
+  // ---------- 국회 일정 → 보고 양식 <일정> (0-85) ----------
+  // 키 = JSON [날짜, 시각, 위원회(짧은 이름), 제목(본회의는 ''), 본회의 1/0]. 양식 줄은 키에서 만든다.
+  function asmPickKey(r){ return JSON.stringify([r.d, r.tm || '', r.c, r.plen ? '' : (r.title || ''), r.plen ? 1 : 0]); }
+  function asmKeyRow(k){ try{ var a = JSON.parse(k); return Array.isArray(a) ? {d: a[0], tm: a[1], c: a[2], title: a[3], plen: a[4]} : null; }catch(e){ return null; } }
+  // 양식 한 줄: '10:00 과방위 전체회의(국회)' — 보고 날짜와 다른 날이면 앞에 '11.6(금) ', 시각 미정이면 시각 없이, 문장 시각은 그대로 앞에.
+  function asmLine(r, rid){
+    if(!r) return '';
+    var rd = String(rid || '').slice(0, 8), rday = rd.length === 8 ? rd.slice(0, 4) + '-' + rd.slice(4, 6) + '-' + rd.slice(6, 8) : '';
+    var tm = asmTbd(r.tm) ? '' : String(r.tm || '').trim();
+    return (r.d && r.d !== rday ? asmMD(r.d) + ' ' : '') + (tm ? tm + ' ' : '') + (r.plen ? '본회의' : r.c + (r.title ? ' ' + r.title : '')) + '(국회)';
+  }
+  function asmPickKeys(rep){ var o = rep && picks[rep.id] && picks[rep.id][ASMSEG]; return o ? Object.keys(o) : []; }
+  function asmPickN(rep){ return asmPickKeys(rep).length; }
+  function asmReportLines(rep){
+    return asmPickKeys(rep).map(asmKeyRow).filter(Boolean)
+      .sort(function(a, b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : (asmTkey(a.tm) < asmTkey(b.tm) ? -1 : asmTkey(a.tm) > asmTkey(b.tm) ? 1 : 0); })
+      .map(function(r){ return asmLine(r, rep.id); });
+  }
+  // <모니터> 묶음과 <기처리> 묶음 사이에 빈 줄 + <일정> 묶음을 끼운다(둘 중 하나가 없어도 순서는 모니터 → 일정 → 기처리).
+  function asmReportInsert(lines, sl){
+    if(!sl.length) return lines;
+    var gi = lines.indexOf('<기처리>');
+    var pre = gi < 0 ? lines.slice() : lines.slice(0, gi), post = gi < 0 ? [] : lines.slice(gi);
+    while(pre.length && pre[pre.length - 1] === '') pre.pop();
+    var out = pre.concat(pre.length ? [''] : [], ['<일정>'], sl);
+    if(post.length) out = out.concat([''], post);
+    return out;
+  }
+  function asmToggle(key, on, cb){
+    var rep = curRep(); if(!rep) return;
+    setPick(rep.id, ASMSEG, key, on);
+    savePicks();
+    // 띠는 다시 그리지 않고 줄 색·머리 줄 '보고 N'만 고친다(키보드 초점·펼침 유지)
+    var li = cb && cb.closest('li'); if(li) li.classList.toggle('on', on);
+    var h = document.querySelector('#asm .asmh'), n = asmPickN(rep);
+    if(h){
+      var pk = h.querySelector('.apk');
+      if(n){ if(!pk){ pk = asmEl('span', 'apk'); h.insertBefore(pk, h.querySelector('.as')); } pk.textContent = '보고 ' + n; }
+      else if(pk) pk.parentNode.removeChild(pk);
+    }
+    var tabsEl = document.getElementById('tabs'), sx = tabsEl.scrollLeft;
+    drawTabs(); tabsEl.scrollLeft = sx;   // 하단 바 '보고 전체' 숫자·단추(본문은 다시 그리지 않는다 — 스크롤 유지)
   }
   function asmNote(){
     var cfg = asmCfg(); if(!cfg) return '';
     var names = [], seen = {};
     (cfg.committees || []).forEach(function(c){ var s = c.short || c.name; if(!seen[s]){ seen[s] = 1; names.push(s); } });
     if(cfg.plenary) names.push('본회의');
-    return legendItem(esc(cfg.label || '국회 일정'), '머리 영역 바로 아래 띠입니다. '+esc(names.join('·'))+'의 오늘부터 '+(cfg.days || 14)+'일 안 일정을 국회 열린국회정보에서 이 브라우저가 직접 받아 옵니다(페이지를 열 때 한 번, 날짜가 바뀌면 다시). <b>국회 홈페이지에 공개된 일정만</b> 보이므로 아직 게시되지 않은 회의는 빠질 수 있습니다. 줄을 누르면 일정 상세가 새 탭으로 열립니다.');
+    var what = cfg.all ? '모든 위원회(상임위·예결위·특위와 소위)' + (cfg.plenary ? '·본회의' : '') : esc(names.join('·'));
+    return legendItem(esc(cfg.label || '국회 일정'), '머리 영역 바로 아래 띠입니다. '+what+'의 오늘부터 '+(cfg.days || 14)+'일 안 일정을 국회 열린국회정보에서 이 브라우저가 직접 받아 옵니다(페이지를 열 때 한 번, 날짜가 바뀌면 다시). <b>국회 홈페이지에 공개된 일정만</b> 보이므로 아직 게시되지 않은 회의는 빠질 수 있습니다. 줄을 누르면 일정 상세가 새 탭으로 열립니다. 줄 앞 칸을 체크하면 ‘보고 전체 양식’의 &lt;모니터&gt;와 &lt;기처리&gt; 사이 <b>&lt;일정&gt;</b>에 ‘10:00 과방위 전체회의(국회)’처럼 들어갑니다(보고마다 따로, 기사 체크처럼 기기 연동). 시각이 ‘00:00’으로 올라온 회의는 ‘시각 미정’으로 보이고 양식엔 시각 없이 들어갑니다.');
   }
 
   // 탭으로 돌아오거나 창에 포커스가 오면 새로 받아온다(1분에 한 번까지). 켜 둔 채로도 5분마다.
