@@ -1464,6 +1464,12 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
 .asml1 .asmck{transform:none; align-self:center}
 .asmlist li.on{margin:0 -12px; padding:8px 12px; background:var(--blue-100); box-shadow:inset 2px 0 0 var(--blue-700)}
 .asmh .apk{flex:0 0 auto; font-size:12px; font-weight:700; color:var(--blue-700)}
+/* 0-86: 보고 기준 날짜 뒤 일정 접기 줄, 그날 일정 없음 줄 */
+.asmlist li.asmlater{padding:0}
+.asmmore{display:block; width:100%; min-height:36px; padding:8px 0; border:0; background:none; color:var(--link); font:inherit; font-size:13px; text-align:left; cursor:pointer; word-break:keep-all}
+.asmmore::before{content:'▸ '; color:var(--ink-500)}
+.asmmore[aria-expanded="true"]::before{content:'▾ '}
+.asmlist li.asmempty{font-size:13px; color:var(--ink-500)}
 @media (max-width:560px){ #asm{margin-top:8px} .asmh{padding:0 8px} .asmlist{padding:0 8px 4px} .asmlist li.on{margin:0 -8px; padding:8px} }
 </style>
 </head><body>
@@ -2803,8 +2809,15 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
   var ASMKEY = STORE.replace('-picks-', '-asm-');          // localStorage 캐시 {v, day, t, sig, rows, part}
   var ASMOPEN = STORE.replace('-picks-', '-asmopen-');     // localStorage 펼침 기억(이 기기)
   var ASMSEG = '~asm';                                     // 0-85: picks 안 일정 체크 자리(구간 id와 겹치지 않는 이름)
-  var asm = {st:'idle', day:'', rows:[], part:false, open:false, busy:false};
-  try{ asm.open = localStorage.getItem(ASMOPEN) === '1'; }catch(e){}
+  var ASMLATER = STORE.replace('-picks-', '-asmlater-');   // 0-86: '이후 일정' 펼침 기억(이 기기, 기본 접힘)
+  var asm = {st:'idle', day:'', rows:[], part:false, open:false, later:false, busy:false};
+  try{ asm.open = localStorage.getItem(ASMOPEN) === '1'; asm.later = localStorage.getItem(ASMLATER) === '1'; }catch(e){}
+  // 0-86: 일정의 기준 날짜 = 보는 보고의 날짜(보고 id 앞 8자리). 그게 오늘보다 앞(지난 보고)이면 오늘.
+  function asmBaseDay(rep){
+    var rd = String(rep && rep.id || '').slice(0, 8), d = rd.length === 8 ? rd.slice(0, 4) + '-' + rd.slice(4, 6) + '-' + rd.slice(6, 8) : '';
+    var today = asm.day || asmDates(1)[0];
+    return d && d > today ? d : today;
+  }
   function asmCfg(){ var a = RAW && RAW.asm; return (a && ((a.committees && a.committees.length) || a.plenary || a.all)) ? a : null; }
   function ymdL(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
   function asmDates(days){ var o = [], d = new Date(); d.setHours(12,0,0,0); for(var i=0; i<days; i++){ o.push(ymdL(d)); d.setDate(d.getDate()+1); } return o; }
@@ -3008,21 +3021,24 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     }
     if(asm.st === 'loading' || asm.st === 'idle'){ stat(label + ' 불러오는 중…'); return; }
     if(asm.st === 'err'){ stat(label + '을 불러오지 못했습니다', true); return; }
-    var rows = asm.rows || [], today = asm.day, nToday = rows.filter(function(r){ return r.d === today; }).length;
-    var rep = curRep(), npk = asmPickN(rep);
-    if(!rows.length){
-      stat(span + ' 안 공개된 일정 없음 · 국회 홈페이지에 아직 안 올라온 회의는 여기 안 보입니다' + (asm.part ? ' · 일부만 확인' : '') +
+    // 0-86(11/5 23시): 기준 날짜 = 보는 보고의 날짜(09:00·14:00 보고 기준 — 실제 '오늘'이 아님). 그날 일정만 펼쳐 두고, 그 뒤 날은 '이후 일정'으로 접는다.
+    //   기준 날짜보다 앞선 날(밤에 다음 날 09:00 보고를 볼 때의 오늘 회의 등)은 안 보인다. 지난 보고(기준 날짜가 오늘보다 앞)는 오늘을 기준으로.
+    var rows = asm.rows || [], rep = curRep(), npk = asmPickN(rep), base = asmBaseDay(rep);
+    var dayRows = rows.filter(function(r){ return r.d === base; }), later = rows.filter(function(r){ return r.d > base; });
+    if(!dayRows.length && !later.length){
+      stat(asmMD(base) + '부터 ' + span + ' 안 공개된 일정 없음 · 국회 홈페이지에 아직 안 올라온 회의는 여기 안 보입니다' + (asm.part ? ' · 일부만 확인' : '') +
            (npk ? ' · 보고에 넣은 일정 ' + npk + '건은 그대로 들어갑니다' : ''), asm.part, 'wrap');
       return;
     }
     var h = asmEl('button', 'asmh'); h.type = 'button';
     h.appendChild(asmEl('span', 'at', label));
-    var first = rows[0], lead = (first.d === today ? '' : asmMD(first.d) + ' ') + (/^\d/.test(first.tm) && !asmTbd(first.tm) ? first.tm + ' ' : '') + first.c + (first.plen ? '' : ' ' + first.title);
-    if(nToday) h.appendChild(asmEl('span', 'nw', '오늘 ' + nToday));
+    var first = dayRows[0];
+    var lead = asmMD(base) + ' ' + (first ? (/^\d/.test(first.tm) && !asmTbd(first.tm) ? first.tm + ' ' : '') + first.c + (first.plen ? '' : ' ' + first.title) : '공개된 일정 없음');
+    if(dayRows.length) h.appendChild(asmEl('span', 'nw', '당일 ' + dayRows.length));
     if(npk) h.appendChild(asmEl('span', 'apk', '보고 ' + npk));   // 0-85: 이 보고에 넣은 일정 수
-    h.appendChild(asmEl('span', 'as', lead + ' · ' + span + ' 공개 ' + rows.length + '건' + (asm.part ? ' · 일부만' : '')));
+    h.appendChild(asmEl('span', 'as', lead + (later.length ? ' · 이후 ' + later.length + '건' : '') + (asm.part ? ' · 일부만' : '')));
     h.setAttribute('aria-expanded', asm.open ? 'true' : 'false');
-    h.title = (asm.open ? '접기' : '펼치기') + ' — ' + ASM_CAVEAT;
+    h.title = (asm.open ? '접기' : '펼치기') + ' — ' + asmMD(base) + ' 보고 기준. ' + ASM_CAVEAT;
     h.addEventListener('click', function(){
       asm.open = !asm.open; try{ localStorage.setItem(ASMOPEN, asm.open ? '1' : '0'); }catch(e){}
       asmDraw();
@@ -3030,9 +3046,9 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     box.appendChild(h);
     if(!asm.open) return;
     var ul = asmEl('ul', 'asmlist');
-    rows.forEach(function(r){
+    function item(r){
       var key = asmPickKey(r), on = isPicked(rep.id, ASMSEG, key);
-      var li = asmEl('li', (r.d === today ? 'today' : '') + (r.plen ? ' plen' : '') + (on ? ' on' : ''));
+      var li = asmEl('li', (r.d === base ? 'today' : '') + (r.plen ? ' plen' : '') + (on ? ' on' : ''));
       var l1 = asmEl('div', 'asml1');
       // 0-85: 체크 → '보고 전체 양식'의 <일정>. 기사 체크와 같은 모양·같은 저장(보고마다 따로, 기기 연동).
       var cb = asmEl('input', 'pick asmck'); cb.type = 'checkbox'; cb.checked = on;
@@ -3040,7 +3056,6 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       cb.title = '보고 전체 양식의 <일정>에 넣기';
       cb.addEventListener('change', function(){ asmToggle(key, cb.checked, cb); });
       l1.appendChild(cb);
-      if(r.d === today) l1.appendChild(asmEl('span', 'nw', '오늘'));
       var tms = asmTmShow(r.tm);
       l1.appendChild(asmEl('span', 'ad', asmMD(r.d) + (tms ? ' ' + tms : '')));
       var nm = r.c + (r.title ? ' ' + r.title : '');
@@ -3054,7 +3069,21 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
         var l2 = asmEl('div', 'asml2', show); l2.title = r.ag.join('\n'); li.appendChild(l2);
       }
       ul.appendChild(li);
-    });
+    }
+    dayRows.forEach(item);
+    if(!dayRows.length) ul.appendChild(asmEl('li', 'asmempty', asmMD(base) + ' 공개된 일정 없음'));
+    if(later.length){   // 이후 일정 접기(이 기기 기억) — 접혀 있어도 거기서 보고에 넣은 수는 보인다
+      var ml = asmEl('li', 'asmlater'), mb = asmEl('button', 'asmmore');
+      mb.type = 'button'; mb.setAttribute('aria-expanded', asm.later ? 'true' : 'false');
+      asm.laterRows = later; mb.textContent = asmLaterLabel(rep);
+      mb.addEventListener('click', function(){
+        asm.later = !asm.later; try{ localStorage.setItem(ASMLATER, asm.later ? '1' : '0'); }catch(e){}
+        asmDraw();
+        var nb = document.querySelector('#asm .asmmore'); if(nb) nb.focus();
+      });
+      ml.appendChild(mb); ul.appendChild(ml);
+      if(asm.later) later.forEach(item);
+    }
     if(asm.part){
       var n = asmEl('li', 'asmnote', '일부만 표시 — 국회 자료를 다 받지 못했습니다. ');
       var rb2 = asmEl('button', 'asr', '다시 시도'); rb2.type = 'button';
@@ -3092,6 +3121,10 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     if(post.length) out = out.concat([''], post);
     return out;
   }
+  function asmLaterLabel(rep){
+    var later = asm.laterRows || [], lk = later.filter(function(r){ return isPicked(rep.id, ASMSEG, asmPickKey(r)); }).length;
+    return (asm.later ? '이후 일정 접기' : '이후 일정 ' + later.length + '건 보기') + (later.length ? ' (' + asmMD(later[0].d) + '~)' : '') + (lk ? ' · 보고에 넣음 ' + lk : '');
+  }
   function asmToggle(key, on, cb){
     var rep = curRep(); if(!rep) return;
     setPick(rep.id, ASMSEG, key, on);
@@ -3104,6 +3137,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
       if(n){ if(!pk){ pk = asmEl('span', 'apk'); h.insertBefore(pk, h.querySelector('.as')); } pk.textContent = '보고 ' + n; }
       else if(pk) pk.parentNode.removeChild(pk);
     }
+    var mb = document.querySelector('#asm .asmmore'); if(mb) mb.textContent = asmLaterLabel(rep);   // 0-86
     var tabsEl = document.getElementById('tabs'), sx = tabsEl.scrollLeft;
     drawTabs(); tabsEl.scrollLeft = sx;   // 하단 바 '보고 전체' 숫자·단추(본문은 다시 그리지 않는다 — 스크롤 유지)
   }
@@ -3113,7 +3147,7 @@ section > .more.wk .wkn{margin-left:auto; display:inline-flex; align-items:cente
     (cfg.committees || []).forEach(function(c){ var s = c.short || c.name; if(!seen[s]){ seen[s] = 1; names.push(s); } });
     if(cfg.plenary) names.push('본회의');
     var what = cfg.all ? '모든 위원회(상임위·예결위·특위와 소위)' + (cfg.plenary ? '·본회의' : '') : esc(names.join('·'));
-    return legendItem(esc(cfg.label || '국회 일정'), '머리 영역 바로 아래 띠입니다. '+what+'의 오늘부터 '+(cfg.days || 14)+'일 안 일정을 국회 열린국회정보에서 이 브라우저가 직접 받아 옵니다(페이지를 열 때 한 번, 날짜가 바뀌면 다시). <b>국회 홈페이지에 공개된 일정만</b> 보이므로 아직 게시되지 않은 회의는 빠질 수 있습니다. 줄을 누르면 일정 상세가 새 탭으로 열립니다. 줄 앞 칸을 체크하면 ‘보고 전체 양식’의 &lt;모니터&gt;와 &lt;기처리&gt; 사이 <b>&lt;일정&gt;</b>에 ‘10:00 과방위 전체회의(국회)’처럼 들어갑니다(보고마다 따로, 기사 체크처럼 기기 연동). 시각이 ‘00:00’으로 올라온 회의는 ‘시각 미정’으로 보이고 양식엔 시각 없이 들어갑니다.');
+    return legendItem(esc(cfg.label || '국회 일정'), '머리 영역 바로 아래 띠입니다. '+what+'의 오늘부터 '+(cfg.days || 14)+'일 안 일정을 국회 열린국회정보에서 이 브라우저가 직접 받아 옵니다(페이지를 열 때 한 번, 날짜가 바뀌면 다시). <b>국회 홈페이지에 공개된 일정만</b> 보이므로 아직 게시되지 않은 회의는 빠질 수 있습니다. 줄을 누르면 일정 상세가 새 탭으로 열립니다. <b>기준 날짜는 보고 있는 보고의 날짜</b>입니다(밤에 다음 날 09:00 보고를 보면 다음 날) — 그날 일정만 펼쳐 두고 그 뒤 날은 ‘이후 일정’으로 접어 둡니다(기준 날짜 앞의 회의는 안 보임). 줄 앞 칸을 체크하면 ‘보고 전체 양식’의 &lt;모니터&gt;와 &lt;기처리&gt; 사이 <b>&lt;일정&gt;</b>에 ‘10:00 과방위 전체회의(국회)’처럼 들어갑니다(보고마다 따로, 기사 체크처럼 기기 연동). 시각이 ‘00:00’으로 올라온 회의는 ‘시각 미정’으로 보이고 양식엔 시각 없이 들어갑니다.');
   }
 
   // 탭으로 돌아오거나 창에 포커스가 오면 새로 받아온다(1분에 한 번까지). 켜 둔 채로도 5분마다.
