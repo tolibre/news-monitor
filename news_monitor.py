@@ -3974,6 +3974,33 @@ LIVE_LOCAL_FOLD = {
 }
 
 
+# 0-93(사용자 11/6 13:34 — 과기정통부 섹션 '아산시, 디스플레이 연구플랫폼에 제2 실리콘밸리 도약 기대' 묶음 11건):
+# 전국 사업의 **지역 쪽 기사만 모인 묶음**도 접는다. 제목 낱말로는 '아산시,'·'충남도,'·'충남 디스플레이…'·'박수현 지사'처럼 지자체가 주어다.
+# 묶음 단위 판정: 기사의 2/3 이상이 **제목 머리에 지자체·지역이 주어**로 오거나 단체장 직함이 있고, 묶음 어디에도 중앙 표지가 없으면 묶음 전부 wk.
+#   지역 주어 = 제목 머리 '○○시·군·구(청)' 또는 광역 이름(도·시 붙거나 말거나) + 쉼표·조사·따옴표. 서울·경기는 넣지 않음(서울 집값·경기 침체 등).
+#   머리만 보는 이유: 첫 안(제목 어디든)은 '서울 집값 90주 연속 상승…경기·인천 거래량'·'진료비…전남 최고·세종 최저'·'아시아 금융당국 부산 집결' 같은 전국 기사를 접었다(11/6 실측).
+#   중앙 표지 = 정부·장관·부처 이름·국회·대통령·전국·서울·수도권·국제기구·경쟁률·'34개군' — '내년 농어촌 기본소득 공모에 34개군 신청…경쟁률'·'ASEAN+3 채권시장 포럼 부산'처럼 전국·국제 단위면 접지 않게.
+_LIVE_PROV = r"(?:부산|대구|인천|광주|대전|울산|강원|충북|충남|전북|전남|경북|경남|제주|경기도|전남광주|충청남도|충청북도|전라남도|전라북도|경상남도|경상북도|강원도|제주도)"
+LIVE_LOCAL_SUBJ_RE = re.compile(
+    r"^[\[(]?(?:[가-힣]{1,4}(?:시|군|구)(?:청)?|" + _LIVE_PROV + r"(?:도|시|특별시|광역시|특별자치도|특별자치시)?)"
+    r"(?=\s?(?:,|·|는\s|가\s|의\s|에서|에\s|와\s|도\s|['‘\"“…])|\s)|"
+    r"(?:도지사|[가-힣]{1,3}시장|[가-힣]{1,3}군수|(?<![가-힣])지사)(?![가-힣])")
+LIVE_NATIONAL_RE = re.compile(
+    r"정부|장관|차관|(?<!구)청장|부처|국회|대통령|李|총리|전국|서울|수도권|국제기구|아세안|ASEAN|OECD|IMF|G20|경쟁률|\d+개\s?(?:군|시|시군|시·군|지자체)|"
+    r"과기정통부|과기부|산업부|국토부|국토교통부|공정위|방미통위|우주청|우주항공청|농식품부|농림부|재경부|기재부|기획처|예산처|"
+    r"복지부|교육부|노동부|고용부|환경부|기후부|문체부|행안부|중기부|해수부|금융위|금감원|한은|개보위|개인정보위|데이터처|관세청")
+
+
+def live_local_cluster(clu, group):
+    """지역 쪽 기사만 모인 묶음인지(0-93)."""
+    if not LIVE_REGION_FOLD or group == "CBS" or len(clu) < 2:
+        return False
+    ts = [strip_media_tail(clean(it.get("t") or "")) for it in clu]
+    if any(priority_mark(it.get("t") or "") == "🔥" for it in clu) or any(LIVE_NATIONAL_RE.search(t) for t in ts):
+        return False
+    return sum(1 for t in ts if LIVE_LOCAL_SUBJ_RE.search(t)) * 3 >= len(ts) * 2
+
+
 def live_region_title(title, group):
     """지역 기사로 접을지(0-92). 사유 문자열 또는 ''."""
     if not LIVE_REGION_FOLD or group == "CBS" or priority_mark(title) == "🔥":
@@ -4023,11 +4050,13 @@ def _attach_weak(groups):
         if not weak and not LIVE_REGION_FOLD:
             continue
         for clu in g["clusters"]:
+            local = live_local_cluster(clu, g["name"])   # 0-93 지역 쪽 기사만 모인 묶음
             for it in clu:
                 t = it.get("t") or ""
-                if (weak and live_weak_title(t, g["name"])) or live_region_title(t, g["name"]):   # 0-92 지역
-                    it["wk"] = 1
-                    n += 1
+                if local or (weak and live_weak_title(t, g["name"])) or live_region_title(t, g["name"]):   # 0-92 지역
+                    if not it.get("wk"):
+                        it["wk"] = 1
+                        n += 1
     return n
 
 
