@@ -3949,6 +3949,44 @@ def live_assembly():
 # 원본은 비어 있다 — 변형판 생성기가 채운다(교육부판 교육청 섹션의 '다른 지역': 서울·경기만 펼쳐 둠).
 LIVE_FOLD_KEEP = {}
 
+# ==================== 지역 기사 접기 (0-92, 2026-11-06) ====================
+# 사용자(11/6 13:12·13:17): 국회팀판(0-88)의 지역 기사 접기를 정책부 다른 판에도. 김광일판 우주항공청 섹션엔 사천시 관련 기사가 유독 많다(필요 없음).
+# 제목 낱말로만 판정(매체로는 안 한다). '관련 약함'(0-58)과 같은 접힌 줄(wk=1, 묶음 기사 전부가 wk일 때만 접힘), [단독]은 안 접음.
+#  - 공통: 지방의원·지방의회·시·도당·당협·구청장, '양구군수'처럼 지명에 붙은 군수, '국비 … 확보·건의·요청·총력'.
+#    국회팀판 규칙을 부처 기사에 대 보니(11/2~11/6 김광일판, 특근·2진 포함 보고당 약 13건) 두 가지를 고쳐야 했다:
+#    '군수' 단독은 군 군수품('군수 AI 에이전트'·'상호군수지원협정'·'군수용 특수전지') → 지명에 붙은 것만.
+#    '국비' 단독은 예산 기사('배후부지 민자서 국비 전환 검토…박홍근 장관') → 지자체 국비 확보·건의형만. '시장·도지사'는 넣지 않음(서울시장 등 전국 이슈).
+#  - 섹션별(LIVE_LOCAL_FOLD): 우주항공청 = 사천·진주·고흥·경남도·경상국립대·우주항공복합도시 등(우주청 소재지 지역 행사·개발·특별법 촉구 기사).
+# 행정판(행안부 = 지방자치 소관)·교육판(시의회 학생인권조례 등 교육 기사)은 생성기가 LIVE_REGION_FOLD = False로 끈다. 'CBS' 섹션은 안 본다.
+LIVE_REGION_FOLD = True
+LIVE_REGION_RE = re.compile(
+    r"(?:[가-힣]{1,4}(?:시당|도당)(?![가-힣])|시·도당|당원협의회|당협위원장|지역위원장|"
+    r"[시도구군]의회|[시도구군]의원|광역의원|기초의원|지방의원|구청장|"
+    r"[가-힣]{1,3}군수(?![가-힣])|국비.{0,16}(?:확보|건의|요청|총력|발품))")
+# 섹션별: (강한 낱말, 약한 낱말, 기관 낱말) — 강한 낱말이 있으면 접고, 약한 낱말은 제목에 기관 이름이 없을 때만 접는다.
+#   우주항공청: 사천시·경남도·우주항공복합도시 특별법 등은 늘, '사천'·'진주'·'경상국립대'는 '우주항공청·우주청'이 없을 때만
+#   ('우주항공청·항우연·천문연, 사천에어쇼서 공동 홍보관'은 남김). 고흥·남해안·전남은 넣지 않는다 — 나로우주센터(고흥) 발사,
+#   '한화에어로스페이스 순천사업장 준공…남해안 우주산업 거점' 같은 본 기사가 걸린다(11/6 실측).
+LIVE_LOCAL_FOLD = {
+    "우주항공청": (re.compile(r"사천시|경남도(?!민)|경상남도|경남\s?(?:TP|테크노파크|민주당|지사)|우주항공\s?(?:복합)?\s?도시|박동식|박완수"),
+                re.compile(r"사천|진주|경상국립대"),
+                re.compile(r"우주항공청|우주청")),
+}
+
+
+def live_region_title(title, group):
+    """지역 기사로 접을지(0-92). 사유 문자열 또는 ''."""
+    if not LIVE_REGION_FOLD or group == "CBS" or priority_mark(title) == "🔥":
+        return ""
+    t = strip_media_tail(clean(title or ""))
+    loc = LIVE_LOCAL_FOLD.get(group)
+    if loc and (loc[0].search(t) or (loc[1].search(t) and not loc[2].search(t))):
+        return "지역(섹션)"
+    if LIVE_REGION_RE.search(t):
+        return "지역"
+    return ""
+
+
 def live_weak_title(title, group):
     """뉴스레이다에서 '관련 약함'으로 접을 만한 기사인지(0-58). 사유 문자열(로그용) 또는 ''."""
     if group not in LIVE_WEAK_FOLD_GROUPS or priority_mark(title) == "🔥":
@@ -3981,11 +4019,13 @@ def _attach_weak(groups):
                         it["wk"] = 1
                         n += 1
             continue
-        if g["name"] not in LIVE_WEAK_FOLD_GROUPS:
+        weak = g["name"] in LIVE_WEAK_FOLD_GROUPS
+        if not weak and not LIVE_REGION_FOLD:
             continue
         for clu in g["clusters"]:
             for it in clu:
-                if live_weak_title(it.get("t") or "", g["name"]):
+                t = it.get("t") or ""
+                if (weak and live_weak_title(t, g["name"])) or live_region_title(t, g["name"]):   # 0-92 지역
                     it["wk"] = 1
                     n += 1
     return n
@@ -4165,6 +4205,21 @@ def build_live_data(conn, now):
     # 섹션별 단어 접기(0-69) — 접힌 줄 이름·설명. 비어 있으면(원본) 키를 싣지 않는다.
     if LIVE_FOLD_KEEP:
         out["wl"] = {g: {"label": r["label"], "desc": r.get("desc", "")} for g, r in LIVE_FOLD_KEEP.items()}
+    # 0-92: 지역 기사 접기 — 접힌 줄 이름·설명(섹션별 단어 접기가 있는 섹션은 그대로).
+    if LIVE_REGION_FOLD:
+        wl = out.setdefault("wl", {})
+        reg = "시·도의회·지방의원·시도당·구청장·군수·지자체 국비 확보처럼 지역 사안인 묶음"
+        for name in {g["name"] for r in reports for s in r["segments"] for g in s["groups"]}:
+            if name in wl or name == "CBS":
+                continue
+            loc = "(우주항공청은 사천시·경남도·우주항공복합도시 등 소재지 지역 기사도)" if name == "우주항공청" else ""
+            if name in LIVE_WEAK_FOLD_GROUPS:
+                wl[name] = {"label": "관련 약함·지역",
+                            "desc": "과기정통부·우주항공청 묶음 중 소관 어휘가 없거나 기업·대학·지자체 홍보성인 것과, " + reg + loc +
+                                    "을 섹션 끝에 접어 둡니다. [단독]은 접지 않고, 건수에는 포함하며, 검색·‘선택’ 보기에서는 펼쳐 보입니다."}
+            else:
+                wl[name] = {"label": "지역",
+                            "desc": reg + "을 섹션 끝에 접어 둡니다. [단독]은 접지 않고, 건수에는 포함하며, 검색·‘선택’ 보기에서는 펼쳐 보입니다."}
     # 0-78: 보고 양식 순서에 끼울 새 섹션·머리줄 바깥 링크. 비어 있으면(변형판) 키를 싣지 않는다.
     if LIVE_REPORT_AFTER:
         out["ra"] = dict(LIVE_REPORT_AFTER)
