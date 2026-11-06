@@ -1822,7 +1822,7 @@ a.atl:visited{color:var(--ink-900)}
     // 기기 연동 단추를 숨긴 판(동료판)은 연동 안내를 하지 않는다
     var sb = document.getElementById('sync'), canSync = !!(sb && sb.offsetParent !== null);
     html += '</div><p class="hint">' + (cfg.token ? '기기 연동이 켜져 있어 다른 기기에도 맞춰집니다.' :
-      canSync ? '이 기기에만 저장됩니다 — 머리줄 <b>기기 연동</b>을 켜면 PC·폰이 같은 날을 압니다.' : '이 기기(브라우저)에만 저장됩니다 — PC와 폰에서 따로 골라 주세요.') +
+      canSync ? '이 기기에만 저장됩니다 — 머리줄 ‘기기 연동’을 켜면 PC·폰이 같은 날을 압니다.' : '이 기기(브라우저)에만 저장됩니다 — PC와 폰에서 따로 골라 주세요.') +
       ' 지난 특근일은 3주 뒤 저절로 지워집니다.</p>';
     document.getElementById('dvbody').innerHTML = hols.length ? html : '<p>고를 수 있는 휴일이 없습니다.</p>';
     var n = hols.filter(function(d){ return mine[d]; }).length;
