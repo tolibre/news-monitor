@@ -1090,6 +1090,17 @@ header{position:sticky; top:0; z-index:20; background:var(--blue-50); border-bot
 .ttags span{font-size:11px; font-weight:700; border-radius:999px; padding:1px 8px; white-space:nowrap; line-height:1.45}
 .ttags .dtag{color:var(--appbar); background:var(--appbar-ink)}
 .ttags .ptag{color:#14171A; background:var(--ptag-bg)}
+/* 0-94 특근일 고르기 — 제목 옆 작은 알약 단추 */
+.ttags .ddbtn{height:20px; padding:0 8px; font:inherit; font-size:11px; font-weight:700; line-height:1; border-radius:999px; border:1px dashed var(--appbar-line); background:transparent; color:var(--appbar-ink-2); cursor:pointer; white-space:nowrap}
+.ttags .ddbtn span{font-size:inherit; font-weight:inherit; padding:0; border-radius:0; line-height:inherit}
+.ttags .ddbtn.on{border-style:solid; border-color:var(--appbar-ink-2); color:var(--appbar-ink)}
+.ttags .ddbtn:focus-visible{outline:2px solid var(--appbar-ink); outline-offset:1px}
+.ddgrid{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 12px}
+.ddmon{flex:0 0 100%; font-size:12px; font-weight:700; color:var(--ink-500); margin-top:4px}
+.ddchip{height:32px; padding:0 12px; border:1px solid var(--line-300); border-radius:2px; background:var(--surf-0); color:var(--ink-700); font:inherit; font-size:13px; cursor:pointer; font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; gap:4px}
+.ddchip small{font-size:11px; color:var(--ink-500)}
+.ddchip[aria-pressed="true"]{background:var(--blue-100); border-color:var(--blue-500); color:var(--blue-700); font-weight:600}
+.ddchip[aria-pressed="true"]::before{content:'✓'}
 h1{margin:0; font-size:16px; line-height:1.4; font-weight:700; letter-spacing:-.02em; color:var(--appbar-ink)}
 .brand{display:flex; align-items:center; gap:8px; color:var(--appbar-ink); font-weight:700; font-size:13px; letter-spacing:-.01em; white-space:nowrap; text-decoration:none; padding-right:12px; border-right:1px solid var(--appbar-line)}
 .brand svg{width:20px; height:20px; flex:0 0 auto; color:#3B86EE}
@@ -1557,6 +1568,17 @@ a.atl:visited{color:var(--ink-900)}
   </div>
 </div>
 
+<div class="veil" id="dveil" hidden>
+  <div class="panel spanel" role="dialog" aria-modal="true" aria-labelledby="dvtitle">
+    <div class="panel-head">
+      <h3 id="dvtitle">휴일 특근일</h3>
+      <span class="sub" id="dvsub"></span>
+      <button class="x" type="button" id="dvclose" aria-label="닫기">&times;</button>
+    </div>
+    <div class="sbody" id="dvbody"></div>
+  </div>
+</div>
+
 <div class="veil" id="sveil" hidden>
   <div class="panel spanel" role="dialog" aria-modal="true" aria-labelledby="stitle">
     <div class="panel-head">
@@ -1576,7 +1598,9 @@ a.atl:visited{color:var(--ink-900)}
   var STORE = 'nm-live-picks-v1';
   var TABSTORE = 'nm-live-tab-v1';   // 마지막으로 본 탭(새로고침해도 그 탭으로)
   var TAB_KEEP_MS = 3*3600e3;        // 3시간 넘게 지난 기억은 무시(다음 날 아침엔 새 구간으로)
-  var AUTO_EXPAND = 30;
+  // 0-94: 같은 사안 묶음은 크기와 상관없이 처음엔 접어 둔다(예전엔 30건 이상이면 펼침 — digest 시안의 규칙).
+  // 직접 펼친 묶음은 대표 기사 키로 기억해 다시 그려도(자동 새로고침·여기까지 확인·탭 이동) 펼친 채로 둔다 — 이 화면을 연 동안만.
+  var cluOpen = {};
 
   var D = null;               // 화면이 쓰는 데이터 — data.json(RAW)에서 '당직' 스위치에 따라 당직 섹션을 걷어 낸 것(0-44)
   var RAW = null;             // data.json 그대로
@@ -1640,15 +1664,18 @@ a.atl:visited{color:var(--ink-900)}
   var DUTYSTORE = STORE.replace('-picks-', '-duty-');
   // 0-48: 스위치는 켠 날 하루만 유지된다 — 휴일에 켜 둔 채 잊으면 다음 휴일까지 '당직 날'로 잡히므로.
   // 저장값 {"d":"YYYY-MM-DD"}(켠 날, KST). 예전 값 '1'(0-44)은 오늘 켠 것으로 읽는다.
+  // 0-94: 저장값에 on(켬/끔)을 더했다 — {"d":"YYYY-MM-DD","on":true|false}. 그날 직접 누르지 않았으면(dutyPick=null)
+  // '특근일'로 골라 둔 날의 보고(보고 id 날짜가 그날)만 특근 섹션을 저절로 보여 준다(autoRep). 직접 끄면 그날은 그 보고에서도 숨긴다.
   function todayKST(){ return new Date(Date.now() + 9*3600e3).toISOString().slice(0, 10); }
-  var dutyOn = false;
+  var dutyPick = null;
   try{
     var dsv = localStorage.getItem(DUTYSTORE);
-    if(dsv === '1') dutyOn = true;
-    else if(dsv && dsv.charAt(0) === '{') dutyOn = JSON.parse(dsv).d === todayKST();
+    if(dsv === '1') dutyPick = true;
+    else if(dsv && dsv.charAt(0) === '{'){ var dso = JSON.parse(dsv); if(dso.d === todayKST()) dutyPick = dso.on === undefined ? true : !!dso.on; }
   }catch(e){}
-  function saveDuty(){ try{ localStorage.setItem(DUTYSTORE, dutyOn ? JSON.stringify({d: todayKST()}) : '0'); }catch(e){} }
-  if(dutyOn) saveDuty();
+  var dutyOn = dutyPick === true;
+  function saveDuty(){ try{ localStorage.setItem(DUTYSTORE, JSON.stringify({d: todayKST(), on: dutyOn})); }catch(e){} }
+  if(dutyPick !== null) saveDuty();
   function dutyNames(){ var o = {}; ((RAW && RAW.duty) || []).forEach(function(g){ o[g] = 1; }); return o; }
   // ---------- '2진' 스위치 (0-80) ----------
   // RAW.d2 = {label, who, groups} — 당직 그룹 중 동료 한 사람 몫(휴가·공백 커버)만 붙인다. '휴일 특근'과 따로 켜고 끈다.
@@ -1674,20 +1701,56 @@ a.atl:visited{color:var(--ink-900)}
   // 다음 업무일 09:00 보고는 그날 13:30부터. 같은 휴일에 스위치를 끄면 기억을 지운다.
   // 서버 데이터는 같은 보고·구간을 두 번 싣지 않으려고 참조를 쓴다: 보고 "n/2", 구간 {"ref":"n/1/3"}·{"ref":"<날짜>/0/4"}.
   var DUTYDAYSTORE = STORE.replace('-picks-', '-dutyday-');
-  function dutyDays(){ try{ var a = JSON.parse(localStorage.getItem(DUTYDAYSTORE) || '[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
-  function setDutyDay(d, on){
-    var a = dutyDays().filter(function(x){ return x !== d; });
-    if(on) a.push(d);
-    a.sort();
-    try{ localStorage.setItem(DUTYDAYSTORE, JSON.stringify(a.slice(-10))); }catch(e){}
+  // 0-94(11/6): 특근일을 미리 골라 둔다('특근일' 창) — 사용자 "본인 근무에 맞춰서 누르기가 쉽지 않다, 미리 입력할 수 있는 창".
+  // 저장 모양 {날짜: [1=특근 / 0=취소, 바꾼 시각(ms)]} — 기기 연동(gist)으로 PC·폰이 같은 날을 안다(날짜마다 나중에 바꾼 쪽이 이김).
+  // 예전 모양(날짜 배열, 0-48)은 [1, 0]으로 읽는다. 지난 보고(2주) 목록이 이 기록을 쓰므로 DUTYDAY_KEEP_DAYS일 보관.
+  var DUTYDAY_KEEP_DAYS = 21;
+  function dutyMap(){
+    try{
+      var a = JSON.parse(localStorage.getItem(DUTYDAYSTORE) || '{}');
+      if(Array.isArray(a)){ var o = {}; a.forEach(function(d){ if(/^\d{4}-\d\d-\d\d$/.test(d)) o[d] = [1, 0]; }); return o; }
+      return a && typeof a === 'object' ? a : {};
+    }catch(e){ return {}; }
   }
-  // 오늘이 휴일이고 스위치가 켜져 있으면 오늘을 당직 날로 기억(데이터를 받을 때마다 — 켠 뒤 처음 받은 데이터에도 적용).
+  function dutyPrune(mp){
+    var cut = new Date(Date.now() + 9*3600e3 - DUTYDAY_KEEP_DAYS*864e5).toISOString().slice(0, 10), o = {};
+    Object.keys(mp || {}).forEach(function(d){
+      if(/^\d{4}-\d\d-\d\d$/.test(d) && d >= cut && Array.isArray(mp[d])) o[d] = [mp[d][0] ? 1 : 0, +mp[d][1] || 0];
+    });
+    return o;
+  }
+  function saveDutyMap(mp){
+    var o = dutyPrune(mp);
+    try{ localStorage.setItem(DUTYDAYSTORE, JSON.stringify(o)); }catch(e){}
+    return o;
+  }
+  function dutyDays(){ var mp = dutyMap(); return Object.keys(mp).filter(function(d){ return mp[d] && mp[d][0]; }).sort(); }
+  function setDutyDay(d, on){
+    var mp = dutyMap(), cur = mp[d];
+    if(cur ? !!cur[0] === !!on : !on) return;    // 같은 값이면 시각을 건드리지 않는다(연동에서 다른 기기의 변경을 덮지 않게)
+    mp[d] = [on ? 1 : 0, Date.now()];
+    saveDutyMap(mp);
+    if(cfg && cfg.token) syncSoon();
+  }
+  // 오늘이 휴일이고 스위치를 직접 켰으면 오늘을 당직 날로 기억(데이터를 받을 때마다 — 켠 뒤 처음 받은 데이터에도 적용).
   function noteDutyDay(){ if(RAW && RAW.holiday && RAW.holiday === todayKST() && dutyOn) setDutyDay(RAW.holiday, true); }
+  // 보고 시간표를 바꿀 특근일 — 골라 둔 날 중 서버가 시간표를 실어 준 날(duty_reports: 사흘 전~나흘 뒤 휴일 중 평소와 다른 날).
+  // 오늘이면 오늘, 아니면 다가올 날 중 가장 가까운 날(마지막 업무일 오후부터 그날 09:00 보고로), 없으면 지난 날 중 가장 늦은 날.
   function activeDutyDay(raw){
     var dr = raw && raw.duty_reports; if(!dr) return null;
-    var days = dutyDays().filter(function(d){ return dr[d]; });
-    return days.length ? days[days.length-1] : null;
+    var t = todayKST(), days = dutyDays().filter(function(d){ return dr[d]; });
+    if(!days.length) return null;
+    if(days.indexOf(t) !== -1) return t;
+    var fut = days.filter(function(d){ return d > t; });
+    return fut.length ? fut[0] : days[days.length-1];
   }
+  // 0-94: 특근일로 골라 둔 날의 보고(id 앞 8자리가 그날)는 스위치를 안 눌러도 특근 섹션을 보여 준다. 그날 직접 껐으면 숨긴다.
+  function autoRid(rid){
+    if(dutyPick !== null) return false;
+    var d = String(rid || '').slice(0, 8); if(d.length !== 8) return false;
+    return dutyDays().indexOf(d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8)) !== -1;
+  }
+  function dutyShown(rep){ return dutyOn || !!(rep && autoRid(rep.id)); }
   var _drCache = {raw: null, res: null};
   function dutyReportsAll(raw){
     if(_drCache.raw === raw) return _drCache.res;
@@ -1750,7 +1813,7 @@ a.atl:visited{color:var(--ink-900)}
       var pk = pickCount(r);
       html += '<button type="button" class="pvrep" data-pf="'+esc(r.f)+'"><span>' + esc(r.title) + '</span>' +
         (r.holiday ? '<span class="pvtag">당직 일정</span>' : '') +
-        '<span class="c"><span class="mono">' + (dutyOn ? r.n : r.n - (r.nd || 0) + (sec2On ? (r.nd2 || 0) : 0)) + '건</span>' + (pk ? ' · <span class="pk">✓' + pk + '</span>' : '') + '</span></button>';
+        '<span class="c"><span class="mono">' + (dutyOn || autoRid(r.rid) ? r.n : r.n - (r.nd || 0) + (sec2On ? (r.nd2 || 0) : 0)) + '건</span>' + (pk ? ' · <span class="pk">✓' + pk + '</span>' : '') + '</span></button>';
     });
     document.getElementById('pvbody').innerHTML = html ||
       '<p>아직 저장된 지난 보고가 없습니다(보고가 끝나면 그 뒤 첫 수집 때 저장됩니다).</p>';
@@ -1805,6 +1868,7 @@ a.atl:visited{color:var(--ink-900)}
     if(sec2On) Object.keys(sec2Names()).forEach(function(g){ delete ds[g]; });
     var out = base;
     out.reports = base.reports.map(function(r){
+      if(autoRid(r.id)) return r;          // 0-94 특근일로 골라 둔 날의 보고
       var maps = [], r2 = copyObj(r);
       r2.segments = r.segments.map(function(s, si){
         var m = {}, groups = [], n = 0, dup = 0;
@@ -1850,7 +1914,7 @@ a.atl:visited{color:var(--ink-900)}
     return legendItem(esc(d2.label || '2진'), '검색칸 옆 스위치를 켜면 '+(d2.who ? esc(d2.who)+' 기자 출입처 ' : '')+esc(d2.groups.join('·'))+' 기사만 맨 뒤 섹션으로 붙습니다(휴일 특근 수집분 중 일부 — 텔레그램 알림 없음). ‘휴일 특근’과 따로 켜고 끄며, 끌 때까지 이 기기에 기억합니다. 휴일 보고 시간표는 바꾸지 않습니다.');
   }
   function dutyNote(){
-    return RAW && RAW.duty && RAW.duty.length ? legendItem('휴일 특근', '검색칸 옆 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시).') : '';
+    return RAW && RAW.duty && RAW.duty.length ? legendItem('휴일 특근', '검색칸 옆 스위치를 켜면 '+esc(RAW.duty.join('·'))+' 기사가 맨 뒤 섹션으로 붙습니다(날마다 수집, 텔레그램 알림 없음, 켠 날 하루만 이 기기에 기억). 휴일에 켜면 그날을 당직 날로 보고 09:00·14:00 보고로 나누고, 다음 업무일 09:00 보고는 그날 13:30부터입니다(머리줄 ‘당직 일정’ 표시). 특근 서는 휴일은 제목 옆 ‘특근일’ 단추로 미리 골라 둘 수 있습니다 — 고른 날은 그 전 업무일 오후부터 그날 보고로 나눠 보이고 특근 섹션이 저절로 켜집니다.') : '';
   }
   function legendItem(term, desc){ return '<div><dt>'+term+'</dt><dd>'+desc+'</dd></div>'; }
 
@@ -1981,9 +2045,19 @@ a.atl:visited{color:var(--ink-900)}
         return r.status === 204 ? null : r.json();
       });
   }
-  function docBody(p, s){
-    var f = {}; f[SYNC_FILE] = {content: JSON.stringify({v: 1, picks: p, seen: s, at: new Date().toISOString()})};
+  // 0-94: 특근일(dutyMap)도 같이 — 날짜마다 [켬, 바꾼 시각], 나중에 바꾼 쪽이 이긴다. 옛 페이지가 duty 없이 쓰면 다음 연동 때 되살아난다.
+  function docBody(p, s, dd){
+    var f = {}; f[SYNC_FILE] = {content: JSON.stringify({v: 1, picks: p, seen: s, duty: dd || {}, at: new Date().toISOString()})};
     return f;
+  }
+  function mergeDuty(a, b){
+    var out = {};
+    [a, b].forEach(function(src){ Object.keys(src || {}).forEach(function(d){
+      var e = src[d]; if(!Array.isArray(e)) return;
+      var v = e[0] ? 1 : 0, t = +e[1] || 0, cur = out[d];
+      if(!cur || t > cur[1] || (t === cur[1] && v > cur[0])) out[d] = [v, t];
+    }); });
+    return dutyPrune(out);
   }
   // 첫 연결: 내 gist 중 newsradar-sync.json이 든 것(가장 먼저 만든 것)을 쓴다. 없으면 비공개로 새로 만든다.
   // 그래서 두 번째 기기는 토큰만 넣으면 된다(토큰을 기기마다 따로 만들어도 같은 계정이면 같은 gist).
@@ -2007,13 +2081,17 @@ a.atl:visited{color:var(--ink-900)}
   function apply(id, rem){
     rem = rem && typeof rem === 'object' ? rem : {};
     var mp = pruneRid(mergePickt(pickt, rem.picks), PICK_KEEP_DAYS), ms = pruneRid(mergeSeen(seenMarks, rem.seen), SEEN_KEEP_DAYS);
-    var cp = canon(mp), cs = canon(ms);
-    if(cp !== canon(pickt) || cs !== canon(seenMarks)){
+    var md = mergeDuty(dutyMap(), rem.duty);   // 0-94
+    var cp = canon(mp), cs = canon(ms), cd = canon(md);
+    var dch = cd !== canon(dutyPrune(dutyMap()));
+    if(dch) saveDutyMap(md);
+    if(cp !== canon(pickt) || cs !== canon(seenMarks) || dch){
       pickt = mp; seenMarks = ms; rebuildPicks(); storeLocal();
-      if(D){ var y = window.scrollY; pickDefaults(); draw(); window.scrollTo(0, y); }
+      if(D){ var y = window.scrollY; if(dch) D = view(srcRaw()); pickDefaults(); draw(); window.scrollTo(0, y); }
+      if(dch && !dveil.hidden) drawDutyPanel();
     }
-    if(cp === canon(rem.picks || {}) && cs === canon(rem.seen || {})) return null;
-    return gh('PATCH', '/gists/' + id, {files: docBody(mp, ms)});
+    if(cp === canon(rem.picks || {}) && cs === canon(rem.seen || {}) && cd === canon(dutyPrune(rem.duty))) return null;
+    return gh('PATCH', '/gists/' + id, {files: docBody(mp, ms, md)});
   }
   function errText(e){
     var st = e && e.status;
@@ -2234,7 +2312,7 @@ a.atl:visited{color:var(--ink-900)}
       return;
     }
     var ddy = activeDutyDay(RAW);
-    tt.innerHTML = ddy ? '<span class="dtag" title="'+esc(ddy)+' 당직 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날 휴일에 \'휴일 특근\' 스위치를 켰기 때문">당직 일정</span>' : '';
+    tt.innerHTML = (ddy ? '<span class="dtag" title="'+esc(ddLabel(ddy))+' 특근 날 보고 시간표(09:00·14:00)로 나눠 보는 중 — 그날을 특근일로 골라 뒀거나 그날 \'휴일 특근\' 스위치를 켰기 때문">당직 일정</span>' : '') + dutyDayBtn();
     rb.innerHTML = '<span class="rgrp">' + D.reports.map(function(x){
       var cur = T(x.display_from) <= now && now < T(x.display_until);
       var full = x.title.replace(' 보고',''), short = full.replace(/^\d+\/\d+\((.)\) /, '$1 ');
@@ -2283,7 +2361,7 @@ a.atl:visited{color:var(--ink-900)}
     var cls = 'topic' + (lead.m ? ' pinned' : '') + (lead.m===FLASH ? ' flash' : '');
     var body = row(lead) + ncLine(items);
     if(rest.length){
-      var big = items.length >= AUTO_EXPAND;
+      var big = !!cluOpen[lead.key];
       // 합쳐 보기: 접힌 줄 안에 다른 구간 기사가 있으면 구간별 건수를 붙인다 —
       // 이미 본 ① 묶음 밑에 ②의 새 후속보도가 접혀 숨는 걸 알아채게.
       var mix = '';
@@ -2297,7 +2375,7 @@ a.atl:visited{color:var(--ink-900)}
         var rn = rest.filter(isNew).length;
         if(rn) mix += ' · 새 ' + rn;
       }
-      body += '<button class="more" type="button" aria-expanded="'+big+'" aria-controls="'+id+'" data-mix="'+esc(mix)+'">'+
+      body += '<button class="more" type="button" aria-expanded="'+big+'" aria-controls="'+id+'" data-ck="'+esc(lead.key)+'" data-mix="'+esc(mix)+'">'+
               (big ? '접기 ('+rest.length+'건 같은 사안'+mix+')' : '+'+rest.length+'건 같은 사안'+mix)+'</button>'+
               '<div class="dupes" id="'+id+'"'+(big?'':' hidden')+'>'+rest.map(row).join('')+'</div>';
     }
@@ -2373,8 +2451,10 @@ a.atl:visited{color:var(--ink-900)}
     var dsw = document.getElementById('dsw');
     dsw.hidden = !(RAW && RAW.duty && RAW.duty.length);
     if(!dsw.hidden){
-      dsw.setAttribute('aria-pressed', String(dutyOn));
-      dsw.title = '휴일 특근 — 경제정책팀 출입처('+RAW.duty.join('·')+') 섹션 '+(dutyOn ? '숨기기' : '보기')+', 휴일에 켜면 그날을 특근 날로 보고 09:00·14:00 보고로 나눔';
+      var dshow = dutyShown(t.rep);
+      dsw.setAttribute('aria-pressed', String(dshow));
+      dsw.title = '휴일 특근 — 경제정책팀 출입처('+RAW.duty.join('·')+') 섹션 '+(dshow ? '숨기기' : '보기')+
+        (dshow && !dutyOn ? '(특근일로 골라 둔 날의 보고라 저절로 켜짐)' : '')+', 휴일에 켜면 그날을 특근 날로 보고 09:00·14:00 보고로 나눔 — 특근일은 제목 옆 ‘특근일’에서 미리 고를 수 있음';
       dsw.innerHTML = '<span class="tr" aria-hidden="true"></span><span class="lg">휴일 </span>특근 <span class="c mono">'+dutyCount(t)+'</span>';
     }
     // '2진' 스위치(0-80) — 특근 옆. 숫자 = 지금 탭의 2진 섹션 기사 수
@@ -2384,7 +2464,7 @@ a.atl:visited{color:var(--ink-900)}
     if(!s2w.hidden){
       s2w.setAttribute('aria-pressed', String(sec2On));
       s2w.title = (d2.label || '2진') + ' — ' + (d2.who ? d2.who + ' 기자 출입처(' : '(') + d2.groups.join('·') + ') 섹션 ' + (sec2On ? '숨기기' : '보기') +
-        (dutyOn ? ' · 지금은 휴일 특근이 켜져 있어 이미 보임' : '');
+        (dutyShown(t.rep) ? ' · 지금은 휴일 특근이 켜져 있어 이미 보임' : '');
       s2w.innerHTML = '<span class="tr" aria-hidden="true"></span>' + esc(d2.label || '2진') + ' <span class="c mono">'+dutyCount(t, sec2Names())+'</span>';
     }
 
@@ -2683,12 +2763,66 @@ a.atl:visited{color:var(--ink-900)}
     var g = b.getAttribute('data-b'); ui.beat = (!g || ui.beat === g) ? null : g; draw();
   });
   document.getElementById('dsw').addEventListener('click', function(){
-    dutyOn = !dutyOn;
+    var ct = curTab();
+    dutyOn = !dutyShown(ct && ct.rep); dutyPick = dutyOn;
     saveDuty();
-    // 0-48: 휴일에 켜면 오늘을 당직 날로 기억, 같은 날 끄면 지운다(보고 시간표가 바뀐다).
-    if(!PAST && RAW && RAW.holiday && RAW.holiday === todayKST()) setDutyDay(RAW.holiday, dutyOn);
+    // 0-48: 휴일에 켜면 오늘을 당직 날로 기억. 0-94: 끄는 것은 섹션만 숨긴다 — 특근일 취소는 '특근일' 창에서(골라 둔 날이 스위치 한 번에 지워지지 않게).
+    if(!PAST && dutyOn && RAW && RAW.holiday && RAW.holiday === todayKST()) setDutyDay(RAW.holiday, true);
     if(!dutyOn && ui.beat && hiddenNames(srcRaw())[ui.beat]) ui.beat = null;
     D = view(srcRaw()); pickDefaults(); draw();
+  });
+  // ---------- 특근일 고르기 창 (0-94) ----------
+  // 머리줄 제목 옆 '특근일 ▾'(골라 둔 다가올 날이 있으면 '특근 11/7(토) ▾'). 후보 = 서버가 실어 주는 hols(사흘 전~35일 뒤 휴일).
+  var dveil = document.getElementById('dveil');
+  function ddLabel(d){
+    var p = String(d).split('-'); if(p.length !== 3) return d;
+    return (+p[1]) + '/' + (+p[2]) + '(' + WD.charAt(new Date(Date.UTC(+p[0], +p[1]-1, +p[2])).getUTCDay()) + ')';
+  }
+  function dutyDayBtn(){
+    if(!(RAW && RAW.duty && RAW.duty.length && RAW.hols)) return '';
+    var t = todayKST(), up = dutyDays().filter(function(d){ return d >= t; });
+    // 폰(≤560px)은 짧게 — '특근 ▾' / '11/7 ▾'(제목 자리를 덜 먹게)
+    var lg = up.length ? '특근 ' + ddLabel(up[0]) + (up.length > 1 ? ' 외 ' + (up.length - 1) : '') : '특근일';
+    var sm = up.length ? up[0].slice(5).replace(/^0/, '').replace('-0', '/').replace('-', '/') : '특근';
+    return '<button type="button" class="ddbtn'+(up.length ? ' on' : '')+'" id="ddbtn" aria-haspopup="dialog" title="휴일 특근일 미리 고르기 — 고른 날은 그 전 업무일 오후부터 특근 날 보고로 나눠 보입니다">'+
+           '<span class="lg">'+esc(lg)+'</span><span class="sm">'+esc(sm)+'</span> ▾</button>';
+  }
+  function drawDutyPanel(){
+    var t = todayKST(), mine = {};
+    dutyDays().forEach(function(d){ mine[d] = 1; });
+    var hols = ((RAW && RAW.hols) || []).filter(function(d){ return d >= t || mine[d]; });
+    var html = '<p>특근 서는 휴일을 골라 두세요. 마지막 업무일 오전 10시부터 그날 <b>09:00 보고(마지막 업무일 13:30부터)</b>·14:00 보고로 나눠 보이고, '+
+      '그날 보고에는 특근 출입처 섹션이 저절로 켜집니다(그날 스위치로 숨길 수 있음).</p><div class="ddgrid">';
+    var mon = '';
+    hols.forEach(function(d){
+      var m = d.slice(0, 7);
+      if(m !== mon){ mon = m; html += '<span class="ddmon">' + (+d.slice(5, 7)) + '월</span>'; }
+      html += '<button type="button" class="ddchip" data-dd="'+esc(d)+'" aria-pressed="'+(!!mine[d])+'">'+esc(ddLabel(d))+(d === t ? '<small>오늘</small>' : '')+'</button>';
+    });
+    // 기기 연동 단추를 숨긴 판(동료판)은 연동 안내를 하지 않는다
+    var sb = document.getElementById('sync'), canSync = !!(sb && sb.offsetParent !== null);
+    html += '</div><p class="hint">' + (cfg.token ? '기기 연동이 켜져 있어 다른 기기에도 맞춰집니다.' :
+      canSync ? '이 기기에만 저장됩니다 — 머리줄 <b>기기 연동</b>을 켜면 PC·폰이 같은 날을 압니다.' : '이 기기(브라우저)에만 저장됩니다 — PC와 폰에서 따로 골라 주세요.') +
+      ' 지난 특근일은 3주 뒤 저절로 지워집니다.</p>';
+    document.getElementById('dvbody').innerHTML = hols.length ? html : '<p>고를 수 있는 휴일이 없습니다.</p>';
+    var n = hols.filter(function(d){ return mine[d]; }).length;
+    document.getElementById('dvsub').textContent = n ? '고른 날 ' + n + '일' : '';
+  }
+  document.getElementById('ttags').addEventListener('click', function(e){
+    if(!e.target.closest('#ddbtn')) return;
+    dveil.hidden = false; drawDutyPanel();
+    var b = dveil.querySelector('.ddchip'); if(b && window.innerWidth > 640) b.focus();
+  });
+  document.getElementById('dvclose').addEventListener('click', function(){ dveil.hidden = true; });
+  dveil.addEventListener('click', function(e){
+    if(e.target === dveil){ dveil.hidden = true; return; }
+    var b = e.target.closest('[data-dd]'); if(!b) return;
+    var d = b.getAttribute('data-dd');
+    setDutyDay(d, dutyDays().indexOf(d) === -1);
+    var y = window.scrollY;
+    D = view(srcRaw()); pickDefaults(); draw(); window.scrollTo(0, y);
+    drawDutyPanel();
+    var nb = dveil.querySelector('[data-dd="'+d+'"]'); if(nb) nb.focus();
   });
   document.getElementById('s2w').addEventListener('click', function(){
     sec2On = !sec2On;
@@ -2756,6 +2890,8 @@ a.atl:visited{color:var(--ink-900)}
       return;
     }
     var mix = btn.getAttribute('data-mix') || '';
+    var ck = btn.getAttribute('data-ck');
+    if(ck){ if(open) cluOpen[ck] = 1; else delete cluOpen[ck]; }   // 0-94
     btn.textContent = open ? '접기 ('+box.children.length+'건 같은 사안'+mix+')' : '+'+box.children.length+'건 같은 사안'+mix;
   });
 
@@ -2763,7 +2899,7 @@ a.atl:visited{color:var(--ink-900)}
   document.getElementById('make-all').addEventListener('click', function(){ openPanel('all'); });
   document.getElementById('close').addEventListener('click', closePanel);
   veil.addEventListener('click', function(e){ if(e.target === veil) closePanel(); });
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ if(!pveil.hidden) pveil.hidden = true; else if(!sveil.hidden) sveil.hidden = true; else if(!veil.hidden) closePanel(); } });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ if(!dveil.hidden) dveil.hidden = true; else if(!pveil.hidden) pveil.hidden = true; else if(!sveil.hidden) sveil.hidden = true; else if(!veil.hidden) closePanel(); } });
   document.getElementById('pvclose').addEventListener('click', function(){ pveil.hidden = true; });
   pveil.addEventListener('click', function(e){
     if(e.target === pveil){ pveil.hidden = true; return; }

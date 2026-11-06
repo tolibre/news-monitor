@@ -705,7 +705,15 @@ def media_name(source):
 # ==================== check 선별용 핵심 매체 ====================
 # check(실시간)는 선별이 목적: [단독]이거나, 같은 사안을 보도한 아래 핵심 매체가
 # 3곳 이상인 기사만 알림(0-41 — run_check의 selected() 참조). digest는 화이트리스트 전체를 빠짐없이 포함.
-CHECK_CORE_SPREAD_MIN = 3   # check 통과에 필요한 같은 사안 핵심매체 수(0-41)
+CHECK_CORE_SPREAD_MIN = 3   # check 통과에 필요한 같은 사안 핵심매체 수(0-41) — 0-94에서 아래 값으로 올림
+# 0-94(사용자 결정 11/6 "단독 + 큰 사안만"): 뉴스레이다가 생긴 뒤 check는 '보고 전에 끼어들어서라도 알아야 할 것'만.
+# 10/19~11/6 실제 알림 419건(평일 하루 약 25건) 중 약 80%가 핵심매체 3곳 규칙으로 나간 보도자료성 기사(포럼·업무협약·로펌 영입)였다.
+# 핵심매체가 한꺼번에 많이 받아쓴 큰 사안(삼성 GOS 과징금, 구글·애플 인앱결제 제재 등)만 남기도록 문턱을 올린다(재생으로 정함).
+CHECK_CORE_SPREAD_MIN = 10
+# 0-94: 노컷(우리) [단독]은 알리지 않는다 — 우리가 쓴 단독은 낙종 경보가 아니다. 뉴스레이다에는 그대로 나온다.
+CHECK_SKIP_OWN_EXCLUSIVE = True
+# 0-94: 큰 사안 중복 막기 창 — 같은 사안 묶음에 이 시간 안에 알린 기사가 있으면 다시 알리지 않는다(run_check의 big_story_alerted).
+CHECK_BIG_DEDUP_HOURS = 24
 CORE_MEDIA_DOMAINS = {
     # 통신사
     "yna.co.kr", "newsis.com", "news1.kr",
@@ -1746,11 +1754,11 @@ def topic_signature(group, title):
     toks = topic_tokens(title) - GROUP_SELF_TOKENS.get(group, set())
     return f"{group}|{group_key(title)}", toks, _pr_tier(title)
 
-def load_alerted_topics(conn, now):
+def load_alerted_topics(conn, now, hours=None):
     """억제 창(TOPIC_SUPPRESS_HOURS) 안에 이미 알린 주제 목록.
     창은 first_dt(최초 알림) 기준 — last_dt로 재면 계속 전재되는 사안이
-    영원히 억제되어, 반나절 뒤의 새 전개까지 묻힌다."""
-    cutoff = (now - datetime.timedelta(hours=TOPIC_SUPPRESS_HOURS)).isoformat()
+    영원히 억제되어, 반나절 뒤의 새 전개까지 묻힌다. hours: 창을 따로 줄 때(0-94 큰 사안 중복 막기)."""
+    cutoff = (now - datetime.timedelta(hours=hours or TOPIC_SUPPRESS_HOURS)).isoformat()
     out = []
     for key, title, toks, tier, first_dt in conn.execute(
             "SELECT key,title,tokens,tier,first_dt FROM alerted_topics WHERE first_dt>=?",
@@ -2495,6 +2503,8 @@ def run_check():
             print(f"  … 외 {len(noised) - 30}건")
 
     # ===== check 선별: [단독] 이거나, 같은 사안을 핵심매체 3곳 이상이 보도해야 알림 (0-41) =====
+    # ※ 0-94(11/6): 문턱 3 → 10(CHECK_CORE_SPREAD_MIN), 노컷 단독 제외, 큰 사안은 한 번만(big_story_alerted).
+    #   재생 10/26~11/6(check 293회): 알림 278 → 92건(평일 낮 하루 25 → 8건), 메시지 평일 하루 12 → 6통. 단독 68건은 그대로.
     # 사용자 결정(2026-10-17): 예전 3관문(핵심매체 단건 / 단독·속보 / 전재 2곳 이상 중 하나)은
     # 하루 평균 58건·13회 알림에 고른 기사 기록(picks/) 대비 채택률 5%라 안 보게 됐다.
     #  - 핵심매체 단건만으로는 통과하지 않는다(채택률 3.5%).
@@ -2535,16 +2545,34 @@ def run_check():
             if not media_allowed(source):
                 continue
             g = sec_of(kws.split(",") if kws else [])
-            pool.setdefault(g, []).append((group_key(title), topic_tokens(title), source))
+            pool.setdefault(g, []).append((group_key(title), topic_tokens(title), source, title))
 
         def core_outlets(it):
             """이 기사와 같은 사안을 보도한 핵심매체(매체 단위) 집합."""
             gk, toks = group_key(it["title"]), topic_tokens(it["title"])
             srcs = {it["source"]}
-            for k, t, s in pool.get(sec_of(it["kws"]), ()):
+            for k, t, s, _ in pool.get(sec_of(it["kws"]), ()):
                 if k == gk or significant_overlap(toks, t):
                     srcs.add(s)
             return {outlet(s) for s in srcs if core_media(s)}
+
+        # 0-94: 큰 사안은 한 번만 — 같은 사안 묶음(core_outlets와 같은 기준) 안에 최근 CHECK_BIG_DEDUP_HOURS시간 동안
+        # 이미 알린 기사가 있으면 다시 알리지 않는다. 재알림 억제(find_alerted)는 대표 제목끼리만 비교해서, 매체마다 제목을
+        # 달리 단 큰 사안이 여러 번 나갔다(재생: 삼성 GOS 과징금 7번·PHP 보안점검 4번·구글·애플 인앱결제 3번).
+        big_prior = []
+
+        def big_story_alerted(it):
+            if not big_prior:
+                big_prior.append(load_alerted_topics(conn, now, hours=CHECK_BIG_DEDUP_HOURS))
+            prior = big_prior[0]
+            g = sec_of(it["kws"])
+            gk, toks = group_key(it["title"]), topic_tokens(it["title"])
+            for k, t, _, title in pool.get(g, ()):
+                if k == gk or significant_overlap(toks, t):
+                    key2, toks2, _ = topic_signature(g, title)
+                    if find_alerted(prior, key2, toks2) is not None:
+                        return True
+            return False
 
         def selected(it):
             g = sec_of(it["kws"])
@@ -2552,8 +2580,9 @@ def run_check():
                 # 표준 관문 대신 [단독]/[속보]만 통과 (임시 키워드 절 참조).
                 return bool(priority_mark(it["title"]))
             if priority_mark(it["title"]) == "🔥":
-                return True
-            return len(core_outlets(it)) >= CHECK_CORE_SPREAD_MIN
+                # 0-94: 노컷(우리) 단독은 낙종 경보가 아니다 — 알리지 않는다(뉴스레이다엔 그대로).
+                return not (CHECK_SKIP_OWN_EXCLUSIVE and is_nocut_row(it.get("link"), it["source"]))
+            return len(core_outlets(it)) >= CHECK_CORE_SPREAD_MIN and not big_story_alerted(it)
 
         skipped = [it for it in new_rows if not selected(it)]
         new_rows = [it for it in new_rows if selected(it)]
@@ -4153,8 +4182,14 @@ def byline_section(conn, spec, now):
 # 다음 업무일 09:00 보고 = H 13:30부터(당직자는 H 14:00 보고까지 이미 했으므로).
 # 오늘부터 DUTY_SCHEDULE_LOOKBACK_DAYS일 전까지의 휴일마다 계산해, 평소 시간표와 다를 때만 싣는다
 # (월요일 오후 15:00 이후엔 같아져서 안 실림). 어느 날이 '내 당직 날'인지는 페이지가 안다
-# ('당직' 스위치를 휴일에 켠 날 — 기기에 기억). 서버는 후보만 준다.
+# ('당직' 스위치를 휴일에 켠 날 — 기기에 기억, 0-94부터는 '특근일' 창에서 미리 고른 날도 — 기기 연동으로 맞춤). 서버는 후보만 준다.
 DUTY_SCHEDULE_LOOKBACK_DAYS = 3
+# 0-94(사용자 11/6 "본인 근무에 맞춰 누르기가 쉽지 않다 — 특근일을 미리 입력할 수 있는 창"): 페이지가 특근일을 미리 골라 두면
+# 그 전 업무일 오후부터 그날 09:00 보고(마지막 업무일 13:30부터)로 나눠 보여야 하므로, 앞으로 올 휴일도 계산해 싣는다.
+# 시간표가 평소와 달라지는 건 그 휴일 보고가 [이전·현재·다음] 안에 들어올 때뿐이라(마지막 업무일 10:00 이후) 실제로 실리는 날은 하루이틀.
+DUTY_SCHEDULE_LOOKAHEAD_DAYS = 4
+# 특근일 고르기 창의 후보 — 오늘 기준 사흘 전 ~ 35일 뒤의 휴일(토·일·REPORT_HOLIDAYS).
+DUTY_PICK_BACK_DAYS, DUTY_PICK_AHEAD_DAYS = 3, 35
 
 
 def _build_live_report(conn, spec, now, own):
@@ -4268,6 +4303,10 @@ def build_live_data(conn, now):
         today = now.date()
         if not is_report_workday(today):
             out["holiday"] = today.isoformat()
+        # 0-94: 특근일 고르기 창 후보(휴일 목록)
+        out["hols"] = [d.isoformat() for d in
+                       (today + datetime.timedelta(days=k) for k in range(-DUTY_PICK_BACK_DAYS, DUTY_PICK_AHEAD_DAYS + 1))
+                       if not is_report_workday(d)]
         dr = _build_duty_reports(conn, now, own, specs, reports)
         if dr:
             out["duty_reports"] = dr
@@ -4286,7 +4325,8 @@ def _build_duty_reports(conn, now, own, base_specs, base_reports):
             seen.setdefault(json.dumps(seg, ensure_ascii=False, sort_keys=True), f"n/{ri}/{si}")
     out = {}
     today = now.date()
-    for k in range(DUTY_SCHEDULE_LOOKBACK_DAYS, -1, -1):
+    # 0-94: 사흘 전 ~ 나흘 뒤(앞으로 올 특근일 — 페이지가 미리 골라 둔 날이면 그 전 업무일 오후부터 이 시간표로 나눈다)
+    for k in range(DUTY_SCHEDULE_LOOKBACK_DAYS, -DUTY_SCHEDULE_LOOKAHEAD_DAYS - 1, -1):
         h = today - datetime.timedelta(days=k)
         if is_report_workday(h):
             continue
